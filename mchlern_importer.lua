@@ -1,6 +1,6 @@
 --[[
                                                                             
-       MCHLERN PROJECT IMPORTER v2.1 - Landscape Edition
+       MCHLERN PROJECT IMPORTER v2.2 - Landscape Edition
        Features: Importer, Config, Replacer, Remake (GUI)
        Credits: MCHLERN PROJECT
        Supports: RBXM, RBXL, RBXLX, RBXMX
@@ -65,7 +65,7 @@ local ICONS = {
 }
 
 --                                                                        
--- CORE IMPORTER LOGIC (Simplified Parser & Insertion)
+-- CORE IMPORTER LOGIC
 --                                                                        
 local SVC_MAP = {
     Workspace = workspace, ReplicatedStorage = ReplicatedStorage,
@@ -149,7 +149,7 @@ UI.Name = "MCHLERNImporterUI"
 UI.ResetOnSpawn = false
 UI.IgnoreGuiInset = true
 
--- FLOATING TOGGLE BUTTON (Untuk buka/tutup panel)
+-- FLOATING TOGGLE BUTTON
 local ToggleFrame = Instance.new("Frame", UI)
 ToggleFrame.Name = "ToggleFrame"
 ToggleFrame.Size = UDim2.new(0, 36, 0, 36)
@@ -168,9 +168,7 @@ ToggleIcon.Image = ICONS.CHEVRON_RIGHT
 ToggleIcon.ImageColor3 = Color3.fromRGB(205, 255, 190)
 
 local ToggleBtn = Instance.new("TextButton", ToggleFrame)
-ToggleBtn.Size = UDim2.new(1, 0, 1, 0)
-ToggleBtn.BackgroundTransparency = 1
-ToggleBtn.Text = ""
+ToggleBtn.Size = UDim2.new(1, 0, 1, 0); ToggleBtn.BackgroundTransparency = 1; ToggleBtn.Text = ""
 
 local tDragToggle, tDragStart, tStartPos
 ToggleFrame.InputBegan:Connect(function(input)
@@ -185,16 +183,14 @@ UserInputService.InputChanged:Connect(function(input)
     end
 end)
 UserInputService.InputEnded:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        tDragToggle = false
-    end
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then tDragToggle = false end
 end)
 
 
 local Main = Instance.new("Frame", UI)
 Main.Name = "MainFrame"
-Main.Size = UDim2.new(0, 640, 0, 420)
-Main.Position = UDim2.new(0.5, -320, 0.5, -210)
+Main.Size = UDim2.new(0, 560, 0, 360)
+Main.Position = UDim2.new(0.5, -280, 0.5, -180)
 Main.BackgroundColor3 = Color3.fromRGB(6, 18, 11)
 Main.BorderSizePixel = 0
 Main.ClipsDescendants = true
@@ -256,7 +252,7 @@ end)
 
 local TitleText = Instance.new("TextLabel", TitleBar)
 TitleText.Size = UDim2.new(1, -90, 1, 0); TitleText.Position = UDim2.new(0, 12, 0, 0)
-TitleText.BackgroundTransparency = 1; TitleText.Text = "MCHLERN PROJECT V2.1 - LANDSCAPE EDITION " .. string.char(240,159,145,145)
+TitleText.BackgroundTransparency = 1; TitleText.Text = "MCHLERN PROJECT V2.2 - LANDSCAPE EDITION " .. string.char(240,159,145,145)
 TitleText.TextColor3 = Color3.fromRGB(215, 255, 205); TitleText.Font = Enum.Font.GothamBold
 TitleText.TextSize = 12; TitleText.TextXAlignment = Enum.TextXAlignment.Left
 
@@ -268,25 +264,25 @@ CloseBtn.MouseButton1Click:Connect(function() Main.Visible = false; ToggleIcon.I
 
 -- SIDEBAR
 local Sidebar = Instance.new("Frame", Main)
-Sidebar.Size = UDim2.new(0, 130, 1, -36); Sidebar.Position = UDim2.new(0, 0, 0, 36)
+Sidebar.Size = UDim2.new(0, 120, 1, -36); Sidebar.Position = UDim2.new(0, 0, 0, 36)
 Sidebar.BackgroundColor3 = Color3.fromRGB(8, 25, 14); Sidebar.BorderSizePixel = 0
 Instance.new("UIStroke", Sidebar).Color = Color3.fromRGB(20, 60, 30)
 
 -- CONTENT AREA
 local ContentArea = Instance.new("Frame", Main)
-ContentArea.Size = UDim2.new(1, -130, 1, -36); ContentArea.Position = UDim2.new(0, 130, 0, 36)
+ContentArea.Size = UDim2.new(1, -120, 1, -36); ContentArea.Position = UDim2.new(0, 120, 0, 36)
 ContentArea.BackgroundTransparency = 1
 
 local Tabs = {}
 local function createTabBtn(name, iconId, yOffset)
     local btn = Instance.new("TextButton", Sidebar)
-    btn.Size = UDim2.new(1, 0, 0, 45); btn.Position = UDim2.new(0, 0, 0, yOffset)
+    btn.Size = UDim2.new(1, 0, 0, 42); btn.Position = UDim2.new(0, 0, 0, yOffset)
     btn.BackgroundColor3 = Color3.fromRGB(10, 35, 20); btn.BorderSizePixel = 0
     btn.Text = "      " .. name; btn.TextColor3 = Color3.fromRGB(180, 220, 180)
     btn.Font = Enum.Font.GothamBold; btn.TextSize = 10; btn.TextXAlignment = Enum.TextXAlignment.Left
     
     local icon = Instance.new("ImageLabel", btn)
-    icon.Size = UDim2.new(0, 16, 0, 16); icon.Position = UDim2.new(0, 10, 0.5, -8)
+    icon.Size = UDim2.new(0, 16, 0, 16); icon.Position = UDim2.new(0, 8, 0.5, -8)
     icon.BackgroundTransparency = 1; icon.Image = iconId; icon.ImageColor3 = Color3.fromRGB(150, 200, 150)
     
     local frame = Instance.new("Frame", ContentArea)
@@ -307,21 +303,22 @@ local function createTabBtn(name, iconId, yOffset)
 end
 
 local TabImporter = createTabBtn("IMPORTER", ICONS.DOWNLOAD, 0)
-local TabConfig   = createTabBtn("CONFIG", ICONS.SETTINGS, 45)
-local TabReplacer = createTabBtn("REPLACER", ICONS.REPLACE, 90)
-local TabRemake   = createTabBtn("REMAKE GUI", ICONS.PAINT, 135)
+local TabConfig   = createTabBtn("CONFIG", ICONS.SETTINGS, 42)
+local TabReplacer = createTabBtn("REPLACER", ICONS.REPLACE, 84)
+local TabRemake   = createTabBtn("REMAKE GUI", ICONS.PAINT, 126)
 
 -- =========================================================================
 -- TAB 1: IMPORTER
 -- =========================================================================
 local ImporterScroll = Instance.new("ScrollingFrame", TabImporter)
-ImporterScroll.Size = UDim2.new(1, -20, 1, -60); ImporterScroll.Position = UDim2.new(0, 10, 0, 50)
+ImporterScroll.Size = UDim2.new(1, -20, 1, -55); ImporterScroll.Position = UDim2.new(0, 10, 0, 45)
 ImporterScroll.BackgroundTransparency = 1; ImporterScroll.ScrollBarThickness = 4
+ImporterScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
 local IListLayout = Instance.new("UIListLayout", ImporterScroll)
 IListLayout.Padding = UDim.new(0, 5)
 
 local ScanFilesBtn = Instance.new("TextButton", TabImporter)
-ScanFilesBtn.Size = UDim2.new(1, -20, 0, 30); ScanFilesBtn.Position = UDim2.new(0, 10, 0, 10)
+ScanFilesBtn.Size = UDim2.new(1, -20, 0, 28); ScanFilesBtn.Position = UDim2.new(0, 10, 0, 10)
 ScanFilesBtn.BackgroundColor3 = Color3.fromRGB(30, 100, 50)
 Instance.new("UICorner", ScanFilesBtn).CornerRadius = UDim.new(0, 6)
 ScanFilesBtn.Text = "SCAN FILES"; ScanFilesBtn.TextColor3 = Color3.fromRGB(255,255,255); ScanFilesBtn.Font = Enum.Font.GothamBold
@@ -365,7 +362,7 @@ end)
 -- =========================================================================
 local function createConfigBtn(title, yOffset, callback)
     local btn = Instance.new("TextButton", TabConfig)
-    btn.Size = UDim2.new(1, -20, 0, 40); btn.Position = UDim2.new(0, 10, 0, yOffset)
+    btn.Size = UDim2.new(1, -20, 0, 36); btn.Position = UDim2.new(0, 10, 0, yOffset)
     btn.BackgroundColor3 = Color3.fromRGB(15, 45, 25)
     Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
     btn.Text = title; btn.TextColor3 = Color3.fromRGB(220, 255, 220); btn.Font = Enum.Font.GothamBold
@@ -382,7 +379,7 @@ createConfigBtn("DISABLE ALL SHADOWS", 20, function()
     notify("Config", "Berhasil mematikan shadow pada " .. count .. " part.", Color3.fromRGB(100,255,100))
 end)
 
-createConfigBtn("ANCHOR ALL PARTS", 70, function()
+createConfigBtn("ANCHOR ALL PARTS", 65, function()
     local count = 0
     for _, obj in ipairs(workspace:GetDescendants()) do
         if obj:IsA("BasePart") and not obj.Anchored then
@@ -396,36 +393,34 @@ end)
 -- TAB 3: REPLACER
 -- =========================================================================
 local RepObjLbl = Instance.new("TextLabel", TabReplacer)
-RepObjLbl.Size = UDim2.new(1, -20, 0, 20); RepObjLbl.Position = UDim2.new(0, 10, 0, 5)
+RepObjLbl.Size = UDim2.new(1, -20, 0, 15); RepObjLbl.Position = UDim2.new(0, 10, 0, 5)
 RepObjLbl.BackgroundTransparency = 1; RepObjLbl.Text = "OBJECT REPLACER"; RepObjLbl.TextColor3 = Color3.fromRGB(200,255,200); RepObjLbl.Font = Enum.Font.GothamBold; RepObjLbl.TextXAlignment = Enum.TextXAlignment.Left
 
--- Target Label & Box
 local TgtLbl = Instance.new("TextLabel", TabReplacer)
-TgtLbl.Size = UDim2.new(0.5, -15, 0, 15); TgtLbl.Position = UDim2.new(0, 10, 0, 30)
-TgtLbl.BackgroundTransparency = 1; TgtLbl.Text = "Ketik Nama Target (Yang akan diganti):"; TgtLbl.TextColor3 = Color3.fromRGB(150,200,150)
+TgtLbl.Size = UDim2.new(0.5, -15, 0, 15); TgtLbl.Position = UDim2.new(0, 10, 0, 25)
+TgtLbl.BackgroundTransparency = 1; TgtLbl.Text = "Nama Target (Folder/Model):"; TgtLbl.TextColor3 = Color3.fromRGB(150,200,150)
 TgtLbl.Font = Enum.Font.Gotham; TgtLbl.TextSize = 10; TgtLbl.TextXAlignment = Enum.TextXAlignment.Left
 
 local TargetBox = Instance.new("TextBox", TabReplacer)
-TargetBox.Size = UDim2.new(0.5, -15, 0, 26); TargetBox.Position = UDim2.new(0, 10, 0, 47)
+TargetBox.Size = UDim2.new(0.5, -15, 0, 26); TargetBox.Position = UDim2.new(0, 10, 0, 40)
 TargetBox.BackgroundColor3 = Color3.fromRGB(10,30,15); TargetBox.TextColor3 = Color3.fromRGB(255,255,255)
 TargetBox.PlaceholderText = "Target Name..."; TargetBox.Font = Enum.Font.Gotham; TargetBox.TextSize = 11
 Instance.new("UICorner", TargetBox).CornerRadius = UDim.new(0, 4)
 
--- Replace Label & Box
 local RepLbl = Instance.new("TextLabel", TabReplacer)
-RepLbl.Size = UDim2.new(0.5, -15, 0, 15); RepLbl.Position = UDim2.new(0.5, 5, 0, 30)
-RepLbl.BackgroundTransparency = 1; RepLbl.Text = "Ketik Nama Pengganti (Part/Mesh Baru):"; RepLbl.TextColor3 = Color3.fromRGB(150,200,150)
+RepLbl.Size = UDim2.new(0.5, -15, 0, 15); RepLbl.Position = UDim2.new(0.5, 5, 0, 25)
+RepLbl.BackgroundTransparency = 1; RepLbl.Text = "Nama Pengganti (Part/Mesh Baru):"; RepLbl.TextColor3 = Color3.fromRGB(150,200,150)
 RepLbl.Font = Enum.Font.Gotham; RepLbl.TextSize = 10; RepLbl.TextXAlignment = Enum.TextXAlignment.Left
 
 local ReplaceBox = Instance.new("TextBox", TabReplacer)
-ReplaceBox.Size = UDim2.new(0.5, -15, 0, 26); ReplaceBox.Position = UDim2.new(0.5, 5, 0, 47)
+ReplaceBox.Size = UDim2.new(0.5, -15, 0, 26); ReplaceBox.Position = UDim2.new(0.5, 5, 0, 40)
 ReplaceBox.BackgroundColor3 = Color3.fromRGB(10,30,15); ReplaceBox.TextColor3 = Color3.fromRGB(255,255,255)
 ReplaceBox.PlaceholderText = "Replacement Name..."; ReplaceBox.Font = Enum.Font.Gotham; ReplaceBox.TextSize = 11
 Instance.new("UICorner", ReplaceBox).CornerRadius = UDim.new(0, 4)
 
 local ExecRepBtn = Instance.new("TextButton", TabReplacer)
-ExecRepBtn.Size = UDim2.new(1, -20, 0, 28); ExecRepBtn.Position = UDim2.new(0, 10, 0, 80)
-ExecRepBtn.BackgroundColor3 = Color3.fromRGB(30, 100, 50); ExecRepBtn.Text = "REPLACE OBJECTS"
+ExecRepBtn.Size = UDim2.new(1, -20, 0, 25); ExecRepBtn.Position = UDim2.new(0, 10, 0, 75)
+ExecRepBtn.BackgroundColor3 = Color3.fromRGB(30, 100, 50); ExecRepBtn.Text = "REPLACE ALL PARTS IN TARGET"
 ExecRepBtn.TextColor3 = Color3.fromRGB(255,255,255); ExecRepBtn.Font = Enum.Font.GothamBold
 Instance.new("UICorner", ExecRepBtn).CornerRadius = UDim.new(0, 6)
 
@@ -440,82 +435,116 @@ ExecRepBtn.MouseButton1Click:Connect(function()
     if not replacementTemp then notify("Error", "Object pengganti tidak ditemukan di workspace!", Color3.fromRGB(255,100,100)); return end
 
     local count = 0
-    local targets = {}
+    local targetContainers = {}
     for _, obj in ipairs(workspace:GetDescendants()) do
-        if obj.Name == tName and obj ~= replacementTemp then table.insert(targets, obj) end
+        if obj.Name == tName and obj ~= replacementTemp then table.insert(targetContainers, obj) end
     end
 
-    for _, target in ipairs(targets) do
-        local clone = replacementTemp:Clone()
-        if clone:IsA("BasePart") and target:IsA("BasePart") then
-            clone.CFrame = target.CFrame; clone.Size = target.Size
-        elseif clone:IsA("Model") and target:IsA("Model") then
-            if clone.PrimaryPart and target.PrimaryPart then clone:SetPrimaryPartCFrame(target.PrimaryPart.CFrame)
-            else clone:MoveTo(target:GetModelCFrame().Position) end
+    for _, container in ipairs(targetContainers) do
+        local partsToReplace = {}
+        if container:IsA("BasePart") then table.insert(partsToReplace, container)
+        else
+            for _, child in ipairs(container:GetDescendants()) do
+                if child:IsA("BasePart") and child ~= replacementTemp then table.insert(partsToReplace, child) end
+            end
         end
-        clone.Parent = target.Parent; target:Destroy(); count = count + 1
+
+        for _, part in ipairs(partsToReplace) do
+            local clone = replacementTemp:Clone()
+            clone.CFrame = part.CFrame; clone.Size = part.Size
+            clone.Parent = part.Parent; part:Destroy(); count = count + 1
+        end
     end
-    notify("Replacer", "Berhasil mengganti " .. count .. " object.", Color3.fromRGB(100,255,100))
+    
+    if count > 0 then replacementTemp:Destroy() end -- Auto Delete Template
+    notify("Replacer", "Berhasil mengganti " .. count .. " part dan menghapus bekas template.", Color3.fromRGB(100,255,100))
 end)
 
 -- DECAL REPLACER
 local RepDecLbl = Instance.new("TextLabel", TabReplacer)
-RepDecLbl.Size = UDim2.new(1, -20, 0, 20); RepDecLbl.Position = UDim2.new(0, 10, 0, 125)
+RepDecLbl.Size = UDim2.new(1, -20, 0, 15); RepDecLbl.Position = UDim2.new(0, 10, 0, 110)
 RepDecLbl.BackgroundTransparency = 1; RepDecLbl.Text = "DECAL REPLACER"; RepDecLbl.TextColor3 = Color3.fromRGB(200,255,200); RepDecLbl.Font = Enum.Font.GothamBold; RepDecLbl.TextXAlignment = Enum.TextXAlignment.Left
 
 local ScanDecBtn = Instance.new("TextButton", TabReplacer)
-ScanDecBtn.Size = UDim2.new(0.4, 0, 0, 26); ScanDecBtn.Position = UDim2.new(0, 10, 0, 150)
+ScanDecBtn.Size = UDim2.new(0, 100, 0, 26); ScanDecBtn.Position = UDim2.new(0, 10, 0, 130)
 ScanDecBtn.BackgroundColor3 = Color3.fromRGB(40, 80, 120); ScanDecBtn.Text = "SCAN DECALS"
 ScanDecBtn.TextColor3 = Color3.fromRGB(255,255,255); ScanDecBtn.Font = Enum.Font.GothamBold
 Instance.new("UICorner", ScanDecBtn).CornerRadius = UDim.new(0, 4)
 
-local DecInfoLbl = Instance.new("TextLabel", TabReplacer)
-DecInfoLbl.Size = UDim2.new(0.6, -20, 0, 26); DecInfoLbl.Position = UDim2.new(0.4, 15, 0, 150)
-DecInfoLbl.BackgroundTransparency = 1; DecInfoLbl.Text = "Belum discan (0 Decal ditemukan)"
-DecInfoLbl.TextColor3 = Color3.fromRGB(150, 200, 255); DecInfoLbl.Font = Enum.Font.Gotham; DecInfoLbl.TextXAlignment = Enum.TextXAlignment.Left
-
-local totalDecalsScanned = 0
-ScanDecBtn.MouseButton1Click:Connect(function()
-    totalDecalsScanned = 0
-    for _, obj in ipairs(workspace:GetDescendants()) do
-        if obj:IsA("Decal") or obj:IsA("Texture") then totalDecalsScanned = totalDecalsScanned + 1 end
-    end
-    DecInfoLbl.Text = "Ditemukan " .. totalDecalsScanned .. " Decal/Texture di Workspace."
-    notify("Scan Selesai", totalDecalsScanned .. " Decal terdeteksi.", Color3.fromRGB(150, 200, 255))
-end)
-
-local DecalInputLbl = Instance.new("TextLabel", TabReplacer)
-DecalInputLbl.Size = UDim2.new(1, -20, 0, 15); DecalInputLbl.Position = UDim2.new(0, 10, 0, 185)
-DecalInputLbl.BackgroundTransparency = 1; DecalInputLbl.Text = "Masukkan ID Decal Baru:"; DecalInputLbl.TextColor3 = Color3.fromRGB(150,200,150)
-DecalInputLbl.Font = Enum.Font.Gotham; DecalInputLbl.TextSize = 10; DecalInputLbl.TextXAlignment = Enum.TextXAlignment.Left
-
 local DecalBox = Instance.new("TextBox", TabReplacer)
-DecalBox.Size = UDim2.new(1, -20, 0, 26); DecalBox.Position = UDim2.new(0, 10, 0, 205)
+DecalBox.Size = UDim2.new(1, -125, 0, 26); DecalBox.Position = UDim2.new(0, 115, 0, 130)
 DecalBox.BackgroundColor3 = Color3.fromRGB(10,30,15); DecalBox.TextColor3 = Color3.fromRGB(255,255,255)
-DecalBox.PlaceholderText = "ID Decal (contoh: 1234567890)"; DecalBox.Font = Enum.Font.Gotham
+DecalBox.PlaceholderText = "ID Decal Baru..."; DecalBox.Font = Enum.Font.Gotham; DecalBox.TextSize = 11
 Instance.new("UICorner", DecalBox).CornerRadius = UDim.new(0, 4)
 
-local ExecDecBtn = Instance.new("TextButton", TabReplacer)
-ExecDecBtn.Size = UDim2.new(0.5, -15, 0, 28); ExecDecBtn.Position = UDim2.new(0, 10, 0, 240)
-ExecDecBtn.BackgroundColor3 = Color3.fromRGB(30, 100, 50); ExecDecBtn.Text = "REPLACE DECALS"
-ExecDecBtn.TextColor3 = Color3.fromRGB(255,255,255); ExecDecBtn.Font = Enum.Font.GothamBold
-Instance.new("UICorner", ExecDecBtn).CornerRadius = UDim.new(0, 6)
+local DecalScroll = Instance.new("ScrollingFrame", TabReplacer)
+DecalScroll.Size = UDim2.new(1, -20, 0, 125); DecalScroll.Position = UDim2.new(0, 10, 0, 160)
+DecalScroll.BackgroundTransparency = 1; DecalScroll.ScrollBarThickness = 4
+DecalScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+local DListLayout = Instance.new("UIListLayout", DecalScroll)
+DListLayout.Padding = UDim.new(0, 3)
 
-local DelDecBtn = Instance.new("TextButton", TabReplacer)
-DelDecBtn.Size = UDim2.new(0.5, -15, 0, 28); DelDecBtn.Position = UDim2.new(0.5, 5, 0, 240)
-DelDecBtn.BackgroundColor3 = Color3.fromRGB(120, 40, 40); DelDecBtn.Text = "DELETE ALL DECALS"
-DelDecBtn.TextColor3 = Color3.fromRGB(255,255,255); DelDecBtn.Font = Enum.Font.GothamBold
-Instance.new("UICorner", DelDecBtn).CornerRadius = UDim.new(0, 6)
-
-ExecDecBtn.MouseButton1Click:Connect(function()
-    local id = DecalBox.Text:match("%d+")
-    if not id then notify("Error", "Masukkan ID Decal yang valid!", Color3.fromRGB(255,100,100)); return end
-    local rbxId = "rbxassetid://" .. id
+local selectedDecal = nil
+ScanDecBtn.MouseButton1Click:Connect(function()
+    selectedDecal = nil
+    for _, c in ipairs(DecalScroll:GetChildren()) do if c:IsA("TextButton") then c:Destroy() end end
     local count = 0
     for _, obj in ipairs(workspace:GetDescendants()) do
         if obj:IsA("Decal") or obj:IsA("Texture") then
-            obj.Texture = rbxId; count = count + 1
+            count = count + 1
+            local dBtn = Instance.new("TextButton", DecalScroll)
+            dBtn.Size = UDim2.new(1, 0, 0, 22); dBtn.BackgroundColor3 = Color3.fromRGB(15, 30, 20)
+            dBtn.Text = "  " .. obj.Parent.Name .. " -> " .. obj.Name
+            dBtn.TextColor3 = Color3.fromRGB(200, 255, 200); dBtn.Font = Enum.Font.Gotham; dBtn.TextXAlignment = Enum.TextXAlignment.Left
+            dBtn.MouseButton1Click:Connect(function()
+                for _, btn in ipairs(DecalScroll:GetChildren()) do if btn:IsA("TextButton") then btn.BackgroundColor3 = Color3.fromRGB(15, 30, 20) end end
+                dBtn.BackgroundColor3 = Color3.fromRGB(40, 120, 60)
+                selectedDecal = obj
+            end)
         end
+    end
+    notify("Scan Selesai", "Ditemukan " .. count .. " Decal/Texture.", Color3.fromRGB(150, 200, 255))
+end)
+
+local ExecDecSelBtn = Instance.new("TextButton", TabReplacer)
+ExecDecSelBtn.Size = UDim2.new(0.32, 0, 0, 25); ExecDecSelBtn.Position = UDim2.new(0, 10, 0, 290)
+ExecDecSelBtn.BackgroundColor3 = Color3.fromRGB(30, 100, 50); ExecDecSelBtn.Text = "REPLACE TERPILIH"
+ExecDecSelBtn.TextColor3 = Color3.fromRGB(255,255,255); ExecDecSelBtn.Font = Enum.Font.GothamBold
+Instance.new("UICorner", ExecDecSelBtn).CornerRadius = UDim.new(0, 6)
+
+local ExecDecAllBtn = Instance.new("TextButton", TabReplacer)
+ExecDecAllBtn.Size = UDim2.new(0.32, 0, 0, 25); ExecDecAllBtn.Position = UDim2.new(0.32, 15, 0, 290)
+ExecDecAllBtn.BackgroundColor3 = Color3.fromRGB(30, 100, 50); ExecDecAllBtn.Text = "REPLACE SEMUA"
+ExecDecAllBtn.TextColor3 = Color3.fromRGB(255,255,255); ExecDecAllBtn.Font = Enum.Font.GothamBold
+Instance.new("UICorner", ExecDecAllBtn).CornerRadius = UDim.new(0, 6)
+
+local DelDecBtn = Instance.new("TextButton", TabReplacer)
+DelDecBtn.Size = UDim2.new(0.36, -30, 0, 25); DelDecBtn.Position = UDim2.new(0.64, 20, 0, 290)
+DelDecBtn.BackgroundColor3 = Color3.fromRGB(120, 40, 40); DelDecBtn.Text = "HAPUS SEMUA"
+DelDecBtn.TextColor3 = Color3.fromRGB(255,255,255); DelDecBtn.Font = Enum.Font.GothamBold
+Instance.new("UICorner", DelDecBtn).CornerRadius = UDim.new(0, 6)
+
+local function getDecalTexture()
+    local id = DecalBox.Text:match("%d+")
+    if not id then notify("Error", "Masukkan ID Decal!", Color3.fromRGB(255,100,100)); return nil end
+    return "rbxassetid://" .. id
+end
+
+ExecDecSelBtn.MouseButton1Click:Connect(function()
+    local tex = getDecalTexture()
+    if not tex then return end
+    if selectedDecal and selectedDecal.Parent then
+        selectedDecal.Texture = tex
+        notify("Replacer", "Berhasil mengganti decal yang dipilih.", Color3.fromRGB(100,255,100))
+    else notify("Error", "Tidak ada Decal yang dipilih dari list!", Color3.fromRGB(255,100,100)) end
+end)
+
+ExecDecAllBtn.MouseButton1Click:Connect(function()
+    local tex = getDecalTexture()
+    if not tex then return end
+    local count = 0
+    for _, obj in ipairs(workspace:GetDescendants()) do
+        if obj:IsA("Decal") or obj:IsA("Texture") then obj.Texture = tex; count = count + 1 end
     end
     notify("Replacer", "Berhasil mengganti " .. count .. " decal.", Color3.fromRGB(100,255,100))
 end)
@@ -523,11 +552,10 @@ end)
 DelDecBtn.MouseButton1Click:Connect(function()
     local count = 0
     for _, obj in ipairs(workspace:GetDescendants()) do
-        if obj:IsA("Decal") or obj:IsA("Texture") then
-            obj:Destroy(); count = count + 1
-        end
+        if obj:IsA("Decal") or obj:IsA("Texture") then obj:Destroy(); count = count + 1 end
     end
     notify("Replacer", "Berhasil menghapus " .. count .. " decal.", Color3.fromRGB(100,255,100))
+    for _, c in ipairs(DecalScroll:GetChildren()) do if c:IsA("TextButton") then c:Destroy() end end
 end)
 
 -- =========================================================================
@@ -538,7 +566,7 @@ local activeColor    = Color3.fromRGB(255, 255, 255)
 
 local ScanGuiBtn = Instance.new("TextButton", TabRemake)
 ScanGuiBtn.Size = UDim2.new(0.4, 0, 0, 26); ScanGuiBtn.Position = UDim2.new(0, 10, 0, 10)
-ScanGuiBtn.BackgroundColor3 = Color3.fromRGB(40, 80, 120); ScanGuiBtn.Text = "SCAN GUI (PLAYERGUI)"
+ScanGuiBtn.BackgroundColor3 = Color3.fromRGB(40, 80, 120); ScanGuiBtn.Text = "SCAN SEMUA GUI"
 ScanGuiBtn.TextColor3 = Color3.fromRGB(255,255,255); ScanGuiBtn.Font = Enum.Font.GothamBold
 Instance.new("UICorner", ScanGuiBtn).CornerRadius = UDim.new(0, 4)
 
@@ -546,53 +574,60 @@ local SelectedGuiLbl = Instance.new("TextLabel", TabRemake)
 SelectedGuiLbl.Size = UDim2.new(0.6, -20, 0, 26); SelectedGuiLbl.Position = UDim2.new(0.4, 15, 0, 10)
 SelectedGuiLbl.BackgroundTransparency = 1; SelectedGuiLbl.Text = "Target GUI: SEMUA GUI"
 SelectedGuiLbl.TextColor3 = Color3.fromRGB(255, 200, 150); SelectedGuiLbl.Font = Enum.Font.GothamBold; SelectedGuiLbl.TextXAlignment = Enum.TextXAlignment.Left
+SelectedGuiLbl.TextTruncate = Enum.TextTruncate.AtEnd
 
--- Left Area: Scroll List for GUIs
+-- Left Area: Scroll List for GUIs (Recursive)
 local GuiScroll = Instance.new("ScrollingFrame", TabRemake)
-GuiScroll.Size = UDim2.new(0.4, 0, 0, 190); GuiScroll.Position = UDim2.new(0, 10, 0, 45)
+GuiScroll.Size = UDim2.new(0.4, 0, 0, 235); GuiScroll.Position = UDim2.new(0, 10, 0, 45)
 GuiScroll.BackgroundTransparency = 1; GuiScroll.ScrollBarThickness = 4
+GuiScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
 local GListLayout = Instance.new("UIListLayout", GuiScroll)
-GListLayout.Padding = UDim.new(0, 5)
+GListLayout.Padding = UDim.new(0, 2)
+
+local function addGuiNode(obj, indent)
+    local allowed = {ScreenGui=true, Frame=true, TextLabel=true, TextButton=true, TextBox=true, ScrollingFrame=true, ImageLabel=true, ImageButton=true}
+    if allowed[obj.ClassName] then
+        local gBtn = Instance.new("TextButton", GuiScroll)
+        gBtn.Size = UDim2.new(1, 0, 0, 20); gBtn.BackgroundColor3 = Color3.fromRGB(15, 30, 20); gBtn.BorderSizePixel = 0
+        gBtn.Text = string.rep("  ", indent) .. " ["..obj.ClassName.."] " .. obj.Name
+        gBtn.TextColor3 = Color3.fromRGB(255, 255, 255); gBtn.Font = Enum.Font.Gotham; gBtn.TextSize = 10; gBtn.TextXAlignment = Enum.TextXAlignment.Left
+        gBtn.TextTruncate = Enum.TextTruncate.AtEnd
+        gBtn.MouseButton1Click:Connect(function()
+            for _, btn in ipairs(GuiScroll:GetChildren()) do if btn:IsA("TextButton") then btn.BackgroundColor3 = Color3.fromRGB(15, 30, 20) end end
+            gBtn.BackgroundColor3 = Color3.fromRGB(40, 120, 60)
+            selectedGuiObj = obj
+            SelectedGuiLbl.Text = "Target GUI: " .. obj.Name
+        end)
+        for _, child in ipairs(obj:GetChildren()) do addGuiNode(child, indent + 1) end
+    end
+end
 
 ScanGuiBtn.MouseButton1Click:Connect(function()
-    for _, c in ipairs(GuiScroll:GetChildren()) do if c:IsA("Frame") then c:Destroy() end end
+    for _, c in ipairs(GuiScroll:GetChildren()) do if c:IsA("TextButton") then c:Destroy() end end
     
-    local allBtn = Instance.new("Frame", GuiScroll)
-    allBtn.Size = UDim2.new(1, 0, 0, 25); allBtn.BackgroundColor3 = Color3.fromRGB(20, 50, 30)
-    local allTxt = Instance.new("TextButton", allBtn)
-    allTxt.Size = UDim2.new(1, 0, 1, 0); allTxt.BackgroundTransparency = 1; allTxt.Text = "  > SEMUA GUI"
-    allTxt.TextColor3 = Color3.fromRGB(200, 255, 200); allTxt.Font = Enum.Font.GothamBold; allTxt.TextXAlignment = Enum.TextXAlignment.Left
-    allTxt.MouseButton1Click:Connect(function()
+    local allBtn = Instance.new("TextButton", GuiScroll)
+    allBtn.Size = UDim2.new(1, 0, 0, 22); allBtn.BackgroundColor3 = Color3.fromRGB(20, 50, 30); allBtn.BorderSizePixel = 0
+    allBtn.Text = "  > SEMUA GUI"; allBtn.TextColor3 = Color3.fromRGB(200, 255, 200); allBtn.Font = Enum.Font.GothamBold; allBtn.TextXAlignment = Enum.TextXAlignment.Left
+    allBtn.MouseButton1Click:Connect(function()
+        for _, btn in ipairs(GuiScroll:GetChildren()) do if btn:IsA("TextButton") then btn.BackgroundColor3 = Color3.fromRGB(15, 30, 20) end end
+        allBtn.BackgroundColor3 = Color3.fromRGB(40, 120, 60)
         selectedGuiObj = nil
         SelectedGuiLbl.Text = "Target GUI: SEMUA GUI"
     end)
 
     local pgui = LocalPlayer:FindFirstChild("PlayerGui")
-    if pgui then
-        for _, gui in ipairs(pgui:GetChildren()) do
-            if gui:IsA("ScreenGui") or gui:IsA("GuiObject") then
-                local gBtn = Instance.new("Frame", GuiScroll)
-                gBtn.Size = UDim2.new(1, 0, 0, 25); gBtn.BackgroundColor3 = Color3.fromRGB(15, 30, 20)
-                local gTxt = Instance.new("TextButton", gBtn)
-                gTxt.Size = UDim2.new(1, 0, 1, 0); gTxt.BackgroundTransparency = 1; gTxt.Text = "  " .. gui.Name
-                gTxt.TextColor3 = Color3.fromRGB(255, 255, 255); gTxt.Font = Enum.Font.Gotham; gTxt.TextXAlignment = Enum.TextXAlignment.Left
-                gTxt.TextTruncate = Enum.TextTruncate.AtEnd
-                gTxt.MouseButton1Click:Connect(function()
-                    selectedGuiObj = gui
-                    SelectedGuiLbl.Text = "Target GUI: " .. gui.Name
-                end)
-            end
-        end
-    end
+    local sgui = game:GetService("StarterGui")
+    if pgui then for _, gui in ipairs(pgui:GetChildren()) do addGuiNode(gui, 1) end end
+    if sgui then for _, gui in ipairs(sgui:GetChildren()) do addGuiNode(gui, 1) end end
 end)
 
 -- Right Area: Color Palette
 local PaletteArea = Instance.new("Frame", TabRemake)
-PaletteArea.Size = UDim2.new(0.6, -20, 0, 190); PaletteArea.Position = UDim2.new(0.4, 15, 0, 45)
+PaletteArea.Size = UDim2.new(0.6, -20, 0, 235); PaletteArea.Position = UDim2.new(0.4, 15, 0, 45)
 PaletteArea.BackgroundTransparency = 1
 
 local ActiveColorViewer = Instance.new("Frame", PaletteArea)
-ActiveColorViewer.Size = UDim2.new(1, 0, 0, 30); ActiveColorViewer.Position = UDim2.new(0, 0, 0, 0)
+ActiveColorViewer.Size = UDim2.new(1, 0, 0, 25); ActiveColorViewer.Position = UDim2.new(0, 0, 0, 0)
 ActiveColorViewer.BackgroundColor3 = activeColor
 Instance.new("UICorner", ActiveColorViewer).CornerRadius = UDim.new(0, 4)
 local ActiveColorTxt = Instance.new("TextLabel", ActiveColorViewer)
@@ -600,12 +635,12 @@ ActiveColorTxt.Size = UDim2.new(1, 0, 1, 0); ActiveColorTxt.BackgroundTransparen
 ActiveColorTxt.Text = "Warna Terpilih"; ActiveColorTxt.TextColor3 = Color3.fromRGB(0,0,0); ActiveColorTxt.Font = Enum.Font.GothamBold
 
 local GridFrame = Instance.new("ScrollingFrame", PaletteArea)
-GridFrame.Size = UDim2.new(1, 0, 1, -40); GridFrame.Position = UDim2.new(0, 0, 0, 40)
+GridFrame.Size = UDim2.new(1, 0, 1, -30); GridFrame.Position = UDim2.new(0, 0, 0, 30)
 GridFrame.BackgroundTransparency = 1; GridFrame.ScrollBarThickness = 4
+GridFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
 local UIGrid = Instance.new("UIGridLayout", GridFrame)
-UIGrid.CellSize = UDim2.new(0, 40, 0, 30)
+UIGrid.CellSize = UDim2.new(0, 35, 0, 30)
 UIGrid.CellPadding = UDim2.new(0, 5, 0, 5)
-UIGrid.SortOrder = Enum.SortOrder.LayoutOrder
 
 local PREDEFINED_COLORS = {
     Color3.fromRGB(255, 0, 0), Color3.fromRGB(0, 255, 0), Color3.fromRGB(0, 0, 255),
@@ -616,7 +651,6 @@ local PREDEFINED_COLORS = {
     Color3.fromRGB(255, 192, 203), Color3.fromRGB(0, 100, 0), Color3.fromRGB(0, 0, 128),
     Color3.fromRGB(50, 50, 50), Color3.fromRGB(100, 100, 255), Color3.fromRGB(255, 100, 100)
 }
-
 for i, col in ipairs(PREDEFINED_COLORS) do
     local cBtn = Instance.new("TextButton", GridFrame)
     cBtn.BackgroundColor3 = col; cBtn.Text = ""
@@ -628,33 +662,34 @@ for i, col in ipairs(PREDEFINED_COLORS) do
     end)
 end
 
--- Apply Buttons
 local ApplyBgBtn = Instance.new("TextButton", TabRemake)
-ApplyBgBtn.Size = UDim2.new(0.5, -15, 0, 30); ApplyBgBtn.Position = UDim2.new(0, 10, 0, 250)
-ApplyBgBtn.BackgroundColor3 = Color3.fromRGB(30, 100, 50); ApplyBgBtn.Text = "TERAPKAN KE BACKGROUND"
-ApplyBgBtn.TextColor3 = Color3.fromRGB(255,255,255); ApplyBgBtn.Font = Enum.Font.GothamBold
+ApplyBgBtn.Size = UDim2.new(0.5, -15, 0, 25); ApplyBgBtn.Position = UDim2.new(0, 10, 0, 290)
+ApplyBgBtn.BackgroundColor3 = Color3.fromRGB(30, 100, 50); ApplyBgBtn.Text = "TERAPKAN KE BG"
+ApplyBgBtn.TextColor3 = Color3.fromRGB(255,255,255); ApplyBgBtn.Font = Enum.Font.GothamBold; ApplyBgBtn.TextSize = 11
 Instance.new("UICorner", ApplyBgBtn).CornerRadius = UDim.new(0, 6)
 
 local ApplyTxtBtn = Instance.new("TextButton", TabRemake)
-ApplyTxtBtn.Size = UDim2.new(0.5, -15, 0, 30); ApplyTxtBtn.Position = UDim2.new(0.5, 5, 0, 250)
+ApplyTxtBtn.Size = UDim2.new(0.5, -15, 0, 25); ApplyTxtBtn.Position = UDim2.new(0.5, 5, 0, 290)
 ApplyTxtBtn.BackgroundColor3 = Color3.fromRGB(30, 100, 50); ApplyTxtBtn.Text = "TERAPKAN KE TEKS"
-ApplyTxtBtn.TextColor3 = Color3.fromRGB(255,255,255); ApplyTxtBtn.Font = Enum.Font.GothamBold
+ApplyTxtBtn.TextColor3 = Color3.fromRGB(255,255,255); ApplyTxtBtn.Font = Enum.Font.GothamBold; ApplyTxtBtn.TextSize = 11
 Instance.new("UICorner", ApplyTxtBtn).CornerRadius = UDim.new(0, 6)
 
 local function applyColorToTarget(propName)
     local targets = {}
-    if selectedGuiObj then
-        table.insert(targets, selectedGuiObj)
+    if selectedGuiObj then table.insert(targets, selectedGuiObj)
     else
-        local pgui = LocalPlayer:FindFirstChild("PlayerGui")
-        local sgui = game:GetService("StarterGui")
+        local pgui = LocalPlayer:FindFirstChild("PlayerGui"); local sgui = game:GetService("StarterGui")
         if pgui then table.insert(targets, pgui) end
         if sgui then table.insert(targets, sgui) end
     end
 
     local count = 0
     for _, root in ipairs(targets) do
-        for _, obj in ipairs(root:GetDescendants()) do
+        -- Termasuk root object jika root itu sendiri adalah Frame/Text dsb
+        local allObjs = root:GetDescendants()
+        table.insert(allObjs, root)
+        
+        for _, obj in ipairs(allObjs) do
             if obj:IsA("GuiObject") then
                 pcall(function()
                     if propName == "Background" and (obj:IsA("Frame") or obj:IsA("ScrollingFrame") or obj:IsA("TextButton") or obj:IsA("TextBox") or obj:IsA("TextLabel")) then
@@ -677,4 +712,4 @@ Tabs[1].Btn.BackgroundColor3 = Color3.fromRGB(20, 65, 35)
 Tabs[1].Btn.TextColor3 = Color3.fromRGB(255, 255, 255)
 Tabs[1].Frame.Visible = true
 
-print("[MCHLERN PROJECT] IMPORTER v2.1 LOADED")
+print("[MCHLERN PROJECT] IMPORTER v2.2 LOADED")
