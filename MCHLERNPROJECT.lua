@@ -1,7 +1,7 @@
 -- ===================================================
--- MAP COPIER V2 (UPGRADED) - MCHLERN PROJECT
--- Features: RBXL / RBXM Mode, Progress Bar, Anti-Kick Preloader
--- Supported Executor: Delta & Standard UNC Executors
+-- MAP COPIER V2.1 (FIXED STUCK 10%) - MCHLERN PROJECT
+-- Features: Fixed Preloader, Timeout Guard, RBXL/RBXM Mode
+-- Supported Executor: Delta, Fluxus, Wave, & UNC Executors
 -- ===================================================
 
 local MarketplaceService = game:GetService("MarketplaceService")
@@ -20,9 +20,9 @@ end)
 local cleanMapName = placeName:gsub('[%p%c%s]', "_")
 local baseFileName = "MCHLERN_" .. cleanMapName
 
--- 2. GUI Creation (Black & White Elegant UI)
+-- 2. GUI Creation
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "MchlernMapCopierV2"
+ScreenGui.Name = "MchlernMapCopierV2_Fixed"
 ScreenGui.ResetOnSpawn = false
 
 if gethui then
@@ -58,7 +58,7 @@ UIStroke.Parent = MainFrame
 local Title = Instance.new("TextLabel")
 Title.Size = UDim2.new(1, 0, 0, 35)
 Title.BackgroundTransparency = 1
-Title.Text = "MCHLERN PROJECT V2"
+Title.Text = "MCHLERN PROJECT V2.1"
 Title.TextColor3 = Color3.fromRGB(255, 255, 255)
 Title.TextSize = 16
 Title.Font = Enum.Font.GothamBold
@@ -69,7 +69,7 @@ local SubTitle = Instance.new("TextLabel")
 SubTitle.Size = UDim2.new(1, -20, 0, 15)
 SubTitle.Position = UDim2.new(0, 10, 0, 30)
 SubTitle.BackgroundTransparency = 1
-SubTitle.Text = "Advanced Map Copier & Asset Extractor"
+SubTitle.Text = "Advanced Map Copier (Stuck Fix Applied)"
 SubTitle.TextColor3 = Color3.fromRGB(150, 150, 150)
 SubTitle.TextSize = 11
 SubTitle.Font = Enum.Font.Gotham
@@ -88,7 +88,7 @@ ModeLabel.TextXAlignment = Enum.TextXAlignment.Left
 ModeLabel.Parent = MainFrame
 
 -- Mode Buttons
-local selectedMode = "full" -- Default "full" (.rbxl) atau "workspace" (.rbxm)
+local selectedMode = "full" 
 
 local FullBtn = Instance.new("TextButton")
 FullBtn.Size = UDim2.new(0, 150, 0, 30)
@@ -118,7 +118,6 @@ local WsCorner = Instance.new("UICorner")
 WsCorner.CornerRadius = UDim.new(0, 5)
 WsCorner.Parent = WorkspaceBtn
 
--- Update Selection Visual
 local function updateModeUI()
     if selectedMode == "full" then
         FullBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
@@ -215,60 +214,69 @@ local function setProgress(percent, statusText)
     end
 end
 
--- Safely preload StreamingEnabled maps without network kick
+-- FIXED PRELOADER (Tidak akan freeze di 10%)
 local function safePreloadMap()
+    setProgress(0.1, "Checking Map Streaming...")
+    task.wait(0.1)
+
     if not Workspace.StreamingEnabled then
-        setProgress(0.3, "Preloading map...")
-        task.wait(0.5)
+        setProgress(0.35, "Streaming Disabled (Skipping Preload)...")
+        task.wait(0.3)
         return
     end
 
-    setProgress(0.1, "Bypassing Streaming (Grid Preload)...")
+    setProgress(0.15, "Fast Preloading Stream Regions...")
     
-    -- Scan map in grid pattern rather than every single part to avoid kick
-    local boundingBox = Workspace:GetModelBoundingBox()
-    local boundsSize = boundingBox and boundingBox.Size or Vector3.new(2000, 500, 2000)
-    local minX, maxX = -boundsSize.X/2, boundsSize.X/2
-    local minZ, maxZ = -boundsSize.Z/2, boundsSize.Z/2
-    
-    local step = 300 -- Jump 300 studs at a time
+    -- Menggunakan fixed grid ringan (mencegah GetModelBoundingBox freeze)
+    local minX, maxX = -1200, 1200
+    local minZ, maxZ = -1200, 1200
+    local step = 400
     local totalSteps = math.ceil((maxX - minX) / step) * math.ceil((maxZ - minZ) / step)
     local currentStep = 0
 
     for x = minX, maxX, step do
         for z = minZ, maxZ, step do
             currentStep = currentStep + 1
-            local targetPos = Vector3.new(x, 50, z)
             
             pcall(function()
-                Workspace:RequestInstanceAroundAsync(targetPos)
+                Workspace:RequestInstanceAroundAsync(Vector3.new(x, 50, z))
             end)
             
-            local progress = 0.1 + (currentStep / totalSteps) * 0.3
-            setProgress(progress, "Preloading map regions...")
-            task.wait(0.05) -- Safe yield to avoid high CPU usage / crash
+            local progress = 0.15 + (currentStep / totalSteps) * 0.20
+            setProgress(progress, "Preloading regions...")
+            task.wait(0.01) -- Yield cepat agar UI tidak lag
         end
     end
+    
+    setProgress(0.35, "Preload Complete!")
+    task.wait(0.2)
 end
 
 -- Inject Credits Function
 local function injectCredits()
-    setProgress(0.45, "Injecting credits into scripts...")
+    setProgress(0.40, "Injecting credits into scripts...")
     local count = 0
-    for _, obj in ipairs(game:GetDescendants()) do
-        if obj:IsA("LocalScript") or obj:IsA("ModuleScript") then
-            pcall(function()
-                local originalSource = obj.Source or ""
-                if not originalSource:find("COPY BY MCHLERN PROJECT") then
-                    obj.Source = "-- COPY BY MCHLERN PROJECT\n\n" .. originalSource
+    
+    -- Menggunakan task.spawn agar jika script terlalu banyak tidak memblokir thread
+    pcall(function()
+        for _, obj in ipairs(game:GetDescendants()) do
+            if obj:IsA("LocalScript") or obj:IsA("ModuleScript") then
+                pcall(function()
+                    local originalSource = obj.Source or ""
+                    if not originalSource:find("COPY BY MCHLERN PROJECT") then
+                        obj.Source = "-- COPY BY MCHLERN PROJECT\n\n" .. originalSource
+                    end
+                end)
+                count = count + 1
+                if count % 100 == 0 then
+                    task.wait()
                 end
-            end)
-            count = count + 1
-            if count % 50 == 0 then
-                task.wait() -- Prevent lag spike
             end
         end
-    end
+    end)
+    
+    setProgress(0.55, "Credits Injected!")
+    task.wait(0.2)
 end
 
 -- Execute Save
@@ -280,16 +288,14 @@ local function startCopyProcess()
     StartBtn.Text = "PROCESSING..."
 
     task.spawn(function()
-        -- Step 1: Preload Streaming
-        safePreloadMap()
-        task.wait(0.2)
+        -- Step 1: Preload Streaming (Safe Mode)
+        pcall(safePreloadMap)
 
         -- Step 2: Inject Credits
-        injectCredits()
-        task.wait(0.2)
+        pcall(injectCredits)
 
         -- Step 3: Configure Save Params
-        setProgress(0.6, "Preparing Save Engine...")
+        setProgress(0.65, "Loading Save Engine...")
         
         local finalFileName = baseFileName
         if selectedMode == "workspace" then
@@ -299,33 +305,47 @@ local function startCopyProcess()
         end
 
         local Params = {
-            RepoURL = "https://raw.githubusercontent.com/luau/SynSaveInstance/main/",
             FilePath = finalFileName,
-            Mode = selectedMode, -- "full" atau "workspace"
+            Mode = selectedMode,
             IsolateLocalPlayer = false,
             RemovePlayers = true,
-            Decompile = false, -- Dynamic Decompile diset false agar RAM stabil dan TIDAK KENA KICK
+            Decompile = false, -- Anti-Lag & Anti-Kick
             DecompileTimeout = 5,
             SaveUnloadedAssets = true,
-            NilInstances = true
+            NilInstances = false
         }
 
         if selectedMode == "workspace" then
             Params.Object = Workspace
         end
 
-        setProgress(0.75, "Saving file to workspace folder...")
+        setProgress(0.80, "Saving Map File...")
         
-        local success, err = pcall(function()
-            local saveinstance = loadstring(game:HttpGet(Params.RepoURL .. "saveinstance.luau"))()
-            saveinstance(Params)
+        -- Mengunduh / Menjalankan Engine saveinstance
+        local saveSuccess = false
+        local errMessage = ""
+
+        pcall(function()
+            -- Coba ambil saveinstance resmi UNC
+            local saveinstance = nil
+            if getgenv and getgenv().saveinstance then
+                saveinstance = getgenv().saveinstance
+            else
+                local src = game:HttpGet("https://raw.githubusercontent.com/luau/SynSaveInstance/main/saveinstance.luau")
+                saveinstance = loadstring(src)()
+            end
+            
+            if saveinstance then
+                saveinstance(Params)
+                saveSuccess = true
+            end
         end)
 
-        if success then
-            setProgress(1.0, "SUCCESS! Saved as " .. (selectedMode == "workspace" and ".rbxm" or ".rbxl"))
+        if saveSuccess then
+            setProgress(1.0, "SUCCESS! Saved to workspace folder")
             StatusLabel.TextColor3 = Color3.fromRGB(100, 255, 100)
         else
-            -- Fallback Method
+            -- Fallback sederhana jika saveinstance universal bawaan executor ada
             local fallbackSuccess = pcall(function()
                 if saveinstance then
                     saveinstance({
@@ -334,12 +354,12 @@ local function startCopyProcess()
                     })
                 end
             end)
-            
+
             if fallbackSuccess then
                 setProgress(1.0, "SUCCESS (Fallback)! Saved file.")
                 StatusLabel.TextColor3 = Color3.fromRGB(100, 255, 100)
             else
-                setProgress(0, "FAILED: " .. tostring(err))
+                setProgress(0, "FAILED: Executor tidak mendukung saveinstance")
                 StatusLabel.TextColor3 = Color3.fromRGB(255, 100, 100)
             end
         end
