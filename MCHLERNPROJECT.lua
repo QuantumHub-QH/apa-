@@ -1,34 +1,49 @@
--- [[ AI STUDIO LITE v2 - SCRIPT & REMOTE EVENT ENGINE ]] --
--- Supported Executors: Delta, Fluxus, Hydrogen, Wave, Codex, etc.
+-- [[ AI STUDIO LITE - UNIVERSAL FIX ENGINE ]] --
 
 local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
 local CoreGui = game:GetService("CoreGui")
 local LocalPlayer = Players.LocalPlayer
 
-local httpRequest = (syn and syn.request) or (http and http.request) or http_request or (fluxus and fluxus.request) or request
+-- 1. SAFE HTTP REQUEST HANDLER (Cegah Nil Value Error)
+local function safeHttpRequest(options)
+    -- Cek fungsi bawaan executor
+    local executorReq = (syn and syn.request) or (http and http.request) or http_request or (fluxus and fluxus.request) or request
+    
+    if type(executorReq) == "function" then
+        return executorReq(options)
+    else
+        -- Fallback jika dijalankan di dalam Roblox Studio / Studio Lite game
+        local responseBody = HttpService:PostAsync(options.Url, options.Body, Enum.HttpContentType.ApplicationJson)
+        return { Body = responseBody, StatusCode = 200 }
+    end
+end
+
+-- 2. SAFE GUI PARENT HANDLER
+local function getSafeParent()
+    if type(gethui) == "function" then
+        return gethui()
+    end
+    local success = pcall(function() local _ = CoreGui.Name end)
+    if success and CoreGui then
+        return CoreGui
+    end
+    return LocalPlayer:WaitForChild("PlayerGui")
+end
 
 -- ScreenGui Setup
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "AI_Studio_Advanced"
+ScreenGui.Name = "AI_Studio_Universal"
 ScreenGui.ResetOnSpawn = false
+ScreenGui.Parent = getSafeParent()
 
-if gethui then
-    ScreenGui.Parent = gethui()
-elseif syn and syn.protect_gui then
-    syn.protect_gui(ScreenGui)
-    ScreenGui.Parent = CoreGui
-else
-    ScreenGui.Parent = CoreGui
-end
-
--- Toggle Button
+-- Toggle Button (Tombol Melayang)
 local ToggleBtn = Instance.new("TextButton")
 ToggleBtn.Name = "ToggleBtn"
 ToggleBtn.Size = UDim2.new(0, 45, 0, 45)
 ToggleBtn.Position = UDim2.new(0.02, 0, 0.4, 0)
 ToggleBtn.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
-ToggleBtn.Text = "⚡"
+ToggleBtn.Text = "🤖"
 ToggleBtn.TextSize = 22
 ToggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 ToggleBtn.Active = true
@@ -40,15 +55,15 @@ ToggleCorner.CornerRadius = UDim.new(0, 12)
 ToggleCorner.Parent = ToggleBtn
 
 local ToggleStroke = Instance.new("UIStroke")
-ToggleStroke.Color = Color3.fromRGB(0, 200, 255)
+ToggleStroke.Color = Color3.fromRGB(0, 170, 255)
 ToggleStroke.Thickness = 2
 ToggleStroke.Parent = ToggleBtn
 
 -- Main Frame
 local MainFrame = Instance.new("Frame")
 MainFrame.Name = "MainFrame"
-MainFrame.Size = UDim2.new(0, 330, 0, 240)
-MainFrame.Position = UDim2.new(0.5, -165, 0.5, -120)
+MainFrame.Size = UDim2.new(0, 320, 0, 230)
+MainFrame.Position = UDim2.new(0.5, -160, 0.5, -115)
 MainFrame.BackgroundColor3 = Color3.fromRGB(18, 18, 24)
 MainFrame.Visible = false
 MainFrame.Active = true
@@ -60,16 +75,16 @@ MainCorner.CornerRadius = UDim.new(0, 10)
 MainCorner.Parent = MainFrame
 
 local MainStroke = Instance.new("UIStroke")
-MainStroke.Color = Color3.fromRGB(40, 40, 55)
+MainStroke.Color = Color3.fromRGB(45, 45, 60)
 MainStroke.Thickness = 1.5
 MainStroke.Parent = MainFrame
 
--- Title Bar
+-- Title
 local Title = Instance.new("TextLabel")
 Title.Size = UDim2.new(1, -40, 0, 35)
-Title.Position = UDim2.new(0, 12, 0, 0)
+Title.Position = UDim2.new(0, 10, 0, 0)
 Title.BackgroundTransparency = 1
-Title.Text = "⚡ AI Studio Script Engine"
+Title.Text = "🤖 AI Studio Lite (Fix)"
 Title.TextColor3 = Color3.fromRGB(255, 255, 255)
 Title.TextSize = 15
 Title.Font = Enum.Font.GothamBold
@@ -87,13 +102,13 @@ CloseBtn.TextSize = 16
 CloseBtn.Font = Enum.Font.GothamBold
 CloseBtn.Parent = MainFrame
 
--- Prompt TextBox
+-- Prompt Box
 local PromptBox = Instance.new("TextBox")
-PromptBox.Size = UDim2.new(1, -20, 0, 100)
+PromptBox.Size = UDim2.new(1, -20, 0, 95)
 PromptBox.Position = UDim2.new(0, 10, 0, 40)
-PromptBox.BackgroundColor3 = Color3.fromRGB(26, 26, 36)
-PromptBox.PlaceholderText = "Contoh: Bikin tombol teleport jika disentuh, atau buat GUI yang memicu RemoteEvent saat diklik..."
-PromptBox.PlaceholderColor3 = Color3.fromRGB(110, 110, 130)
+PromptBox.BackgroundColor3 = Color3.fromRGB(28, 28, 38)
+PromptBox.PlaceholderText = "Ketik ide kamu... (cth: Buat rumah kayu, buat part berputar, buat GUI)"
+PromptBox.PlaceholderColor3 = Color3.fromRGB(120, 120, 140)
 PromptBox.Text = ""
 PromptBox.TextColor3 = Color3.fromRGB(255, 255, 255)
 PromptBox.TextSize = 12
@@ -109,9 +124,9 @@ BoxCorner.Parent = PromptBox
 -- Generate Button
 local GenerateBtn = Instance.new("TextButton")
 GenerateBtn.Size = UDim2.new(1, -20, 0, 35)
-GenerateBtn.Position = UDim2.new(0, 10, 0, 150)
-GenerateBtn.BackgroundColor3 = Color3.fromRGB(0, 160, 255)
-GenerateBtn.Text = "🚀 Generate & Execute Script"
+GenerateBtn.Position = UDim2.new(0, 10, 0, 145)
+GenerateBtn.BackgroundColor3 = Color3.fromRGB(0, 150, 255)
+GenerateBtn.Text = "✨ Generate Sekarang"
 GenerateBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 GenerateBtn.TextSize = 13
 GenerateBtn.Font = Enum.Font.GothamBold
@@ -124,15 +139,15 @@ BtnCorner.Parent = GenerateBtn
 -- Status Label
 local StatusLabel = Instance.new("TextLabel")
 StatusLabel.Size = UDim2.new(1, -20, 0, 25)
-StatusLabel.Position = UDim2.new(0, 10, 0, 195)
+StatusLabel.Position = UDim2.new(0, 10, 0, 190)
 StatusLabel.BackgroundTransparency = 1
-StatusLabel.Text = "Status: Siap membuat objek & script!"
-StatusLabel.TextColor3 = Color3.fromRGB(140, 140, 160)
+StatusLabel.Text = "Status: Siap dipanggil!"
+StatusLabel.TextColor3 = Color3.fromRGB(150, 150, 170)
 StatusLabel.TextSize = 11
 StatusLabel.Font = Enum.Font.Gotham
 StatusLabel.Parent = MainFrame
 
--- Events
+-- UI Events
 ToggleBtn.MouseButton1Click:Connect(function()
     MainFrame.Visible = not MainFrame.Visible
 end)
@@ -141,11 +156,11 @@ CloseBtn.MouseButton1Click:Connect(function()
     MainFrame.Visible = false
 end)
 
--- Advanced AI Generator
-local function GenerateWithAI(userPrompt)
-    StatusLabel.Text = "Status: 🧠 AI merancang Script & Remote..."
+-- AI Execution Engine
+local function ProcessAI(userPrompt)
+    StatusLabel.Text = "Status: 🧠 AI sedang memproses..."
     StatusLabel.TextColor3 = Color3.fromRGB(255, 200, 0)
-    
+
     local systemPrompt = [[
-    You are an expert Roblox Lua Script Developer. The user wants you to build objects, models, GUIs, AND working Lua scripts/RemoteEvents.
-    Output ONLY executable Roblox Lua Code without any explanation or markdown formatting (no
+    You are a Roblox Lua Script Generator. 
+    Output ONLY executable Roblox Lua code without markdown formatting or
