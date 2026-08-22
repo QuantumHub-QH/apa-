@@ -230,6 +230,7 @@ local TImport  = mkTab("IMPORTER", ICO.DOWNLOAD, 0)
 local TConfig  = mkTab("CONFIG",   ICO.SETTINGS, 42)
 local TReplace = mkTab("REPLACER", ICO.REPLACE,  84)
 local TRemake  = mkTab("REMAKE GUI",ICO.PAINT,   126)
+local TCopy    = mkTab("MAP COPIER",ICO.FOLDER,  168)
 
 -- HELPER: Generic Button
 local function mkBtn(parent, text, x, y, w, h, col)
@@ -363,45 +364,120 @@ end)
 -- =========================================================================
 -- TAB 3: REPLACER
 -- =========================================================================
-mkLabel(TReplace, "OBJECT REPLACER", 0, 8, 1, 15, 11)
-mkLabel(TReplace, "Nama Target (Folder/Model di Workspace):", 0, 26, 0.5, 14, 9)
-local _, tgtBox = mkBox(TReplace, "Target Name...", 0, 40, 0.5, 24)
-mkLabel(TReplace, "Nama Pengganti (Part/Mesh Baru):", 0.5, 26, 0.5, 14, 9)
-local _, repBox = mkBox(TReplace, "Replacement Name...", 0.5, 40, 0.5, 24)
-local _, execRepBtn = mkBtn(TReplace, "REPLACE SEMUA PARTS DALAM TARGET", 0, 72, 1, 26, C_BTN)
-execRepBtn.MouseButton1Click:Connect(function()
-    local tN=tgtBox.Text; local rN=repBox.Text
-    if tN=="" or rN=="" then notify("Error","Isi kedua kolom!",Color3.fromRGB(200,80,80)); return end
+-- OBJECT REPLACER SECTION
+mkLabel(TReplace, "OBJECT REPLACER", 0, 4, 1, 15, 11)
+
+local tgtObjF, tgtObjBox = mkBox(TReplace, "Ketik Nama Target...", 0, 22, 0.6, 24)
+local _, scanObjBtn = mkBtn(TReplace, "SCAN TARGET", 0.6, 22, 0.4, 24, C_BLUE)
+scanObjBtn.Parent.Size = UDim2.new(0.4, -15, 0, 24)
+scanObjBtn.Parent.Position = UDim2.new(0.6, 5, 0, 22)
+
+local objScroll, _ = mkScroll(TReplace, 0, 50, 1, 60)
+local repObjF, repObjBox = mkBox(TReplace, "Ketik Nama Pengganti (Part/Mesh Baru)...", 0, 114, 1, 24)
+
+local _, repSelObj = mkBtn(TReplace, "REPLACE TERPILIH", 0, 142, 0.33, 22, C_BTN)
+repSelObj.Parent.Size=UDim2.new(0.33,-8,0,22); repSelObj.Parent.Position=UDim2.new(0,10,0,142)
+local _, repAllObj = mkBtn(TReplace, "REPLACE SEMUA", 0.33, 142, 0.33, 22, C_BTN)
+repAllObj.Parent.Size=UDim2.new(0.33,-8,0,22); repAllObj.Parent.Position=UDim2.new(0.33,5,0,142)
+local _, delAllObj = mkBtn(TReplace, "HAPUS SEMUA", 0.66, 142, 0.34, 22, C_RED)
+delAllObj.Parent.Size=UDim2.new(0.34,-15,0,22); delAllObj.Parent.Position=UDim2.new(0.66,10,0,142)
+
+local selectedObj = nil
+local objMatches = {}
+
+scanObjBtn.MouseButton1Click:Connect(function()
+    selectedObj = nil
+    objMatches = {}
+    for _, c in ipairs(objScroll:GetChildren()) do if c:IsA("Frame") then c:Destroy() end end
+    local tN = tgtObjBox.Text
+    if tN == "" then notify("Error", "Ketik nama target dulu!", Color3.fromRGB(200,80,80)); return end
+    
+    for _, o in ipairs(workspace:GetDescendants()) do
+        if o.Name == tN then
+            table.insert(objMatches, o)
+            local row = mkRow(objScroll, C_CARD2)
+            row.Size = UDim2.new(1,0,0,22)
+            local lbl = Instance.new("TextLabel", row)
+            lbl.Size=UDim2.new(1,-10,1,0); lbl.Position=UDim2.new(0,8,0,0)
+            lbl.BackgroundTransparency=1; lbl.Text=o.Parent.Name.." ▶ "..o.Name .. " ["..o.ClassName.."]"
+            lbl.TextColor3=C_SUBTEXT; lbl.Font=Enum.Font.Gotham; lbl.TextSize=10; lbl.TextXAlignment=Enum.TextXAlignment.Left
+            lbl.TextTruncate=Enum.TextTruncate.AtEnd
+            local clickZone = Instance.new("TextButton", row)
+            clickZone.Size=UDim2.new(1,0,1,0); clickZone.BackgroundTransparency=1; clickZone.Text=""
+            local ref = o
+            clickZone.MouseButton1Click:Connect(function()
+                for _, c in ipairs(objScroll:GetChildren()) do if c:IsA("Frame") then c.BackgroundColor3=C_CARD2 end end
+                row.BackgroundColor3=Color3.fromRGB(50,80,50)
+                selectedObj = ref
+            end)
+        end
+    end
+    notify("Scan Target", "Ditemukan "..#objMatches.." object.", Color3.fromRGB(180,180,255))
+end)
+
+local function executeObjectReplace(targets)
+    local rN = repObjBox.Text
+    if rN == "" then notify("Error", "Ketik nama pengganti!", Color3.fromRGB(200,80,80)); return end
     local tpl = nil
-    for _, o in ipairs(workspace:GetDescendants()) do if o.Name==rN then tpl=o; break end end
-    if not tpl then notify("Error","Pengganti '"..rN.."' tidak ditemukan!",Color3.fromRGB(200,80,80)); return end
-    local containers={}
-    for _, o in ipairs(workspace:GetDescendants()) do if o.Name==tN and o~=tpl then table.insert(containers,o) end end
-    if #containers==0 then notify("Error","Target '"..tN.."' tidak ditemukan!",Color3.fromRGB(200,80,80)); return end
-    local n=0
-    for _, container in ipairs(containers) do
-        local parts={}
-        if container:IsA("BasePart") then table.insert(parts, container)
-        else for _, d in ipairs(container:GetDescendants()) do if d:IsA("BasePart") and d~=tpl then table.insert(parts,d) end end end
+    for _, o in ipairs(workspace:GetDescendants()) do if o.Name == rN then tpl = o; break end end
+    if not tpl then notify("Error", "Pengganti '"..rN.."' tidak ditemukan!", Color3.fromRGB(200,80,80)); return end
+    
+    local n = 0
+    for _, container in ipairs(targets) do
+        local parts = {}
+        if container:IsA("BasePart") then 
+            table.insert(parts, container)
+        else 
+            for _, d in ipairs(container:GetDescendants()) do 
+                if d:IsA("BasePart") and d ~= tpl then table.insert(parts, d) end 
+            end 
+        end
         for _, part in ipairs(parts) do
-            local clone=tpl:Clone()
-            if clone:IsA("BasePart") then clone.CFrame=part.CFrame; clone.Size=part.Size end
-            clone.Parent=part.Parent; part:Destroy(); n=n+1
+            local clone = tpl:Clone()
+            if clone:IsA("Model") then
+                if clone.PrimaryPart then clone:SetPrimaryPartCFrame(part.CFrame)
+                else clone:MoveTo(part.Position) end
+            elseif clone:IsA("BasePart") then
+                clone.CFrame = part.CFrame
+                clone.Size = part.Size
+            end
+            clone.Parent = part.Parent
+            part:Destroy()
+            n = n + 1
         end
     end
     tpl:Destroy()
-    notify("Replacer", n.." part diganti, template dihapus.", Color3.fromRGB(100,200,100))
+    notify("OK", n.." part diganti & template dihapus.", Color3.fromRGB(100,200,100))
+end
+
+repSelObj.MouseButton1Click:Connect(function()
+    if selectedObj then executeObjectReplace({selectedObj})
+    else notify("Error", "Pilih target dari list dulu!", Color3.fromRGB(200,80,80)) end
+end)
+repAllObj.MouseButton1Click:Connect(function()
+    if #objMatches > 0 then executeObjectReplace(objMatches)
+    else notify("Error", "Lakukan scan target dulu!", Color3.fromRGB(200,80,80)) end
+end)
+delAllObj.MouseButton1Click:Connect(function()
+    local n = 0
+    for _, o in ipairs(objMatches) do if o and o.Parent then o:Destroy(); n=n+1 end end
+    for _, c in ipairs(objScroll:GetChildren()) do if c:IsA("Frame") then c:Destroy() end end
+    objMatches = {}; selectedObj = nil
+    notify("OK", n.." object dihapus.", Color3.fromRGB(200,80,80))
 end)
 
--- DECAL REPLACER
-mkLabel(TReplace, "DECAL REPLACER", 0, 108, 1, 15, 11)
-local _, scanDecBtn = mkBtn(TReplace, "SCAN DECALS", 0, 126, 0, 26, C_BLUE)
-local scanDecFrame = scanDecBtn.Parent; scanDecFrame.Size=UDim2.new(0,105,0,26); scanDecFrame.Position=UDim2.new(0,10,0,126)
-local decIdF, decIdBox = mkBox(TReplace, "ID Decal Baru...", 0, 126, 1, 26)
-decIdF.Size=UDim2.new(1,-130,0,26); decIdF.Position=UDim2.new(0,122,0,126)
+-- DECAL REPLACER SECTION
+mkLabel(TReplace, "DECAL REPLACER", 0, 168, 1, 15, 11)
 
-local decalScroll, _ = mkScroll(TReplace, 0, 160, 1, 100)
+local _, scanDecBtn = mkBtn(TReplace, "SCAN DECALS", 0, 186, 0.4, 24, C_BLUE)
+scanDecBtn.Parent.Size = UDim2.new(0.4, -15, 0, 24)
+local decIdF, decIdBox = mkBox(TReplace, "ID Decal Baru...", 0, 186, 0.6, 24)
+decIdF.Size = UDim2.new(0.6, -5, 0, 24)
+decIdF.Position = UDim2.new(0.4, 5, 0, 186)
+
+local decalScroll, _ = mkScroll(TReplace, 0, 214, 1, 60)
 local selectedDecal = nil
+
 scanDecBtn.MouseButton1Click:Connect(function()
     selectedDecal=nil
     for _, c in ipairs(decalScroll:GetChildren()) do if c:IsA("Frame") then c:Destroy() end end
@@ -410,6 +486,7 @@ scanDecBtn.MouseButton1Click:Connect(function()
         if o:IsA("Decal") or o:IsA("Texture") then
             n=n+1
             local row = mkRow(decalScroll, C_CARD2)
+            row.Size = UDim2.new(1,0,0,22)
             local lbl = Instance.new("TextLabel", row)
             lbl.Size=UDim2.new(1,-10,1,0); lbl.Position=UDim2.new(0,8,0,0)
             lbl.BackgroundTransparency=1; lbl.Text=o.Parent.Name.." ▶ "..o.Name
@@ -428,12 +505,12 @@ scanDecBtn.MouseButton1Click:Connect(function()
     notify("Scan", n.." Decal ditemukan.", Color3.fromRGB(180,180,255))
 end)
 
-local _, repSelDec = mkBtn(TReplace, "REPLACE TERPILIH", 0, 268, 0.33, 24, C_BTN)
-repSelDec.Parent.Size=UDim2.new(0.33,-8,0,24); repSelDec.Parent.Position=UDim2.new(0,10,0,268)
-local _, repAllDec = mkBtn(TReplace, "REPLACE SEMUA", 0.33, 268, 0.33, 24, C_BTN)
-repAllDec.Parent.Size=UDim2.new(0.33,-8,0,24); repAllDec.Parent.Position=UDim2.new(0.33,5,0,268)
-local _, delAllDec = mkBtn(TReplace, "HAPUS SEMUA", 0.66, 268, 0.34, 24, C_RED)
-delAllDec.Parent.Size=UDim2.new(0.34,-15,0,24); delAllDec.Parent.Position=UDim2.new(0.66,10,0,268)
+local _, repSelDec = mkBtn(TReplace, "REPLACE TERPILIH", 0, 278, 0.33, 22, C_BTN)
+repSelDec.Parent.Size=UDim2.new(0.33,-8,0,22); repSelDec.Parent.Position=UDim2.new(0,10,0,278)
+local _, repAllDec = mkBtn(TReplace, "REPLACE SEMUA", 0.33, 278, 0.33, 22, C_BTN)
+repAllDec.Parent.Size=UDim2.new(0.33,-8,0,22); repAllDec.Parent.Position=UDim2.new(0.33,5,0,278)
+local _, delAllDec = mkBtn(TReplace, "HAPUS SEMUA", 0.66, 278, 0.34, 22, C_RED)
+delAllDec.Parent.Size=UDim2.new(0.34,-15,0,22); delAllDec.Parent.Position=UDim2.new(0.66,10,0,278)
 
 local function getDecalTex()
     local id=decIdBox.Text:match("%d+")
@@ -644,6 +721,59 @@ local function applyColor(prop)
 end
 applyBgBtn.MouseButton1Click:Connect(function() applyColor("bg") end)
 applyTxtBtn.MouseButton1Click:Connect(function() applyColor("txt") end)
+
+-- =========================================================================
+-- TAB 5: MAP COPIER
+-- =========================================================================
+mkLabel(TCopy, "WORKSPACE MAP COPIER", 0, 8, 1, 15, 11)
+mkLabel(TCopy, "Menyalin seluruh isi Workspace menjadi format .rbxm", 0, 26, 1, 14, 9)
+mkLabel(TCopy, "Tersimpan di: Delta/workspace/MCHLERN PROJECT [Nama Map]", 0, 42, 1, 14, 9)
+
+local _, startCopyBtn = mkBtn(TCopy, "START COPY WORKSPACE", 0, 70, 1, 30, C_BLUE)
+
+startCopyBtn.MouseButton1Click:Connect(function()
+    if not saveinstance then
+        notify("Error", "Executor kamu tidak mendukung saveinstance!", Color3.fromRGB(200,80,80))
+        return
+    end
+    
+    startCopyBtn.Text = "MENDAPATKAN INFO MAP..."
+    
+    task.spawn(function()
+        local success, info = pcall(function()
+            return game:GetService("MarketplaceService"):GetProductInfo(game.PlaceId)
+        end)
+        
+        local mapName = "Map_" .. tostring(game.PlaceId)
+        if success and info and info.Name then
+            mapName = info.Name:gsub("[^%w%s%-_]", "")
+        end
+        
+        local fileName = "MCHLERN PROJECT " .. mapName
+        startCopyBtn.Text = "COPYING... (GAME MUNGKIN FREEZE)"
+        
+        -- Memanggil saveinstance
+        local saveSuccess, err = pcall(function()
+            saveinstance({
+                object = workspace,
+                filename = fileName,
+                mode = "optimized",
+                noscripts = false,
+                timeout = 15000,
+                isolate = false,
+                ShowHidden = true -- Parameter exploit untuk bypass hidden/streamed instances jika disupport
+            })
+        end)
+        
+        if saveSuccess then
+            notify("Berhasil!", "Tersimpan: " .. fileName, Color3.fromRGB(100,200,100))
+        else
+            notify("Error", "Gagal: " .. tostring(err), Color3.fromRGB(200,80,80))
+        end
+        
+        startCopyBtn.Text = "START COPY WORKSPACE"
+    end)
+end)
 
 -- SET DEFAULT TAB
 Tabs[1].Btn.BackgroundColor3=C_TAB_ACT; Tabs[1].Btn.TextColor3=C_WHITE; Tabs[1].Ic.ImageColor3=C_WHITE; Tabs[1].Frame.Visible=true
