@@ -472,88 +472,6 @@ local function clearScroll(scroll)
     for _, c in ipairs(scroll:GetChildren()) do if c:IsA("Frame") then c:Destroy() end end
 end
 
--- Build collapsible tree
-local function mkGuiNode(parent, obj, depth, scroll)
-    local allowed = {ScreenGui=true,Frame=true,ScrollingFrame=true,TextLabel=true,TextButton=true,TextBox=true,ImageLabel=true,ImageButton=true,ViewportFrame=true}
-    if not allowed[obj.ClassName] then return end
-    local children = obj:GetChildren()
-    local hasChildren = false
-    for _, c in ipairs(children) do if allowed[c.ClassName] then hasChildren=true; break end end
-
-    local rowH = 22
-    local row = Instance.new("Frame", scroll)
-    row.Size=UDim2.new(1,0,0,rowH); row.BackgroundColor3=depth==0 and C_CARD or C_CARD2; mkCorner(row, 3)
-
-    local indent = depth * 12
-    local arrow = Instance.new("TextLabel", row)
-    arrow.Size=UDim2.new(0,14,1,0); arrow.Position=UDim2.new(0,indent+4,0,0)
-    arrow.BackgroundTransparency=1; arrow.Text=hasChildren and "▶" or " "
-    arrow.TextColor3=C_SUBTEXT; arrow.Font=Enum.Font.GothamBold; arrow.TextSize=9
-
-    local lbl = Instance.new("TextLabel", row)
-    lbl.Size=UDim2.new(1,-(indent+22),1,0); lbl.Position=UDim2.new(0,indent+20,0,0)
-    lbl.BackgroundTransparency=1; lbl.Text="["..obj.ClassName.."] "..obj.Name
-    lbl.TextColor3=C_WHITE; lbl.Font=Enum.Font.Gotham; lbl.TextSize=10; lbl.TextXAlignment=Enum.TextXAlignment.Left
-    lbl.TextTruncate=Enum.TextTruncate.AtEnd
-
-    local hitbox = Instance.new("TextButton", row)
-    hitbox.Size=UDim2.new(1,0,1,0); hitbox.BackgroundTransparency=1; hitbox.Text=""
-
-    local childFrames = {}
-    local expanded = false
-
-    local function buildChildren()
-        for _, c in ipairs(children) do
-            mkGuiNode(parent, c, depth+1, scroll)
-        end
-    end
-
-    hitbox.MouseButton1Click:Connect(function()
-        -- Highlight selection
-        for _, c in ipairs(scroll:GetChildren()) do if c:IsA("Frame") then c.BackgroundColor3=depth==0 and C_CARD or C_CARD2 end end
-        row.BackgroundColor3=Color3.fromRGB(55,85,55)
-        selectedGuiTarget=obj
-        parent.SelectedLbl.Text="Target: "..obj.Name
-
-        if hasChildren then
-            expanded=not expanded
-            arrow.Text=expanded and "▼" or "▶"
-            if expanded then
-                -- Find insertion index
-                local myIdx=0
-                for i, c in ipairs(scroll:GetChildren()) do if c==row then myIdx=i; break end end
-                -- Insert children after this row
-                for i=#children,1,-1 do
-                    local ch=children[i]
-                    local al={ScreenGui=true,Frame=true,ScrollingFrame=true,TextLabel=true,TextButton=true,TextBox=true,ImageLabel=true,ImageButton=true,ViewportFrame=true}
-                    if al[ch.ClassName] then
-                        local childRow=Instance.new("Frame",scroll); childRow.Size=UDim2.new(1,0,0,22)
-                        childRow.BackgroundColor3=C_CARD2; mkCorner(childRow,3); childRow.LayoutOrder=myIdx+1
-                        local iL=depth+1; local ind2=iL*12
-                        local lbl2=Instance.new("TextLabel",childRow)
-                        lbl2.Size=UDim2.new(1,-(ind2+22),1,0); lbl2.Position=UDim2.new(0,ind2+20,0,0)
-                        lbl2.BackgroundTransparency=1; lbl2.Text="["..ch.ClassName.."] "..ch.Name
-                        lbl2.TextColor3=C_SUBTEXT; lbl2.Font=Enum.Font.Gotham; lbl2.TextSize=9; lbl2.TextXAlignment=Enum.TextXAlignment.Left
-                        lbl2.TextTruncate=Enum.TextTruncate.AtEnd
-                        local hz2=Instance.new("TextButton",childRow); hz2.Size=UDim2.new(1,0,1,0); hz2.BackgroundTransparency=1; hz2.Text=""
-                        local ref=ch
-                        hz2.MouseButton1Click:Connect(function()
-                            for _, cc in ipairs(scroll:GetChildren()) do if cc:IsA("Frame") then cc.BackgroundColor3=C_CARD2 end end
-                            childRow.BackgroundColor3=Color3.fromRGB(55,85,55)
-                            selectedGuiTarget=ref; parent.SelectedLbl.Text="Target: "..ref.Name
-                        end)
-                        table.insert(childFrames, childRow)
-                    end
-                end
-            else
-                for _, cf in ipairs(childFrames) do cf:Destroy() end
-                table.remove(childFrames)
-            end
-        end
-    end)
-end
-
--- Attach selectedLbl reference to TRemake
 TRemake.SelectedLbl = Instance.new("TextLabel", TRemake)
 TRemake.SelectedLbl.Size=UDim2.new(0.58,-20,0,26); TRemake.SelectedLbl.Position=UDim2.new(0.42,10,0,8)
 TRemake.SelectedLbl.BackgroundTransparency=1; TRemake.SelectedLbl.Text="Target: SEMUA"
@@ -561,19 +479,101 @@ TRemake.SelectedLbl.TextColor3=Color3.fromRGB(220,200,100); TRemake.SelectedLbl.
 TRemake.SelectedLbl.TextSize=10; TRemake.SelectedLbl.TextXAlignment=Enum.TextXAlignment.Left
 TRemake.SelectedLbl.TextTruncate=Enum.TextTruncate.AtEnd
 
-scanGuiBtn.MouseButton1Click:Connect(function()
-    clearScroll(guiTreeScroll); selectedGuiTarget=nil; TRemake.SelectedLbl.Text="Target: SEMUA"
-    -- "All" row
-    local allRow=Instance.new("Frame",guiTreeScroll); allRow.Size=UDim2.new(1,0,0,24); allRow.BackgroundColor3=C_BTN; mkCorner(allRow,3)
+local function buildGuiTree(scrollFrame)
+    clearScroll(scrollFrame)
+    
+    local allRow = Instance.new("Frame", scrollFrame)
+    allRow.Size=UDim2.new(1,0,0,24); allRow.BackgroundColor3=C_BTN; mkCorner(allRow,3)
     local allL=Instance.new("TextLabel",allRow); allL.Size=UDim2.new(1,-10,1,0); allL.Position=UDim2.new(0,8,0,0)
     allL.BackgroundTransparency=1; allL.Text="⊕ SEMUA GUI"; allL.TextColor3=C_WHITE; allL.Font=Enum.Font.GothamBold; allL.TextSize=10; allL.TextXAlignment=Enum.TextXAlignment.Left
     local allHz=Instance.new("TextButton",allRow); allHz.Size=UDim2.new(1,0,1,0); allHz.BackgroundTransparency=1; allHz.Text=""
     allHz.MouseButton1Click:Connect(function()
-        for _, c in ipairs(guiTreeScroll:GetChildren()) do if c:IsA("Frame") then c.BackgroundColor3=C_CARD2 end end
+        for _, c in ipairs(scrollFrame:GetChildren()) do if c:IsA("Frame") then c.BackgroundColor3=C_CARD2 end end
         allRow.BackgroundColor3=Color3.fromRGB(55,85,55)
         selectedGuiTarget=nil; TRemake.SelectedLbl.Text="Target: SEMUA"
     end)
-    for _, gui in ipairs(StarterGui:GetChildren()) do mkGuiNode(TRemake, gui, 0, guiTreeScroll) end
+    
+    local allowedClasses = {ScreenGui=true, Frame=true, ScrollingFrame=true, TextLabel=true, TextButton=true, TextBox=true, ImageLabel=true, ImageButton=true, ViewportFrame=true, Folder=true}
+    
+    local function addNode(obj, depth, parentNode)
+        if not allowedClasses[obj.ClassName] then return nil end
+        
+        local hasAllowedChildren = false
+        for _, c in ipairs(obj:GetChildren()) do 
+            if allowedClasses[c.ClassName] then hasAllowedChildren = true; break end 
+        end
+        
+        local row = Instance.new("Frame", scrollFrame)
+        row.Size = UDim2.new(1, 0, 0, 22)
+        row.BackgroundColor3 = depth == 0 and C_CARD or C_CARD2
+        mkCorner(row, 3)
+        
+        local node = {row = row, obj = obj, children = {}, expanded = false, depth = depth}
+        if parentNode then table.insert(parentNode.children, node) end
+        
+        local indent = depth * 14
+        
+        local arrow = Instance.new("TextButton", row)
+        arrow.Size = UDim2.new(0, 16, 1, 0); arrow.Position = UDim2.new(0, indent + 4, 0, 0)
+        arrow.BackgroundTransparency = 1; arrow.Text = hasAllowedChildren and "▶" or " "
+        arrow.TextColor3 = C_SUBTEXT; arrow.Font = Enum.Font.GothamBold; arrow.TextSize = 10
+        
+        local lbl = Instance.new("TextLabel", row)
+        lbl.Size = UDim2.new(1, -(indent + 24), 1, 0); lbl.Position = UDim2.new(0, indent + 22, 0, 0)
+        lbl.BackgroundTransparency = 1; lbl.Text = "["..obj.ClassName.."] " .. obj.Name
+        lbl.TextColor3 = C_WHITE; lbl.Font = Enum.Font.Gotham; lbl.TextSize = 10
+        lbl.TextXAlignment = Enum.TextXAlignment.Left; lbl.TextTruncate = Enum.TextTruncate.AtEnd
+        
+        local selectBtn = Instance.new("TextButton", row)
+        selectBtn.Size = UDim2.new(1, -(indent + 22), 1, 0); selectBtn.Position = UDim2.new(0, indent + 22, 0, 0)
+        selectBtn.BackgroundTransparency = 1; selectBtn.Text = ""
+        
+        selectBtn.MouseButton1Click:Connect(function()
+            for _, c in ipairs(scrollFrame:GetChildren()) do 
+                if c:IsA("Frame") and c ~= allRow then c.BackgroundColor3 = C_CARD2 end 
+            end
+            allRow.BackgroundColor3 = C_BTN
+            row.BackgroundColor3 = Color3.fromRGB(55,85,55)
+            selectedGuiTarget = obj
+            TRemake.SelectedLbl.Text = "Target: " .. obj.Name
+        end)
+        
+        local function updateVisibility(isVisible)
+            row.Visible = isVisible
+            if isVisible and node.expanded then
+                for _, child in ipairs(node.children) do child.updateVisibility(true) end
+            else
+                for _, child in ipairs(node.children) do child.updateVisibility(false) end
+            end
+        end
+        node.updateVisibility = updateVisibility
+        
+        arrow.MouseButton1Click:Connect(function()
+            if not hasAllowedChildren then return end
+            node.expanded = not node.expanded
+            arrow.Text = node.expanded and "▼" or "▶"
+            for _, child in ipairs(node.children) do
+                child.updateVisibility(node.expanded)
+            end
+        end)
+        
+        for _, c in ipairs(obj:GetChildren()) do addNode(c, depth + 1, node) end
+        
+        if depth > 0 then row.Visible = false end
+        return node
+    end
+    
+    local found = 0
+    for _, gui in ipairs(StarterGui:GetChildren()) do
+        if addNode(gui, 0, nil) then found = found + 1 end
+    end
+    return found
+end
+
+scanGuiBtn.MouseButton1Click:Connect(function()
+    selectedGuiTarget=nil; TRemake.SelectedLbl.Text="Target: SEMUA"
+    local count = buildGuiTree(guiTreeScroll)
+    notify("Scan GUI", "Berhasil scan "..count.." GUI Root dari StarterGui.", Color3.fromRGB(180,180,255))
 end)
 
 -- Right side: Color Palette
