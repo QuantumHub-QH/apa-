@@ -39,7 +39,7 @@ end
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local HttpService = game:GetService("HttpService")
-local UserInputService = game:GetService("InsertService")
+local UserInputService = game:GetService("UserInputService") -- [BUG DIPERBAIKI DI SINI]
 local InsertService = game:GetService("InsertService")
 local CoreGui = game:GetService("CoreGui")
 local TweenService = game:GetService("TweenService")
