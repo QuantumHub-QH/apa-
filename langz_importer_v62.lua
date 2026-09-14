@@ -15,6 +15,8 @@ local _WHITELIST = {
     -- Masukkan UserId yang boleh akses di sini
     10955292268,
     5164026816,
+    9281142883,
+    9863660685,
     -- 987654321,
 }
 
@@ -37,7 +39,7 @@ end
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local HttpService = game:GetService("HttpService")
-local UserInputService = game:GetService("UserInputService")
+local UserInputService = game:GetService("InsertService")
 local InsertService = game:GetService("InsertService")
 local CoreGui = game:GetService("CoreGui")
 local TweenService = game:GetService("TweenService")
