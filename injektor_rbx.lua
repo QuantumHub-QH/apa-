@@ -1,13 +1,10 @@
 -- =======================================================
--- BLUExCrown ENGINE v5.4 - DEFINITIVE SCRIPT & EDITOR FIX
--- Dual Layer Protection:
--- Layer 1: Hook Metamethod GetScriptSourceServerFunction (Direct Studio Lite Server Remote Bypass)
--- Layer 2: Real-time UI Watcher & Injector (Instant "Not found." replacement + Full Editor Unlock)
--- Features:
--- 1. [SAVE CODE], [RUN SCRIPT], [COPY ALL] di Editor Studio Lite
--- 2. Debounce Safe Click pada tombol X dan Toggle (100% responsif di HP)
--- 3. Screen Boundary Clamping (GUI tidak ngesot keluar layar)
--- 4. Full RBXM Auto-Extraction & Dual Memory (_G.BLUE_RAW_SOURCES & _G.LANGZ_RAW_SOURCES)
+-- BLUExCrown ENGINE v5.5 - ULTIMATE SCRIPT EDITOR & STABILITY FIX
+-- 1. Fix Togle Ikut Geser: Togle dikunci di posisi paten (Anti-Geser saat gerakin kamera di HP)
+-- 2. Draggable Window: Hanya TopBar MainFrame yang bisa digeser dengan strict input tracking
+-- 3. In-Game Code Editor Modal: Editor script lengkap (Bisa diketik, diedit, disave & dijalankan)
+-- 4. Studio Lite Toolbar: Tombol [EDIT CODE], [SAVE], [RUN], [COPY] di setiap script editor
+-- 5. Dual-Layer Source Recovery: Metamethod Hook + UI Realtime Scanner (0% Not Found)
 -- Toggle Image Asset ID: 102337382069600
 -- =======================================================
 
@@ -27,7 +24,7 @@ local clipFn       = setclipboard or toclipboard or (Clipboard and Clipboard.set
 local customAsset  = getcustomasset or getsynasset or nil
 local listfilesFn  = listfiles or nil
 
--- Memory penyimpanan source code script (Support dual global memory)
+-- Memory penyimpanan source code script
 _G.BLUE_RAW_SOURCES  = _G.BLUE_RAW_SOURCES or {}
 _G.LANGZ_RAW_SOURCES = _G.LANGZ_RAW_SOURCES or {}
 
@@ -70,7 +67,7 @@ local function lookupScriptSource(searchKey)
 end
 
 -- =====================================================
--- STUDIO LITE INTEGRATION & HOOKS (LAYER 1)
+-- STUDIO LITE INTEGRATION & HOOKS
 -- =====================================================
 local slFolder    = ReplicatedStorage:FindFirstChild("StudioLiteFolder")
 local serverFuncs = slFolder and slFolder:FindFirstChild("ServerFunctions")
@@ -119,7 +116,7 @@ local function loadAssetsToSLServer(obj)
     end)
 end
 
--- Safe Metamethod Hook: Hanya mencegat GetScriptSourceServerFunction & SaveScriptSourceServerFunction
+-- Metamethod Hook aman untuk GetScriptSourceServerFunction
 task.spawn(function()
     pcall(function()
         if hookmetamethod then
@@ -144,211 +141,6 @@ task.spawn(function()
         end
     end)
 end)
-
--- =====================================================
--- STUDIO LITE REAL-TIME UI WATCHER & UNLOCKER (LAYER 2)
--- Menjamin 100% "Not found." di-replace langsung di layar
--- =====================================================
-local function fixEditorUI(desc)
-    if not desc then return end
-
-    -- Kasus 1: Object adalah TextBox atau TextLabel yang berisi "Not found"
-    if desc:IsA("TextBox") or desc:IsA("TextLabel") then
-        local t = desc.Text
-        if t == "Not found." or t == "Not found" or t:find("Not found") or t == "-- [LANGZ] Source tidak ditemukan." then
-            local win = desc:FindFirstAncestorWhichIsA("Frame") or desc.Parent
-            local scriptName = ""
-            if win then
-                for _, wChild in ipairs(win:GetDescendants()) do
-                    if (wChild:IsA("TextLabel") or wChild:IsA("TextBox")) and wChild ~= desc then
-                        local wt = wChild.Text
-                        if wt:find("%(read only%)") or wt:find("%[EDITABLE%]") or #wt > 1 then
-                            scriptName = wt:gsub("%s*%(read only%)%s*", ""):gsub("%s*%[EDITABLE%]%s*", ""):gsub("%s+", "")
-                            if wChild:IsA("TextLabel") then
-                                wChild.Text = scriptName .. " [EDITABLE]"
-                                wChild.TextColor3 = Color3.fromRGB(180, 255, 180)
-                            end
-                            break
-                        end
-                    end
-                end
-            end
-
-            local source = lookupScriptSource(scriptName)
-            if source then
-                desc.Text = source
-            end
-        end
-
-        -- Unlock agar bisa diketik / diedit
-        if desc:IsA("TextBox") then
-            desc.TextEditable = true
-            desc.ClearTextOnFocus = false
-            desc.Active = true
-        end
-
-        -- Ubah teks (read only) di label judul
-        if desc:IsA("TextLabel") and desc.Text:find("%(read only%)") then
-            desc.Text = desc.Text:gsub("%s*%(read only%)%s*", "") .. " [EDITABLE]"
-            desc.TextColor3 = Color3.fromRGB(180, 255, 180)
-        end
-    end
-
-    -- Kasus 2: Object adalah Window Editor Studio Lite (Frame)
-    if desc:IsA("Frame") then
-        local titleLbl = nil
-        local codeBox  = nil
-        local hasReadOnly = false
-
-        for _, d in ipairs(desc:GetDescendants()) do
-            if d:IsA("TextLabel") or d:IsA("TextBox") then
-                local txt = d.Text
-                if txt:find("%(read only%)") or txt:find("%[EDITABLE%]") then
-                    titleLbl = d
-                    hasReadOnly = true
-                elseif txt == "Not found." or txt == "Not found" or txt:find("Not found") or #txt > 15 then
-                    codeBox = d
-                end
-            end
-        end
-
-        if hasReadOnly and titleLbl then
-            local cleanTitle = titleLbl.Text:gsub("%s*%(read only%)%s*", ""):gsub("%s*%[EDITABLE%]%s*", ""):gsub("%s+", "")
-            titleLbl.Text = cleanTitle .. " [EDITABLE]"
-            titleLbl.TextColor3 = Color3.fromRGB(180, 255, 180)
-
-            if codeBox then
-                if codeBox.Text == "Not found." or codeBox.Text == "Not found" or codeBox.Text:find("Not found") then
-                    local s = lookupScriptSource(cleanTitle)
-                    if s then codeBox.Text = s end
-                end
-                if codeBox:IsA("TextBox") then
-                    codeBox.TextEditable = true
-                    codeBox.ClearTextOnFocus = false
-                    codeBox.Active = true
-                end
-            end
-
-            -- Inject Toolbar BLUExToolbar [SAVE], [RUN], [COPY]
-            if not desc:FindFirstChild("BLUExToolbar") then
-                local toolbar = Instance.new("Frame")
-                toolbar.Name = "BLUExToolbar"
-                toolbar.Size = UDim2.new(0, 205, 0, 24)
-                toolbar.Position = UDim2.new(1, -240, 0, 4)
-                toolbar.BackgroundTransparency = 1
-                toolbar.ZIndex = 60
-                toolbar.Parent = desc
-
-                local function makeToolBtn(text, posX, width, onClick)
-                    local btn = Instance.new("TextButton")
-                    btn.Size = UDim2.new(0, width, 1, 0)
-                    btn.Position = UDim2.new(0, posX, 0, 0)
-                    btn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-                    btn.Text = text
-                    btn.Font = Enum.Font.GothamBold
-                    btn.TextSize = 8
-                    btn.TextColor3 = Color3.fromRGB(0, 0, 0)
-                    btn.ZIndex = 61
-                    btn.Parent = toolbar
-                    local c = Instance.new("UICorner", btn); c.CornerRadius = UDim.new(0, 4)
-                    btn.Activated:Connect(onClick)
-                    return btn
-                end
-
-                local saveBtn = makeToolBtn("SAVE", 0, 60, function()
-                    if codeBox then
-                        local newCode = codeBox.Text
-                        storeScriptSource(cleanTitle, newCode)
-                        pcall(function()
-                            for _, inst in ipairs(workspace:GetDescendants()) do
-                                if inst:IsA("LuaSourceContainer") and inst.Name:lower() == cleanTitle:lower() then
-                                    storeScriptSource(inst, newCode)
-                                    pcall(function() inst.Source = newCode end)
-                                end
-                            end
-                        end)
-                        if serverFuncs then
-                            pcall(function() serverFuncs:InvokeServer("SaveScriptSourceServerFunction", cleanTitle, newCode) end)
-                        end
-                        saveBtn.Text = "SAVED!"
-                        task.delay(1.2, function() if saveBtn and saveBtn.Parent then saveBtn.Text = "SAVE" end end)
-                    end
-                end)
-
-                local runBtn = makeToolBtn("RUN", 65, 60, function()
-                    if codeBox and codeBox.Text ~= "" then
-                        local fn, err = loadstring(codeBox.Text)
-                        if fn then
-                            task.spawn(fn)
-                            runBtn.Text = "RUNNING!"
-                        else
-                            runBtn.Text = "ERR!"
-                            warn("[BLUExCrown] Compile error: " .. tostring(err))
-                        end
-                        task.delay(1.5, function() if runBtn and runBtn.Parent then runBtn.Text = "RUN" end end)
-                    end
-                end)
-
-                local copyBtn = makeToolBtn("COPY", 130, 65, function()
-                    if codeBox and clipFn then
-                        pcall(clipFn, codeBox.Text)
-                        copyBtn.Text = "COPIED!"
-                        task.delay(1.2, function() if copyBtn and copyBtn.Parent then copyBtn.Text = "COPY" end end)
-                    end
-                end)
-            end
-        end
-    end
-end
-
--- Monitor UI Studio Lite secara berkelanjutan
-task.spawn(function()
-    pcall(function()
-        local pg = LP:WaitForChild("PlayerGui", 5)
-        if pg then
-            pg.DescendantAdded:Connect(function(desc)
-                task.delay(0.05, function() fixEditorUI(desc) end)
-            end)
-            for _, d in ipairs(pg:GetDescendants()) do
-                fixEditorUI(d)
-            end
-        end
-    end)
-end)
-
--- Polling periodik (setiap 0.6s) menangani script yang lambat di-render Studio Lite
-task.spawn(function()
-    while task.wait(0.6) do
-        pcall(function()
-            local pg = LP:FindFirstChild("PlayerGui")
-            if pg then
-                for _, d in ipairs(pg:GetDescendants()) do
-                    if (d:IsA("TextBox") or d:IsA("TextLabel")) and (d.Text == "Not found." or d.Text:find("%(read only%)")) then
-                        fixEditorUI(d)
-                    end
-                end
-            end
-        end)
-    end
-end)
-
--- =====================================================
--- RBXM RAW SCANNER
--- =====================================================
-local function parseRBXMSources(raw)
-    local sources = {}
-    if not raw or #raw < 30 then return sources end
-    for src in raw:gmatch("([^\0\r\n][^\0]+[\r\n]+[^\0]+)") do
-        if src:find("function") or src:find("local ") or src:find("return") or src:find("require") then
-            local nameMatch = src:match("([%a_][%w_]*)%s*=%s*function") or src:match("local%s+([%a_][%w_]*)") or "Script"
-            sources[nameMatch] = src
-        end
-    end
-    for name, code in raw:gmatch('<Item class="[%w]+" referent="[^"]+">%s*<Properties>%s*<string name="Name">([^<]+)</string>.-<ProtectedString name="Source"><%!%[CDATA%[(.-)%]%]></ProtectedString>') do
-        sources[name] = code
-    end
-    return sources
-end
 
 -- =====================================================
 -- GUI CREATION (CLEAN & ERROR FREE)
@@ -392,10 +184,14 @@ local function bindSafeClick(btn, callback)
     btn.MouseButton1Click:Connect(trigger)
 end
 
--- ===================== TOGGLE BUTTON =====================
+-- =====================================================
+-- 1. TOGGLE BUTTON (PATEN & ANTI-GESER)
+-- Posisi dikunci di kiri layar, tidak akan bergeser saat putar kamera!
+-- =====================================================
 local ToggleBtn = Instance.new("ImageButton")
+ToggleBtn.Name = "BLUExToggleBtn"
 ToggleBtn.Size = UDim2.new(0, 44, 0, 44)
-ToggleBtn.Position = UDim2.new(0.02, 0, 0.45, 0)
+ToggleBtn.Position = UDim2.new(0.015, 0, 0.45, 0)
 ToggleBtn.BackgroundColor3 = Color3.fromRGB(14, 14, 16)
 ToggleBtn.Image = "rbxassetid://102337382069600"
 ToggleBtn.ScaleType = Enum.ScaleType.Fit
@@ -405,7 +201,9 @@ ToggleBtn.Parent = ScreenGui
 makeCorner(ToggleBtn, 8)
 makeStroke(ToggleBtn, Color3.fromRGB(255,255,255), 1.4)
 
--- ===================== MAIN WINDOW =====================
+-- =====================================================
+-- 2. MAIN WINDOW
+-- =====================================================
 local MainFrame = Instance.new("Frame")
 MainFrame.Name = "MainFrame"
 MainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
@@ -420,7 +218,7 @@ MainFrame.Parent = ScreenGui
 makeCorner(MainFrame, 10)
 makeStroke(MainFrame, Color3.fromRGB(255,255,255), 1.4)
 
--- TOP BAR
+-- TOP BAR (HANYA INI YANG BISA DIGESER DENGAN DRAG)
 local TopBar = Instance.new("Frame")
 TopBar.Size = UDim2.new(1, -12, 0, 32)
 TopBar.Position = UDim2.new(0, 6, 0, 6)
@@ -436,7 +234,7 @@ local TitleLbl = Instance.new("TextLabel")
 TitleLbl.Size = UDim2.new(1, -70, 1, 0)
 TitleLbl.Position = UDim2.new(0, 12, 0, 0)
 TitleLbl.BackgroundTransparency = 1
-TitleLbl.Text = "BLUExCrown ENGINE v5.4"
+TitleLbl.Text = "BLUExCrown ENGINE v5.5"
 TitleLbl.Font = Enum.Font.GothamBold
 TitleLbl.TextSize = 11
 TitleLbl.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -457,7 +255,410 @@ CloseBtn.Active = true
 CloseBtn.Parent = TopBar
 makeCorner(CloseBtn, 5)
 
--- CONTENT CONTAINER
+-- =====================================================
+-- SAFE DRAGGER (STRICT TRACKING - TIDAK AKAN GESER KARENA KAMERA)
+-- =====================================================
+local function makeSafeTopBarDraggable(frame, handle)
+    local dragInput = nil
+    local dragStart = nil
+    local startPos = nil
+
+    handle.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragInput = input
+            dragStart = input.Position
+            startPos = frame.Position
+        end
+    end)
+
+    UserInputService.InputChanged:Connect(function(input)
+        if input == dragInput and dragStart and startPos then
+            local delta = input.Position - dragStart
+            local vp = (workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize) or Vector2.new(800, 450)
+            local newX = math.clamp(startPos.X.Offset + delta.X, -vp.X/2 + 200, vp.X/2 - 200)
+            local newY = math.clamp(startPos.Y.Offset + delta.Y, -vp.Y/2 + 100, vp.Y/2 - 100)
+            frame.Position = UDim2.new(startPos.X.Scale, newX, startPos.Y.Scale, newY)
+        end
+    end)
+
+    UserInputService.InputEnded:Connect(function(input)
+        if input == dragInput then
+            dragInput = nil
+            dragStart = nil
+            startPos = nil
+        end
+    end)
+end
+
+makeSafeTopBarDraggable(MainFrame, TopBar)
+
+-- TOGGLE & CLOSE BEHAVIOR
+local isOpen = true
+local toggleDebounce = false
+
+local function toggleWindow()
+    if toggleDebounce then return end
+    toggleDebounce = true
+    isOpen = not isOpen
+    MainFrame.Visible = isOpen
+    task.delay(0.2, function() toggleDebounce = false end)
+end
+
+bindSafeClick(ToggleBtn, toggleWindow)
+bindSafeClick(CloseBtn, toggleWindow)
+
+-- =====================================================
+-- 3. IN-GAME CODE EDITOR MODAL (BISA DIKETIK & DIEDIT DI HP)
+-- =====================================================
+local EditorModal = Instance.new("Frame")
+EditorModal.Name = "BLUExEditorModal"
+EditorModal.AnchorPoint = Vector2.new(0.5, 0.5)
+EditorModal.Position = UDim2.fromScale(0.5, 0.5)
+EditorModal.Size = UDim2.new(0, 680, 0, 380)
+EditorModal.BackgroundColor3 = Color3.fromRGB(14, 14, 18)
+EditorModal.BorderSizePixel = 0
+EditorModal.ClipsDescendants = true
+EditorModal.Visible = false
+EditorModal.ZIndex = 200
+EditorModal.Parent = ScreenGui
+makeCorner(EditorModal, 10)
+makeStroke(EditorModal, Color3.fromRGB(255, 255, 255), 1.5)
+
+local EdTopBar = Instance.new("Frame")
+EdTopBar.Size = UDim2.new(1, -12, 0, 32)
+EdTopBar.Position = UDim2.new(0, 6, 0, 6)
+EdTopBar.BackgroundColor3 = Color3.fromRGB(22, 22, 28)
+EdTopBar.ZIndex = 201
+EdTopBar.Parent = EditorModal
+makeCorner(EdTopBar, 6)
+makeStroke(EdTopBar, Color3.fromRGB(255,255,255), 1, 0.8)
+
+local EdTitleLbl = Instance.new("TextLabel")
+EdTitleLbl.Size = UDim2.new(0.4, 0, 1, 0)
+EdTitleLbl.Position = UDim2.new(0, 10, 0, 0)
+EdTitleLbl.BackgroundTransparency = 1
+EdTitleLbl.Text = "EDITOR: Script"
+EdTitleLbl.Font = Enum.Font.GothamBold
+EdTitleLbl.TextSize = 11
+EdTitleLbl.TextColor3 = Color3.fromRGB(255, 255, 255)
+EdTitleLbl.TextXAlignment = Enum.TextXAlignment.Left
+EdTitleLbl.ZIndex = 202
+EdTitleLbl.Parent = EdTopBar
+
+local EdBtnRow = Instance.new("Frame")
+EdBtnRow.Size = UDim2.new(0.6, -10, 1, -6)
+EdBtnRow.Position = UDim2.new(0.4, 5, 0, 3)
+EdBtnRow.BackgroundTransparency = 1
+EdBtnRow.ZIndex = 202
+EdBtnRow.Parent = EdTopBar
+
+local edLayout = Instance.new("UIListLayout")
+edLayout.FillDirection = Enum.FillDirection.Horizontal
+edLayout.HorizontalAlignment = Enum.HorizontalAlignment.Right
+edLayout.Padding = UDim.new(0, 6)
+edLayout.Parent = EdBtnRow
+
+local function makeEdBtn(text, width, onClick)
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(0, width, 1, 0)
+    btn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    btn.Text = text
+    btn.Font = Enum.Font.GothamBold
+    btn.TextSize = 9
+    btn.TextColor3 = Color3.fromRGB(0, 0, 0)
+    btn.ZIndex = 203
+    btn.Parent = EdBtnRow
+    makeCorner(btn, 5)
+    bindSafeClick(btn, onClick)
+    return btn
+end
+
+local activeEditingScript = ""
+
+local EdSaveBtn = makeEdBtn("SAVE & APPLY", 90, function() end)
+local EdRunBtn  = makeEdBtn("RUN SCRIPT", 75, function() end)
+local EdCopyBtn = makeEdBtn("COPY ALL", 65, function() end)
+local EdCloseBtn = makeEdBtn("X", 26, function()
+    EditorModal.Visible = false
+end)
+
+local EdScroll = Instance.new("ScrollingFrame")
+EdScroll.Size = UDim2.new(1, -12, 1, -48)
+EdScroll.Position = UDim2.new(0, 6, 0, 42)
+EdScroll.BackgroundColor3 = Color3.fromRGB(18, 18, 22)
+EdScroll.BorderSizePixel = 0
+EdScroll.ScrollBarThickness = 4
+EdScroll.ScrollBarImageColor3 = Color3.fromRGB(255, 255, 255)
+EdScroll.ZIndex = 201
+EdScroll.Parent = EditorModal
+makeCorner(EdScroll, 6)
+makeStroke(EdScroll, Color3.fromRGB(255,255,255), 1, 0.8)
+
+local EdTextBox = Instance.new("TextBox")
+EdTextBox.Size = UDim2.new(1, -16, 1, -10)
+EdTextBox.Position = UDim2.new(0, 8, 0, 5)
+EdTextBox.BackgroundTransparency = 1
+EdTextBox.Font = Enum.Font.Code
+EdTextBox.TextSize = 11
+EdTextBox.TextColor3 = Color3.fromRGB(235, 235, 240)
+EdTextBox.TextXAlignment = Enum.TextXAlignment.Left
+EdTextBox.TextYAlignment = Enum.TextYAlignment.Top
+EdTextBox.ClearTextOnFocus = false
+EdTextBox.TextEditable = true
+EdTextBox.MultiLine = true
+EdTextBox.Active = true
+EdTextBox.ZIndex = 202
+EdTextBox.Text = ""
+EdTextBox.Parent = EdScroll
+
+EdTextBox:GetPropertyChangedSignal("Text"):Connect(function()
+    local lines = #EdTextBox.Text:split("\n")
+    EdScroll.CanvasSize = UDim2.new(0, 0, 0, math.max(340, lines * 18 + 40))
+end)
+
+local function openInEditor(scriptName, code)
+    activeEditingScript = scriptName or "Script"
+    EdTitleLbl.Text = "EDITOR: " .. activeEditingScript
+    EdTextBox.Text = code or lookupScriptSource(scriptName) or "-- Ketik code di sini..."
+    EditorModal.Visible = true
+end
+
+-- Hook tombol-tombol Editor
+bindSafeClick(EdSaveBtn, function()
+    local newCode = EdTextBox.Text
+    storeScriptSource(activeEditingScript, newCode)
+    pcall(function()
+        for _, inst in ipairs(workspace:GetDescendants()) do
+            if inst:IsA("LuaSourceContainer") and inst.Name:lower() == activeEditingScript:lower() then
+                storeScriptSource(inst, newCode)
+                pcall(function() inst.Source = newCode end)
+            end
+        end
+    end)
+    if serverFuncs then
+        pcall(function() serverFuncs:InvokeServer("SaveScriptSourceServerFunction", activeEditingScript, newCode) end)
+    end
+    EdSaveBtn.Text = "SAVED!"
+    task.delay(1.2, function() EdSaveBtn.Text = "SAVE & APPLY" end)
+end)
+
+bindSafeClick(EdRunBtn, function()
+    if EdTextBox.Text ~= "" then
+        local fn, err = loadstring(EdTextBox.Text)
+        if fn then
+            task.spawn(fn)
+            EdRunBtn.Text = "RUNNING!"
+        else
+            EdRunBtn.Text = "ERROR!"
+            warn("[BLUExCrown] Code Error: " .. tostring(err))
+        end
+        task.delay(1.5, function() EdRunBtn.Text = "RUN SCRIPT" end)
+    end
+end)
+
+bindSafeClick(EdCopyBtn, function()
+    if clipFn and EdTextBox.Text ~= "" then
+        pcall(clipFn, EdTextBox.Text)
+        EdCopyBtn.Text = "COPIED!"
+        task.delay(1.2, function() EdCopyBtn.Text = "COPY ALL" end)
+    end
+end)
+
+-- =====================================================
+-- 4. STUDIO LITE REAL-TIME UI WATCHER & INJECTOR
+-- =====================================================
+local function fixEditorUI(desc)
+    if not desc then return end
+
+    -- Kasus 1: Object adalah TextBox atau TextLabel yang berisi "Not found"
+    if desc:IsA("TextBox") or desc:IsA("TextLabel") then
+        local t = desc.Text
+        if t == "Not found." or t == "Not found" or t:find("Not found") or t == "-- [LANGZ] Source tidak ditemukan." then
+            local win = desc:FindFirstAncestorWhichIsA("Frame") or desc.Parent
+            local scriptName = ""
+            if win then
+                for _, wChild in ipairs(win:GetDescendants()) do
+                    if (wChild:IsA("TextLabel") or wChild:IsA("TextBox")) and wChild ~= desc then
+                        local wt = wChild.Text
+                        if wt:find("%(read only%)") or wt:find("%[EDITABLE%]") or #wt > 1 then
+                            scriptName = wt:gsub("%s*%(read only%)%s*", ""):gsub("%s*%[EDITABLE%]%s*", ""):gsub("%s+", "")
+                            if wChild:IsA("TextLabel") then
+                                wChild.Text = scriptName .. " [EDITABLE]"
+                                wChild.TextColor3 = Color3.fromRGB(180, 255, 180)
+                            end
+                            break
+                        end
+                    end
+                end
+            end
+
+            local source = lookupScriptSource(scriptName)
+            if source then
+                desc.Text = source
+            end
+        end
+
+        -- Jadikan TextBox editable jika ada
+        if desc:IsA("TextBox") then
+            desc.TextEditable = true
+            desc.ClearTextOnFocus = false
+            desc.Active = true
+        end
+
+        -- Hapus read only di judul
+        if desc:IsA("TextLabel") and desc.Text:find("%(read only%)") then
+            desc.Text = desc.Text:gsub("%s*%(read only%)%s*", "") .. " [EDITABLE]"
+            desc.TextColor3 = Color3.fromRGB(180, 255, 180)
+        end
+    end
+
+    -- Kasus 2: Object adalah Window Editor Studio Lite (Frame)
+    if desc:IsA("Frame") then
+        local titleLbl = nil
+        local codeBox  = nil
+        local hasReadOnly = false
+
+        for _, d in ipairs(desc:GetDescendants()) do
+            if d:IsA("TextLabel") or d:IsA("TextBox") then
+                local txt = d.Text
+                if txt:find("%(read only%)") or txt:find("%[EDITABLE%]") then
+                    titleLbl = d
+                    hasReadOnly = true
+                elseif txt == "Not found." or txt == "Not found" or txt:find("Not found") or #txt > 15 then
+                    codeBox = d
+                end
+            end
+        end
+
+        if hasReadOnly and titleLbl then
+            local cleanTitle = titleLbl.Text:gsub("%s*%(read only%)%s*", ""):gsub("%s*%[EDITABLE%]%s*", ""):gsub("%s+", "")
+            titleLbl.Text = cleanTitle .. " [EDITABLE]"
+            titleLbl.TextColor3 = Color3.fromRGB(180, 255, 180)
+
+            if codeBox then
+                if codeBox.Text == "Not found." or codeBox.Text == "Not found" or codeBox.Text:find("Not found") then
+                    local s = lookupScriptSource(cleanTitle)
+                    if s then codeBox.Text = s end
+                end
+                if codeBox:IsA("TextBox") then
+                    codeBox.TextEditable = true
+                    codeBox.ClearTextOnFocus = false
+                    codeBox.Active = true
+                end
+            end
+
+            -- Inject Toolbar BLUExToolbar [EDIT CODE], [SAVE], [RUN], [COPY]
+            if not desc:FindFirstChild("BLUExToolbar") then
+                local toolbar = Instance.new("Frame")
+                toolbar.Name = "BLUExToolbar"
+                toolbar.Size = UDim2.new(0, 260, 0, 24)
+                toolbar.Position = UDim2.new(1, -295, 0, 4)
+                toolbar.BackgroundTransparency = 1
+                toolbar.ZIndex = 60
+                toolbar.Parent = desc
+
+                local function makeToolBtn(text, posX, width, onClick)
+                    local btn = Instance.new("TextButton")
+                    btn.Size = UDim2.new(0, width, 1, 0)
+                    btn.Position = UDim2.new(0, posX, 0, 0)
+                    btn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+                    btn.Text = text
+                    btn.Font = Enum.Font.GothamBold
+                    btn.TextSize = 8
+                    btn.TextColor3 = Color3.fromRGB(0, 0, 0)
+                    btn.ZIndex = 61
+                    btn.Parent = toolbar
+                    local c = Instance.new("UICorner", btn); c.CornerRadius = UDim.new(0, 4)
+                    btn.Activated:Connect(onClick)
+                    return btn
+                end
+
+                -- Tombol [EDIT CODE] membuka popup editor lengkap
+                makeToolBtn("EDIT CODE", 0, 70, function()
+                    local currentCode = (codeBox and codeBox.Text) or lookupScriptSource(cleanTitle) or ""
+                    openInEditor(cleanTitle, currentCode)
+                end)
+
+                local saveBtn = makeToolBtn("SAVE", 74, 55, function()
+                    local newCode = (codeBox and codeBox.Text) or lookupScriptSource(cleanTitle) or ""
+                    storeScriptSource(cleanTitle, newCode)
+                    pcall(function()
+                        for _, inst in ipairs(workspace:GetDescendants()) do
+                            if inst:IsA("LuaSourceContainer") and inst.Name:lower() == cleanTitle:lower() then
+                                storeScriptSource(inst, newCode)
+                                pcall(function() inst.Source = newCode end)
+                            end
+                        end
+                    end)
+                    if serverFuncs then
+                        pcall(function() serverFuncs:InvokeServer("SaveScriptSourceServerFunction", cleanTitle, newCode) end)
+                    end
+                    saveBtn.Text = "SAVED!"
+                    task.delay(1.2, function() if saveBtn and saveBtn.Parent then saveBtn.Text = "SAVE" end end)
+                end)
+
+                local runBtn = makeToolBtn("RUN", 133, 55, function()
+                    local codeToRun = (codeBox and codeBox.Text) or lookupScriptSource(cleanTitle)
+                    if codeToRun and codeToRun ~= "" then
+                        local fn, err = loadstring(codeToRun)
+                        if fn then
+                            task.spawn(fn)
+                            runBtn.Text = "RUNNING!"
+                        else
+                            runBtn.Text = "ERR!"
+                            warn("[BLUExCrown] Compile error: " .. tostring(err))
+                        end
+                        task.delay(1.5, function() if runBtn and runBtn.Parent then runBtn.Text = "RUN" end end)
+                    end
+                end)
+
+                local copyBtn = makeToolBtn("COPY", 192, 60, function()
+                    local codeToCopy = (codeBox and codeBox.Text) or lookupScriptSource(cleanTitle)
+                    if codeToCopy and clipFn then
+                        pcall(clipFn, codeToCopy)
+                        copyBtn.Text = "COPIED!"
+                        task.delay(1.2, function() if copyBtn and copyBtn.Parent then copyBtn.Text = "COPY" end end)
+                    end
+                end)
+            end
+        end
+    end
+end
+
+-- Listener terus-menerus di PlayerGui
+task.spawn(function()
+    pcall(function()
+        local pg = LP:WaitForChild("PlayerGui", 5)
+        if pg then
+            pg.DescendantAdded:Connect(function(desc)
+                task.delay(0.05, function() fixEditorUI(desc) end)
+            end)
+            for _, d in ipairs(pg:GetDescendants()) do
+                fixEditorUI(d)
+            end
+        end
+    end)
+end)
+
+-- Polling periodik (setiap 0.6s)
+task.spawn(function()
+    while task.wait(0.6) do
+        pcall(function()
+            local pg = LP:FindFirstChild("PlayerGui")
+            if pg then
+                for _, d in ipairs(pg:GetDescendants()) do
+                    if (d:IsA("TextBox") or d:IsA("TextLabel")) and (d.Text == "Not found." or d.Text:find("%(read only%)")) then
+                        fixEditorUI(d)
+                    end
+                end
+            end
+        end)
+    end
+end)
+
+-- =====================================================
+-- CONTENT CONTAINER (PAGES)
+-- =====================================================
 local Content = Instance.new("Frame")
 Content.Size = UDim2.new(1, -12, 1, -46)
 Content.Position = UDim2.new(0, 6, 0, 42)
@@ -551,7 +752,7 @@ local StatsLbl = Instance.new("TextLabel")
 StatsLbl.Size = UDim2.new(1, -16, 1, -168)
 StatsLbl.Position = UDim2.new(0, 8, 0, 162)
 StatsLbl.BackgroundTransparency = 1
-StatsLbl.Text = "UserID: "..tostring(LP.UserId).."\nBLUExCrown ENGINE\nv5.4 — Definitive Fix"
+StatsLbl.Text = "UserID: "..tostring(LP.UserId).."\nBLUExCrown ENGINE\nv5.5 — Editor & Lock Fix"
 StatsLbl.Font = Enum.Font.Gotham
 StatsLbl.TextSize = 9
 StatsLbl.TextColor3 = Color3.fromRGB(130, 130, 140)
@@ -982,241 +1183,7 @@ RbxmEmpty.TextColor3 = Color3.fromRGB(140, 140, 150)
 RbxmEmpty.ZIndex = 15
 RbxmEmpty.Parent = RbxmScroll
 
--- =====================================================
--- SAFE MOBILE DRAGGING DENGAN CLAMPING
--- =====================================================
-local function makeSafeDraggable(frame, handle)
-    local dragging = false
-    local dragStart = nil
-    local startPos = nil
-
-    handle.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            dragStart = input.Position
-            startPos = frame.Position
-            local conn
-            conn = input.Changed:Connect(function()
-                if input.UserInputState == Enum.UserInputState.End then
-                    dragging = false
-                    conn:Disconnect()
-                end
-            end)
-        end
-    end)
-
-    UserInputService.InputChanged:Connect(function(input)
-        if dragStart and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-            local delta = input.Position - dragStart
-            if delta.Magnitude > 14 then
-                dragging = true
-            end
-            if dragging and startPos then
-                local vp = workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize or Vector2.new(800, 450)
-                local newX = math.clamp(startPos.X.Offset + delta.X, -vp.X/2 + 200, vp.X/2 - 200)
-                local newY = math.clamp(startPos.Y.Offset + delta.Y, -vp.Y/2 + 100, vp.Y/2 - 100)
-                frame.Position = UDim2.new(startPos.X.Scale, newX, startPos.Y.Scale, newY)
-            end
-        end
-    end)
-end
-
-makeSafeDraggable(MainFrame, TopBar)
-makeSafeDraggable(ToggleBtn, ToggleBtn)
-
--- =====================================================
--- TOGGLE & NAVIGATION DENGAN DEBOUNCE
--- =====================================================
-local isOpen = true
-local toggleDebounce = false
-
-local function toggleWindow()
-    if toggleDebounce then return end
-    toggleDebounce = true
-    isOpen = not isOpen
-    MainFrame.Visible = isOpen
-    task.delay(0.2, function() toggleDebounce = false end)
-end
-
-bindSafeClick(ToggleBtn, toggleWindow)
-bindSafeClick(CloseBtn, toggleWindow)
-
-local function showPage(target)
-    PageSplash.Visible  = false
-    PageToolbox.Visible = false
-    PageRBXM.Visible    = false
-    target.Visible = true
-end
-
-bindSafeClick(CardToolbox, function() showPage(PageToolbox) end)
-bindSafeClick(CardRBXM,    function() showPage(PageRBXM)    end)
-bindSafeClick(TbBack,      function() showPage(PageSplash)  end)
-bindSafeClick(RbxmBack,    function() showPage(PageSplash)  end)
-
--- =====================================================
--- LOGIC: SMART INSERT ASSET ID
--- =====================================================
-local function smartInsert(assetId)
-    local numId = tonumber(assetId)
-    if not numId then return false, "ID tidak valid" end
-    if clipFn then pcall(clipFn, tostring(numId)) end
-    local insertOk, method = false, ""
-
-    pcall(function()
-        local objs = game:GetObjects("rbxassetid://"..tostring(numId))
-        if objs and #objs > 0 then
-            for _, o in ipairs(objs) do
-                o.Parent = workspace
-                applyStudioLiteProps(o)
-                loadAssetsToSLServer(o)
-                if o:IsA("Model") and LP.Character then
-                    local hrp = LP.Character:FindFirstChild("HumanoidRootPart")
-                    if hrp then pcall(function() o:MoveTo(hrp.Position + hrp.CFrame.LookVector * 7) end) end
-                end
-            end
-            insertOk = true; method = "GetObjects + SL Props"
-        end
-    end)
-
-    if serverFuncs then
-        pcall(function()
-            serverFuncs:InvokeServer("LoadMeshToRuntimeMeshes", numId)
-            if not insertOk then insertOk = true; method = "SL ServerFunctions"
-            else method = method .. " + SL Server" end
-        end)
-    end
-
-    return insertOk, (method ~= "" and method or "ID Disalin ke Clipboard")
-end
-
--- =====================================================
--- LOGIC: SMART INSERT RBXM DENGAN AUTO-EXTRACT
--- =====================================================
-local SCAN_PATHS = {
-    "workspace",
-    "Delta/workspace",
-    "delta/workspace",
-    "Android/Delta/workspace",
-    "/sdcard/Delta/workspace",
-    "../workspace",
-    "."
-}
-
-local function safeReadFile(p)
-    if not readfile then return nil end
-    local ok, d = pcall(readfile, p)
-    return ok and d or nil
-end
-
-local function smartInsertRbxm(filePath, fileName)
-    local insertOk, statusMsg = false, ""
-    local data = safeReadFile(filePath)
-
-    if data and #data > 0 then
-        task.spawn(function()
-            local sources = parseRBXMSources(data)
-            for k, v in pairs(sources) do
-                storeScriptSource(k, v)
-            end
-            local baseName = fileName:gsub("%.rbxm.*", "")
-            for _, v in pairs(sources) do
-                storeScriptSource(baseName, v)
-                break
-            end
-        end)
-    end
-
-    local function setupObjects(objs)
-        for _, o in ipairs(objs) do
-            o.Parent = workspace
-            applyStudioLiteProps(o)
-            loadAssetsToSLServer(o)
-
-            for _, s in ipairs(o:GetDescendants()) do
-                if s:IsA("LuaSourceContainer") then
-                    pcall(function()
-                        if s.Source and #s.Source > 0 then
-                            storeScriptSource(s, s.Source)
-                        end
-                    end)
-                end
-            end
-
-            if o:IsA("Model") and LP.Character then
-                local hrp = LP.Character:FindFirstChild("HumanoidRootPart")
-                if hrp then pcall(function() o:MoveTo(hrp.Position + hrp.CFrame.LookVector * 6) end) end
-            end
-        end
-    end
-
-    if customAsset then
-        pcall(function()
-            local url = customAsset(filePath)
-            if url then
-                local objs = game:GetObjects(url)
-                if objs and #objs > 0 then
-                    setupObjects(objs)
-                    insertOk = true; statusMsg = "customAsset OK"
-                end
-            end
-        end)
-    end
-
-    if not insertOk then
-        pcall(function()
-            local objs = game:GetObjects("rbxasset://" .. filePath)
-            if objs and #objs > 0 then
-                setupObjects(objs)
-                insertOk = true; statusMsg = "rbxasset:// OK"
-            end
-        end)
-    end
-
-    if not insertOk and data and writefile and customAsset then
-        pcall(function()
-            local tmpName = "bce_tmp_" .. fileName
-            writefile(tmpName, data)
-            local url2 = customAsset(tmpName)
-            if url2 then
-                local objs2 = game:GetObjects(url2)
-                if objs2 and #objs2 > 0 then
-                    setupObjects(objs2)
-                    insertOk = true; statusMsg = "readfile+tmp OK"
-                end
-            end
-            pcall(function() if delfile then delfile(tmpName) end end)
-        end)
-    end
-
-    return insertOk, statusMsg
-end
-
-local function safeListFiles(p)
-    if not listfilesFn then return nil end
-    local ok, f = pcall(listfilesFn, p); return ok and f or nil
-end
-local function getFileName(p) return p:match("([^/\\]+)$") or p end
-
-local function getAllRbxmFiles()
-    local result, seen = {}, {}
-    if not listfilesFn then return result end
-    local function scanDeep(folder, depth)
-        if depth > 4 or seen[folder] then return end
-        seen[folder] = true
-        local files = safeListFiles(folder)
-        if not files then return end
-        for _, path in ipairs(files) do
-            local lp = path:lower()
-            if (lp:sub(-5) == ".rbxm" or lp:sub(-6) == ".rbxmx") and not seen[path] then
-                seen[path] = true; table.insert(result, {path=path, name=getFileName(path)})
-            elseif not path:lower():match("%.[%a%d]+$") then
-                scanDeep(path, depth + 1)
-            end
-        end
-    end
-    for _, p in ipairs(SCAN_PATHS) do if safeListFiles(p) then scanDeep(p, 0) end end
-    return result
-end
-
+-- RENDER RBXM CARDS
 local function renderRbxmCards()
     for _, c in ipairs(RbxmScroll:GetChildren()) do if c:IsA("Frame") then c:Destroy() end end
     RbxmCountLbl.Text = "[.] Scanning..."
@@ -1239,18 +1206,44 @@ local function renderRbxmCards()
         fileIcon.TextColor3 = Color3.fromRGB(200, 200, 210); fileIcon.Parent = card; makeCorner(fileIcon, 6)
 
         local nameLbl = Instance.new("TextLabel")
-        nameLbl.Size = UDim2.new(1, -145, 0, 18); nameLbl.Position = UDim2.new(0, 48, 0, 7)
+        nameLbl.Size = UDim2.new(1, -195, 0, 18); nameLbl.Position = UDim2.new(0, 48, 0, 7)
         nameLbl.BackgroundTransparency = 1; nameLbl.Text = file.name
         nameLbl.Font = Enum.Font.GothamBold; nameLbl.TextSize = 11
         nameLbl.TextColor3 = Color3.fromRGB(240, 240, 245)
         nameLbl.TextXAlignment = Enum.TextXAlignment.Left; nameLbl.TextTruncate = Enum.TextTruncate.AtEnd; nameLbl.Parent = card
 
         local pathLbl = Instance.new("TextLabel")
-        pathLbl.Size = UDim2.new(1, -145, 0, 13); pathLbl.Position = UDim2.new(0, 48, 0, 28)
+        pathLbl.Size = UDim2.new(1, -195, 0, 13); pathLbl.Position = UDim2.new(0, 48, 0, 28)
         pathLbl.BackgroundTransparency = 1; pathLbl.Text = file.path
         pathLbl.Font = Enum.Font.Gotham; pathLbl.TextSize = 8
         pathLbl.TextColor3 = Color3.fromRGB(130, 130, 140)
         pathLbl.TextXAlignment = Enum.TextXAlignment.Left; pathLbl.TextTruncate = Enum.TextTruncate.AtEnd; pathLbl.Parent = card
+
+        -- Tombol Edit Langsung dari Menu RBXM
+        local edBtn = Instance.new("TextButton")
+        edBtn.Size = UDim2.new(0, 50, 0, 30); edBtn.Position = UDim2.new(1, -135, 0.5, -15)
+        edBtn.BackgroundColor3 = Color3.fromRGB(28, 28, 34)
+        edBtn.Text = "EDIT"
+        edBtn.Font = Enum.Font.GothamBold
+        edBtn.TextSize = 9
+        edBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+        edBtn.Active = true
+        edBtn.ZIndex = 16
+        edBtn.Parent = card
+        makeCorner(edBtn, 6)
+        makeStroke(edBtn, Color3.fromRGB(255,255,255), 1, 0.7)
+
+        bindSafeClick(edBtn, function()
+            local code = lookupScriptSource(file.name:gsub("%.rbxm.*", ""))
+            if not code or code == "" then
+                local d = safeReadFile(file.path)
+                if d then
+                    local s = parseRBXMSources(d)
+                    for _, v in pairs(s) do code = v; break end
+                end
+            end
+            openInEditor(file.name:gsub("%.rbxm.*", ""), code or "-- Script tidak ditemukan")
+        end)
 
         local insertBtn = Instance.new("TextButton")
         insertBtn.Size = UDim2.new(0, 70, 0, 30); insertBtn.Position = UDim2.new(1, -76, 0.5, -15)
@@ -1442,4 +1435,4 @@ bindSafeClick(TbInsertIdBtn, function()
     end
 end)
 
-print("[BLUExCrown] ENGINE v5.4 DEFINITIVE FIX LOADED")
+print("[BLUExCrown] ENGINE v5.5 ULTIMATE LOADED")
