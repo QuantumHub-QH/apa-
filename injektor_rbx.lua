@@ -1,10 +1,19 @@
 -- =======================================================
--- MCHLERN ENGINE TOOLS ROBLOX STUDIO LITE (v6.8 ULTIMATE STUDIO LITE ENGINE)
--- Fix 1: Menu Card Hitbox 100% Responsif (Tombol Toolbox & RBXM PASTI Kebuka)
--- Fix 2: Togle Anti-Geser (Kunci permanen di sisi layar, aman dari swipe kamera)
--- Fix 3: In-Game Code Editor (Bisa ketik, edit, save & execute script di HP)
+-- MCHLERN ENGINE TOOLS ROBLOX STUDIO LITE (v6.9 FIXED + RBXL DEBUG)
+-- Fix 1: Menu Card Hitbox 100% Responsif
+-- Fix 2: Togle Anti-Geser
+-- Fix 3: In-Game Code Editor (edit, save & execute)
 -- Fix 4: Studio Lite Toolbar [EDIT CODE], [SAVE], [RUN], [COPY]
--- Fix 5: Dual Layer Source Recovery (0% Script Not Found)
+-- Fix 5: Dual Layer Source Recovery
+-- v6.9:
+--  * stripRichText tidak lagi merusak operator < > di kode Lua
+--  * recreateScriptAsNative & injectStudioLiteUI di-forward-declare
+--    (tombol RECREATE di editor tidak error lagi)
+--  * Insert RBXL: sukses hanya jika objek benar-benar terpasang,
+--    semua script (termasuk nested) di-recreate, pcall di tombol
+--  * DEBUG LOG RBXL: label status + console + file rbxl_debug.txt
+--    + otomatis kebuka di editor saat gagal
+--  * Section RBXL dibungkus do...end (hindari limit 200 local)
 -- Toggle Image Asset ID: 102337382069600
 -- =======================================================
 
@@ -28,19 +37,24 @@ local listfilesFn  = listfiles or nil
 _G.BLUE_RAW_SOURCES  = _G.BLUE_RAW_SOURCES or {}
 _G.LANGZ_RAW_SOURCES = _G.LANGZ_RAW_SOURCES or {}
 
+-- Forward declaration (dipakai tombol editor sebelum didefinisikan)
+local recreateScriptAsNative, injectStudioLiteUI
+
 -- =====================================================
--- RICHTEXT & HTML TAG STRIPPER
--- Menghilangkan semua <font color="...">, </font>, dan tag HTML
--- agar script 100% bersih dan nyaman diedit tanpa tag warna pengganggu!
+-- RICHTEXT STRIPPER (aman untuk kode Lua)
+-- Hanya membersihkan tag RichText kalau memang ada <font ...>.
+-- Operator seperti `a < b and c > d` TIDAK disentuh.
 -- =====================================================
 local function stripRichText(s)
     if type(s) ~= "string" then return s end
+    if not s:find("<%s*/?%s*font", 1) then return s end
     local clean = s:gsub("<%s*/?%s*font[^>]*>", "")
-    clean = clean:gsub("<[^>]+>", "")
-    clean = clean:gsub("&lt;", "<"):gsub("&gt;", ">"):gsub("&amp;", "&"):gsub("&quot;", '"'):gsub("&apos;", "'")
+    clean = clean:gsub("<%s*/?%s*[bius]%s*>", "")
+    clean = clean:gsub("<%s*/?%s*stroke[^>]*>", "")
+    clean = clean:gsub("<%s*br%s*/?>", "\n")
+    clean = clean:gsub("&lt;", "<"):gsub("&gt;", ">"):gsub("&quot;", '"'):gsub("&apos;", "'"):gsub("&amp;", "&")
     return clean
 end
-
 
 local function parseRBXMSources(raw)
     local sources = {}
@@ -74,7 +88,6 @@ local function lookupScriptSource(searchKey)
     if not searchKey or searchKey == "" then return nil end
     local sKey = tostring(searchKey):lower():gsub("%s+", "")
 
-    -- Exact match in memory tables
     for k, v in pairs(_G.BLUE_RAW_SOURCES) do
         local kname = typeof(k) == "Instance" and (k.ClassName .. k.Name) or tostring(k)
         if kname:lower():gsub("%s+", "") == sKey then
@@ -88,7 +101,6 @@ local function lookupScriptSource(searchKey)
         end
     end
 
-    -- Match by instance name in hierarchy
     for _, place in ipairs({workspace, ReplicatedStorage, LP:FindFirstChild("PlayerGui")}) do
         if place then
             for _, obj in ipairs(place:GetDescendants()) do
@@ -107,8 +119,6 @@ local function lookupScriptSource(searchKey)
             end
         end
     end
-
-    -- NEVER return random scripts from other objects!
     return nil
 end
 
@@ -176,8 +186,7 @@ task.spawn(function()
                         local target = tostring(args[1])
                         local found = lookupScriptSource(target)
                         if found and #found > 0 then return found end
-                        
-                        -- Search in hierarchy
+
                         for _, place in ipairs({workspace, ReplicatedStorage, LP:FindFirstChild("PlayerGui")}) do
                             if place then
                                 for _, obj in ipairs(place:GetDescendants()) do
@@ -192,8 +201,7 @@ task.spawn(function()
                         local target = tostring(args[1])
                         local newSource = tostring(args[2])
                         storeScriptSource(target, newSource)
-                        
-                        -- Immediate synchronization to instance in workspace
+
                         pcall(function()
                             for _, place in ipairs({workspace, ReplicatedStorage, LP:FindFirstChild("PlayerGui")}) do
                                 if place then
@@ -228,7 +236,7 @@ ScreenGui.Name = "BLUExCrownV5"
 ScreenGui.ResetOnSpawn = false
 ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 ScreenGui.DisplayOrder = 9999
-ScreenGui.IgnoreGuiInset = true -- 100% TRUE FULLSCREEN EDGE-TO-EDGE
+ScreenGui.IgnoreGuiInset = true
 ScreenGui.Parent = ParentGui
 
 local function makeCorner(parent, radius)
@@ -251,9 +259,7 @@ local function bindBtn(btn, callback)
 end
 
 -- =====================================================
--- FULLSCREEN EPIC LOADING SCREEN (MCHLERN ENGINE)
--- Background hitam pekat, logo kiri, typewriter text,
--- progress bar sinematik bergantian (BOT PROGRES, PARSER PROGRES, SLEEP ENGINE -> DONE)
+-- FULLSCREEN LOADING SCREEN
 -- =====================================================
 local LoadingScreen = Instance.new("Frame")
 LoadingScreen.Name = "MCHLERN_LoadingScreen"
@@ -273,7 +279,6 @@ LoadContainer.BackgroundTransparency = 1
 LoadContainer.ZIndex = 5001
 LoadContainer.Parent = LoadingScreen
 
--- Left side: Logo & Typewriter
 local LeftBox = Instance.new("Frame")
 LeftBox.Size = UDim2.new(0.46, 0, 1, 0)
 LeftBox.Position = UDim2.new(0, 0, 0, 0)
@@ -281,7 +286,6 @@ LeftBox.BackgroundTransparency = 1
 LeftBox.ZIndex = 5002
 LeftBox.Parent = LoadContainer
 
--- Logo (Enlarged)
 local LogoImg = Instance.new("ImageLabel")
 LogoImg.Size = UDim2.new(0, 96, 0, 96)
 LogoImg.Position = UDim2.new(0.5, -48, 0, 6)
@@ -305,7 +309,6 @@ BrandTitle.Text = ""
 BrandTitle.ZIndex = 5003
 BrandTitle.Parent = LeftBox
 
--- Vertical Divider Line in the Middle
 local MidDivider = Instance.new("Frame")
 MidDivider.Size = UDim2.new(0, 1, 0, 140)
 MidDivider.AnchorPoint = Vector2.new(0.5, 0.5)
@@ -316,7 +319,6 @@ MidDivider.BorderSizePixel = 0
 MidDivider.ZIndex = 5003
 MidDivider.Parent = LoadContainer
 
--- Right side: Progress Bar & Status Text
 local RightBox = Instance.new("Frame")
 RightBox.Size = UDim2.new(0.5, 0, 1, 0)
 RightBox.Position = UDim2.new(0.5, 10, 0, 0)
@@ -378,7 +380,6 @@ SubStatusLbl.Text = "Setting up Luau memory hooks..."
 SubStatusLbl.ZIndex = 5003
 SubStatusLbl.Parent = RightBox
 
--- Typewriter Effect
 task.spawn(function()
     local targetText = "MCHLERN ENGINE TOOLS\nROBLOX STUDIO LITE"
     for i = 1, #targetText do
@@ -391,7 +392,6 @@ task.spawn(function()
     end
 end)
 
--- Cinematic Progress Steps
 task.spawn(function()
     local stages = {
         { pct = 18, text = "INITIALIZING KERNEL...", sub = "Setting up Roblox Luau memory hooks..." },
@@ -413,7 +413,6 @@ task.spawn(function()
     end
 
     task.wait(0.5)
-    -- Smooth Fade-out
     pcall(function()
         local fadeTween = TweenService:Create(LoadingScreen, TweenInfo.new(0.7, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
             BackgroundTransparency = 1
@@ -437,13 +436,8 @@ task.spawn(function()
     end)
 end)
 
-
 -- =====================================================
--- Active hook daemon consolidated into Non-Intrusive Editor Bridge
--- Core UI helpers already defined at top of ScreenGui
-
--- =====================================================
--- 1. TOGGLE BUTTON (PATEN DI KIRI - TIDAK GESER KARENA KAMERA)
+-- 1. TOGGLE BUTTON
 -- =====================================================
 local ToggleBtn = Instance.new("ImageButton")
 ToggleBtn.Name = "BLUExToggleBtn"
@@ -475,7 +469,6 @@ MainFrame.Parent = ScreenGui
 makeCorner(MainFrame, 10)
 makeStroke(MainFrame, Color3.fromRGB(255,255,255), 1.4)
 
--- TOP BAR
 local TopBar = Instance.new("Frame")
 TopBar.Size = UDim2.new(1, -12, 0, 32)
 TopBar.Position = UDim2.new(0, 6, 0, 6)
@@ -512,7 +505,6 @@ CloseBtn.Active = true
 CloseBtn.Parent = TopBar
 makeCorner(CloseBtn, 5)
 
--- Draggable Hanya untuk TopBar
 local function makeSafeTopBarDraggable(frame, handle)
     local dragInput = nil
     local dragStart = nil
@@ -547,7 +539,6 @@ end
 
 makeSafeTopBarDraggable(MainFrame, TopBar)
 
--- TOGGLE & CLOSE BEHAVIOR
 local isOpen = true
 local toggleDebounce = false
 
@@ -598,6 +589,7 @@ EdTitleLbl.Font = Enum.Font.GothamBold
 EdTitleLbl.TextSize = 11
 EdTitleLbl.TextColor3 = Color3.fromRGB(255, 255, 255)
 EdTitleLbl.TextXAlignment = Enum.TextXAlignment.Left
+EdTitleLbl.TextTruncate = Enum.TextTruncate.AtEnd
 EdTitleLbl.ZIndex = 202
 EdTitleLbl.Parent = EdTopBar
 
@@ -664,20 +656,18 @@ EdTextBox.TextXAlignment = Enum.TextXAlignment.Left
 EdTextBox.TextYAlignment = Enum.TextYAlignment.Top
 EdTextBox.ClearTextOnFocus = false
 EdTextBox.TextEditable = true
-EdTextBox.RichText = false  -- Prevent <font color> tag injection
+EdTextBox.RichText = false
 EdTextBox.MultiLine = true
 EdTextBox.Active = true
 EdTextBox.ZIndex = 202
 EdTextBox.Text = ""
 EdTextBox.Parent = EdScroll
 
--- SAFE canvas resize: programmatic sets scroll back to top, user typing keeps position
 local _progTextSet = false
 EdTextBox:GetPropertyChangedSignal("Text"):Connect(function()
     local lines = #EdTextBox.Text:split("\n")
     EdScroll.CanvasSize = UDim2.new(0, 0, 0, math.max(340, lines * 18 + 40))
     if _progTextSet then
-        -- reset to top only on programmatic open, not while user is typing
         task.defer(function() pcall(function() EdScroll.CanvasPosition = Vector2.new(0, 0) end) end)
     end
 end)
@@ -685,10 +675,8 @@ end)
 local function openInEditor(scriptName, code)
     activeEditingScript = scriptName or "Script"
     EdTitleLbl.Text = "EDITOR: " .. activeEditingScript
-    -- Use flag so scroll resets to top (not halfway through code)
     _progTextSet = true
     local safeCode = code or lookupScriptSource(scriptName) or "-- Ketik code di sini..."
-    -- Strip any RichText tags Studio Lite may have injected
     safeCode = stripRichText(safeCode)
     EdTextBox.Text = safeCode
     task.defer(function()
@@ -716,7 +704,6 @@ bindBtn(EdSaveBtn, function()
     EdSaveBtn.Text = "SAVED!"
     task.delay(1.2, function() EdSaveBtn.Text = "SAVE & APPLY" end)
 end)
-
 
 bindBtn(EdRecBtn, function()
     local code = EdTextBox.Text
@@ -769,16 +756,7 @@ bindBtn(EdCopyBtn, function()
 end)
 
 -- =====================================================
--- 4. STUDIO LITE REAL-TIME UI WATCHER & INJECTOR
--- =====================================================
--- =====================================================
--- 4. PURE NATIVE STUDIO LITE INTEGRATION (ZERO INTERFERENCE)
--- Sesuai instruksi: Script kita HANYA membuat ulang script secara native saat import.
--- Setelah script dibuat, game & text editor Studio Lite berjalan 100% normal dan murni
--- tanpa ada campur tangan atau gangguan apa pun terhadap PlayerGui!
--- =====================================================
-
--- 5. PAGES & NAVIGATION (100% INSTANT HITBOX)
+-- 5. PAGES & NAVIGATION
 -- =====================================================
 local Content = Instance.new("Frame")
 Content.Size = UDim2.new(1, -12, 1, -46)
@@ -810,7 +788,7 @@ local function showPage(target)
 end
 
 -- =====================================================
--- PAGE 1: SPLASH SCREEN (HOME)
+-- PAGE 1: SPLASH (HOME)
 -- =====================================================
 local ProfileCard = Instance.new("Frame")
 ProfileCard.Size = UDim2.new(0, 175, 1, 0)
@@ -882,7 +860,7 @@ local StatsLbl = Instance.new("TextLabel")
 StatsLbl.Size = UDim2.new(1, -16, 1, -168)
 StatsLbl.Position = UDim2.new(0, 8, 0, 162)
 StatsLbl.BackgroundTransparency = 1
-StatsLbl.Text = "UserID: "..tostring(LP.UserId).."\nBLUExCrown ENGINE\nv5.6 — Perfect Edition"
+StatsLbl.Text = "UserID: "..tostring(LP.UserId).."\nBLUExCrown ENGINE\nv6.9 - Fixed Edition"
 StatsLbl.Font = Enum.Font.Gotham
 StatsLbl.TextSize = 9
 StatsLbl.TextColor3 = Color3.fromRGB(130, 130, 140)
@@ -891,7 +869,6 @@ StatsLbl.TextWrapped = true
 StatsLbl.ZIndex = 14
 StatsLbl.Parent = ProfileCard
 
--- KANAN: Menu Cards
 local MenuArea = Instance.new("Frame")
 MenuArea.Size = UDim2.new(1, -183, 1, 0)
 MenuArea.Position = UDim2.new(0, 183, 0, 0)
@@ -910,7 +887,6 @@ MenuTitle.TextXAlignment = Enum.TextXAlignment.Left
 MenuTitle.ZIndex = 14
 MenuTitle.Parent = MenuArea
 
--- MENU CARD DENGAN TRANSPARENT FULL HITBOX (100% RESPONSIF)
 local function makeMenuCard(parent, posY, icon, title, subtitle, onClick)
     local card = Instance.new("Frame")
     card.Size = UDim2.new(1, 0, 0, 72)
@@ -968,7 +944,6 @@ local function makeMenuCard(parent, posY, icon, title, subtitle, onClick)
     arrow.ZIndex = 15
     arrow.Parent = card
 
-    -- Full Top Transparent Hitbox
     local hit = Instance.new("TextButton")
     hit.Size = UDim2.fromScale(1, 1)
     hit.BackgroundTransparency = 1
@@ -1295,7 +1270,6 @@ RbxmScanBtn.Text = "SCAN FILES"; RbxmScanBtn.Font = Enum.Font.GothamBold; RbxmSc
 RbxmScanBtn.TextColor3 = Color3.fromRGB(0, 0, 0)
 RbxmScanBtn.Active = true; RbxmScanBtn.ZIndex = 15; RbxmScanBtn.Parent = RbxmToolbar; makeCorner(RbxmScanBtn, 6)
 
--- INLINE INSERT PROGRESS BAR (SEJAJAR DENGAN SCAN FILES BUTTON)
 local RbxmProgressFrame = Instance.new("Frame")
 RbxmProgressFrame.Size = UDim2.new(1, -92, 1, 0)
 RbxmProgressFrame.Position = UDim2.new(0, 92, 0, 0)
@@ -1423,7 +1397,7 @@ local function smartInsert(assetId)
 end
 
 -- =====================================================
--- LOGIC: SMART INSERT RBXM DENGAN AUTO-EXTRACT
+-- LOGIC: SMART INSERT RBXM
 -- =====================================================
 local SCAN_PATHS = {
     "workspace",
@@ -1442,10 +1416,8 @@ local function safeReadFile(p)
 end
 
 -- =====================================================
--- PURE LUA LZ4 & BINARY RBXM DECOMPRESSOR / PARSER
--- 100% LOSSLESS RECOVERY OF SCRIPT SOURCES
+-- PURE LUA LZ4 & BINARY RBXM PARSER (sumber script RBXM)
 -- =====================================================
-
 local function getPackSize(fmt)
     if not fmt then return 1 end
     if fmt == "<I4" or fmt == ">I4" or fmt == "<i4" or fmt == ">i4" or fmt == "I4" or fmt == "i4" or fmt == ">f" or fmt == "<f" then return 4 end
@@ -1455,494 +1427,251 @@ local function getPackSize(fmt)
     local ok, sz = pcall(function() return #string.pack(fmt, 0) end)
     return (ok and sz) or 4
 end
--- RBXM FILE PARSER (LZ4 + Binary Format)
-
---                                                                        
 
 local function Buffer(str, allowOverflows)
-
     local Stream = { Offset = 0, Source = str, Length = string.len(str), AllowOverflows = (allowOverflows == nil and true) or allowOverflows }
-
     function Stream:read(len, shift)
-
         len = len or 1; shift = (shift == nil and true) or shift
-
         local dat = string.sub(self.Source, self.Offset + 1, self.Offset + len)
-
         if shift then self:seek(len) end
-
         return dat
-
     end
-
     function Stream:seek(len) self.Offset = math.clamp(self.Offset + len, 0, self.Length) end
-
     function Stream:readNumber(fmt, shift)
-
         fmt = fmt or "I1"; local sz = getPackSize(fmt); local chunk = self:read(sz, shift); if #chunk < sz then return 0 end; local ok, val = pcall(string.unpack, fmt, chunk); return ok and val or 0
-
     end
-
     function Stream:append(s) self.Source = self.Source .. s; self.Length = #self.Source end
-
     function Stream:toEnd() self.Offset = self.Length end
-
     return Stream
-
 end
-
-
 
 local function transformInt(x) return (x % 2 == 0) and (x / 2) or (-(x + 1) / 2) end
-
 local function rbxF32(x) x = bit32.rrotate(x, 1); return string.unpack(">f", string.pack(">I4", x)) end
 
-
-
 local basicTypes = {}
-
 function basicTypes.String(buffer) return buffer:read(buffer:readNumber("<I4")) end
-
 function basicTypes.Int32(buffer) return transformInt(buffer:readNumber(">I4")) end
-
 function basicTypes.Int64(buffer) return transformInt(buffer:readNumber(">I8")) end
-
 function basicTypes.Float32(buffer) return rbxF32(buffer:readNumber(">I4")) end
-
 function basicTypes.Float64(buffer) return buffer:readNumber("<d") end
 
-
-
 function basicTypes.InterleaveArrayWithSize(buffer, count, sizeof)
-
     if count < 0 then return Buffer("", false) end
-
     local stream = buffer:read(count * sizeof); local out = table.create(count)
-
     for i = 1, count do
-
         local chunk = table.create(sizeof)
-
         for s = 0, sizeof - 1 do
-
             local bitPos = i + (count * s); chunk[s+1] = string.sub(stream, bitPos, bitPos)
-
         end
-
         out[i] = table.concat(chunk)
-
     end
-
     return Buffer(table.concat(out), false)
-
 end
-
-
 
 function basicTypes.unsignedIntArray(buffer, count)
-
     if count < 1 then return {} end
-
     local o = table.create(count); local strings = basicTypes.InterleaveArrayWithSize(buffer, count, 4)
-
     for i = 1, count do o[i] = strings:readNumber("<I4") end
-
     return o
-
 end
-
-
 
 function basicTypes.Int32Array(buffer, count)
-
     if count < 1 then return {} end
-
     local o = table.create(count); local strings = basicTypes.InterleaveArrayWithSize(buffer, count, 4)
-
     for i = 1, count do o[i] = basicTypes.Int32(strings) end
-
     return o
-
 end
-
-
 
 function basicTypes.Int64Array(buffer, count)
-
     if count < 1 then return {} end
-
     local o = table.create(count); local strings = basicTypes.InterleaveArrayWithSize(buffer, count, 8)
-
     for i = 1, count do o[i] = basicTypes.Int64(strings) end
-
     return o
-
 end
-
-
 
 function basicTypes.RbxF32Array(buffer, count)
-
     if count < 1 then return {} end
-
     local o = table.create(count); local strings = basicTypes.InterleaveArrayWithSize(buffer, count, 4)
-
     for i = 1, count do o[i] = basicTypes.Float32(strings) end
-
     return o
-
 end
-
-
 
 function basicTypes.RefArray(buffer, count)
-
     if count < 1 then return {} end
-
     local o = table.create(count); local refs = basicTypes.Int32Array(buffer, count); local last = 0
-
     for i = 1, count do local ref = last + refs[i]; o[i] = ref; last = ref end
-
     return o
-
 end
-
-
 
 local function lz4(lz4data)
-
     local inputStream = Buffer(lz4data)
-
     local compressedLen = string.unpack("<I4", inputStream:read(4))
-
     local decompressedLen = string.unpack("<I4", inputStream:read(4))
-
     local reserved = string.unpack("<I4", inputStream:read(4))
-
     if reserved ~= 0 then error("not lz4") end
-
     if compressedLen == 0 then return inputStream:read(decompressedLen) end
-
     local outputStream = Buffer("")
-
     repeat
-
         local token = string.byte(inputStream:read())
-
         local litLen = bit32.rshift(token, 4)
-
         local matLen = bit32.band(token, 15) + 4
-
         if litLen >= 15 then
-
             repeat local nextByte = string.byte(inputStream:read()); litLen = litLen + nextByte until nextByte ~= 0xFF
-
         end
-
         local literal = inputStream:read(litLen); outputStream:append(literal); outputStream:toEnd()
-
         if outputStream.Length < decompressedLen then
-
             local offset = string.unpack("<I2", inputStream:read(2))
-
             if matLen >= 19 then
-
                 repeat local nextByte = string.byte(inputStream:read()); matLen = matLen + nextByte until nextByte ~= 0xFF
-
             end
-
             outputStream:seek(-offset)
-
             local pos = outputStream.Offset; local match = outputStream:read(matLen)
-
             local unreadBytes = outputStream.LastUnreadBytes or 0
-
             local extra
-
             if unreadBytes then
-
                 repeat
-
                     outputStream.Offset = pos; extra = outputStream:read(unreadBytes)
-
                     unreadBytes = outputStream.LastUnreadBytes or 0; match = match .. extra
-
                 until unreadBytes <= 0
-
             end
-
             outputStream:append(match); outputStream:toEnd()
-
         end
-
     until outputStream.Length >= decompressedLen
-
     return outputStream.Source
-
 end
-
-
 
 local function b64encode(str)
-
     local chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
-
     local out = {}
-
     for i = 1, #str, 3 do
-
         local b0, b1, b2 = string.byte(str, i, i+2)
-
         local b = bit32.lshift(b0, 16) + bit32.lshift(b1 or 0, 8) + (b2 or 0)
-
         table.insert(out, chars:sub(bit32.extract(b, 18, 6)+1, bit32.extract(b, 18, 6)+1))
-
         table.insert(out, chars:sub(bit32.extract(b, 12, 6)+1, bit32.extract(b, 12, 6)+1))
-
         table.insert(out, b1 and chars:sub(bit32.extract(b, 6, 6)+1, bit32.extract(b, 6, 6)+1) or "=")
-
         table.insert(out, b2 and chars:sub(bit32.band(b, 63)+1, bit32.band(b, 63)+1) or "=")
-
     end
-
     return table.concat(out)
-
 end
-
-
 
 local function zstd(stream)
-
     local zbase64 = b64encode(stream)
-
     local json = '{"m":null,"t":"buffer","zbase64":"' .. zbase64 .. '"}'
-
     local x = HttpService:JSONDecode(json)
-
     return (buffer and buffer.tostring and buffer.tostring(x)) or ""
-
 end
-
-
 
 local function parseRBXMForSources(data)
-
     local sources = {}
-
     local rbxmBuffer = Buffer(data, false)
-
     if rbxmBuffer:read(8) ~= "<roblox!" or rbxmBuffer:read(6) ~= string.char(137,255,13,10,26,10) then return sources, "Invalid header" end
-
     if rbxmBuffer:read(2) ~= (string.char(0)..string.char(0)) then return sources, "Invalid version" end
-
     local classCount = rbxmBuffer:readNumber("<i4")
-
     local instCount = rbxmBuffer:readNumber("<i4")
-
     local classRefs, virtualInstances, strings, chunkInfo = {}, {}, {}, {}
-
     local _EC = "END"..string.char(0)
-
     local valid = {[_EC]=true, ["INST"]=true, ["META"]=true, ["PRNT"]=true, ["PROP"]=true, ["SIGN"]=true, ["SSTR"]=true}
-
     for k in pairs(valid) do chunkInfo[k] = {} end
-
     if rbxmBuffer:read(8) ~= string.char(0,0,0,0,0,0,0,0) then return sources, "Invalid header" end
 
-
-
     local index, last_chunk = 0, nil
-
     repeat
-
         index = index + 1
-
         local chunk = {InternalID = index, Header = rbxmBuffer:read(4)}
-
         if not valid[chunk.Header] then return sources, "Invalid chunk" end
-
         local lz4Header = rbxmBuffer:read(16, false)
-
         local compressed = string.unpack("<I4", string.sub(lz4Header, 1, 4))
-
         local decompressed = string.unpack("<I4", string.sub(lz4Header, 5, 8))
-
         local reserved = string.sub(lz4Header, 9, 12)
-
         local zstd_check = string.sub(lz4Header, 13, 16)
-
         local dataChunk
-
         if compressed == 0 then
-
             dataChunk = rbxmBuffer:read(decompressed + 12)
-
         else
-
             if zstd_check == string.char(40,181,47,253) then rbxmBuffer:seek(12); dataChunk = zstd(rbxmBuffer:read(compressed))
-
             else dataChunk = lz4(rbxmBuffer:read(compressed + 12)) end
-
         end
-
         chunk.Data = Buffer(dataChunk, false); table.insert(chunkInfo[chunk.Header], chunk); last_chunk = chunk
-
     until last_chunk and last_chunk.Header == _EC
 
-
-
     for _, chunk in ipairs(chunkInfo["SSTR"] or {}) do
-
         local buffer = chunk.Data
-
         if buffer:readNumber("<I4") == 0 then
-
             for i = 1, buffer:readNumber("<I4") do buffer:read(16); strings[i] = basicTypes.String(buffer) end
-
         end
-
     end
-
-
 
     for _, chunk in ipairs(chunkInfo["INST"] or {}) do
-
         local buffer = chunk.Data
-
         local classID = buffer:readNumber("<I4"); local className = basicTypes.String(buffer)
-
         if buffer:read() == "\1" then return sources, "Contains services" end
-
         local count = buffer:readNumber("<I4"); local refs = basicTypes.RefArray(buffer, count)
-
         classRefs[classID] = { Name = className, Sizeof = count, Refs = refs }
-
         for _, ref in ipairs(refs) do virtualInstances[ref] = { ClassId = classID, ClassName = className, Ref = ref, Properties = {}, Children = {} } end
-
     end
-
-
 
     for _, chunk in ipairs(chunkInfo["PROP"] or {}) do
-
         local buffer = chunk.Data
-
         local classID = buffer:readNumber("<I4"); local classref = classRefs[classID]
-
         if not classref then return sources, "Missing classref" end
-
         local refs = classref.Refs; local sizeof = classref.Sizeof; local name = basicTypes.String(buffer)
-
         if string.byte(buffer:read(1, false)) == 0x1E then buffer:seek(1) end
-
         local typeID = string.byte(buffer:read()); local props = {}
-
         if typeID == 0x01 or typeID == 0x1D then
-
             for i = 1, sizeof do props[i] = basicTypes.String(buffer) end
-
         elseif typeID == 0x02 then
-
             for i = 1, sizeof do props[i] = buffer:read() ~= string.char(0) end
-
         elseif typeID == 0x03 then props = basicTypes.Int32Array(buffer, sizeof)
-
         elseif typeID == 0x04 then props = basicTypes.RbxF32Array(buffer, sizeof)
-
         elseif typeID == 0x05 then
-
             for i = 1, sizeof do props[i] = basicTypes.Float64(buffer) end
-
         else
-
             for i = 1, sizeof do
-
                 if typeID == 0x13 then props = basicTypes.RefArray(buffer, sizeof); break else buffer:read(4) end
-
             end
-
         end
-
         if name == "Source" or name == "ContentText" then
-
             for i, v in ipairs(refs) do
-
                 if virtualInstances[v] and props[i] then virtualInstances[v].Properties[name] = props[i] end
-
             end
-
         end
-
     end
-
-
 
     local function buildSourceMap(node, path)
-
         local src = node.Properties["Source"] or node.Properties["ContentText"]
-
         if src and type(src) == "string" and #src > 0 then sources[path] = src end
-
         for _, child in ipairs(node.Children or {}) do buildSourceMap(child, path .. "." .. child.ClassName .. ":" .. (child.Properties["Name"] or "unnamed")) end
-
     end
-
-
 
     for _, chunk in ipairs(chunkInfo["PRNT"] or {}) do
-
         local buffer = chunk.Data
-
         if buffer:read() ~= string.char(0) then return sources, "Invalid PRNT" end
-
         local count = buffer:readNumber("<I4")
-
         local child_refs = basicTypes.RefArray(buffer, count); local parent_refs = basicTypes.RefArray(buffer, count)
-
         for i = 1, count do
-
             local child = virtualInstances[child_refs[i]]; local parent = virtualInstances[parent_refs[i]]
-
             if child and parent then table.insert(parent.Children, child) end
-
         end
-
     end
-
-
 
     local roots = {}
-
     for _, inst in pairs(virtualInstances) do
-
         local hasParent = false
-
         for _, other in pairs(virtualInstances) do
-
             for _, child in ipairs(other.Children or {}) do if child.Ref == inst.Ref then hasParent = true; break end end
-
             if hasParent then break end
-
         end
-
         if not hasParent then table.insert(roots, inst) end
-
     end
-
     for _, root in ipairs(roots) do buildSourceMap(root, root.ClassName .. ":" .. (root.Properties["Name"] or "root")) end
 
-
-
     return sources, nil
-
 end
-
 
 local function parseAllSources(data)
     local sources = {}
     if not data or #data < 20 then return sources end
-    
-    -- 1. If Binary format (<roblox!), use the lossless LZ4 parser
+
     if data:sub(1, 8) == "<roblox!" then
         local ok, res, err = pcall(parseRBXMForSources, data)
         if ok and res and type(res) == "table" then
@@ -1954,7 +1683,6 @@ local function parseAllSources(data)
         end
     end
 
-    -- 2. If XML format or fallback, extract CDATA ProtectedString
     for class, name, code in data:gmatch('<Item class="([%w_]+)"[^>]*>%s*<Properties>%s*<string name="Name">([^<]+)</string>.-<ProtectedString name="Source"><%!%[CDATA%[(.-)%]%]></ProtectedString>') do
         sources[class .. ":" .. name] = code
         sources[name] = code
@@ -1967,16 +1695,16 @@ local function parseAllSources(data)
 end
 
 -- =====================================================
--- STUDIO LITE SCRIPT UI INJECTOR & ANTI-READONLY LOGIC
+-- STUDIO LITE SCRIPT UI INJECTOR & ANTI-READONLY
 -- =====================================================
 local SL_CACHE = {}
 
-local function injectStudioLiteUI(scr, sourceMap)
+function injectStudioLiteUI(scr, sourceMap)
     if not scr or not scr:IsA("LuaSourceContainer") then return end
-    
+
     local path = scr.ClassName .. ":" .. scr.Name
     local realSource = sourceMap and (sourceMap[path] or sourceMap[scr.Name])
-    
+
     if not realSource and sourceMap then
         for k, v in pairs(sourceMap) do
             if k:sub(-#scr.Name) == scr.Name or k:find(scr.Name, 1, true) then
@@ -1985,30 +1713,27 @@ local function injectStudioLiteUI(scr, sourceMap)
             end
         end
     end
-    
+
     if not realSource then
         pcall(function() realSource = scr.Source end)
     end
-    
+
     if realSource and #realSource > 0 then
-        realSource = stripRichText(realSource:gsub("%z*$", ""))
+        realSource = stripRichText((realSource:gsub("%z*$", "")))
     else
         realSource = "-- [BLUExCrown] Script source empty or unreadable."
     end
 
-    -- Store into memory registries
     storeScriptSource(scr, realSource)
     storeScriptSource(scr.Name, realSource)
     storeScriptSource(scr.ClassName .. scr.Name, realSource)
     pcall(function() scr.Source = realSource end)
 
-    -- CRITICAL ANTI-READONLY: Destroy any SL_1ReadOnly so Studio Lite NEVER enforces Read-Only!
     local ro = scr:FindFirstChild("SL_1ReadOnly")
     if ro then
         pcall(function() ro:Destroy() end)
     end
 
-    -- Setup Studio Lite internal text box
     local existingTB = scr:FindFirstChild("SL_CodeTextBox")
     if existingTB then
         existingTB.Text = realSource
@@ -2042,7 +1767,6 @@ local function injectStudioLiteUI(scr, sourceMap)
 
     pcall(function()
         for _, c in ipairs(SL_CACHE[assetName]) do
-            -- NEVER attach SL_1ReadOnly so the script stays 100% editable!
             if c.Name ~= "SL_1ReadOnly" and not scr:FindFirstChild(c.Name) then
                 c:Clone().Parent = scr
             end
@@ -2054,59 +1778,41 @@ local function injectStudioLiteUI(scr, sourceMap)
     end)
 end
 
-local function injectAllScripts(root, sourceMap)
-    if not root then return 0 end
-    local list = {}
-    if root:IsA("LuaSourceContainer") then table.insert(list, root) end
-    for _, d in ipairs(root:GetDescendants()) do
-        if d:IsA("LuaSourceContainer") then table.insert(list, d) end
-    end
-    local count = 0
-    for _, s in ipairs(list) do
-        pcall(injectStudioLiteUI, s, sourceMap)
-        count = count + 1
-        task.wait(0.01)
-    end
-    return count
-end
-
 -- =====================================================
--- SCRIPT RECREATOR LOGIC ("HOOK BOT RECREATE")
--- Completely replaces stubborn/locked scripts with clean native instances!
+-- SCRIPT RECREATOR ("HOOK BOT RECREATE")
 -- =====================================================
-local function recreateScriptAsNative(oldScript, sourceCode)
+function recreateScriptAsNative(oldScript, sourceCode)
     if not oldScript or not oldScript:IsA("LuaSourceContainer") then return nil end
     local parent = oldScript.Parent
     local name = oldScript.Name
     local className = oldScript.ClassName
 
-    local src = sourceCode or lookupScriptSource(oldScript) or "-- Recreated Script"
+    local src = sourceCode or lookupScriptSource(oldScript)
+    if not src then
+        pcall(function() src = oldScript.Source end)
+    end
+    if not src or #src == 0 then src = "-- Recreated Script" end
 
     local newScript = Instance.new(className)
     newScript.Name = name
 
-    -- Clone non-script children (skip SL_1ReadOnly)
     for _, ch in ipairs(oldScript:GetChildren()) do
         if not ch:IsA("LuaSourceContainer") and ch.Name ~= "SL_1ReadOnly" then
             pcall(function() ch:Clone().Parent = newScript end)
         end
     end
 
-    -- Clone attributes
     for attr, val in pairs(oldScript:GetAttributes()) do
         pcall(function() newScript:SetAttribute(attr, val) end)
     end
 
-    -- Assign source & register
     pcall(function() newScript.Source = src end)
     storeScriptSource(newScript, src)
     storeScriptSource(name, src)
     storeScriptSource(className .. name, src)
 
-    -- Inject Studio Lite template
     injectStudioLiteUI(newScript, {[className .. ":" .. name] = src, [name] = src})
 
-    -- Replace in hierarchy
     newScript.Parent = parent
     pcall(function() oldScript:Destroy() end)
 
@@ -2114,9 +1820,7 @@ local function recreateScriptAsNative(oldScript, sourceCode)
 end
 
 local function smartInsertRbxm(filePath, fileName)
-    if updateInlineInsertProgress then
-        updateInlineInsertProgress(15, "[1/5] READING BINARY FILE...")
-    end
+    updateInlineInsertProgress(15, "[1/5] READING BINARY FILE...")
     task.wait(0.3)
 
     local insertOk, statusMsg = false, ""
@@ -2124,9 +1828,7 @@ local function smartInsertRbxm(filePath, fileName)
     local parsedSources = {}
 
     if data and #data > 0 then
-        if updateInlineInsertProgress then
-            updateInlineInsertProgress(38, "[2/5] DECOMPRESSING LZ4 CHUNKS...")
-        end
+        updateInlineInsertProgress(38, "[2/5] DECOMPRESSING LZ4 CHUNKS...")
         task.wait(0.35)
 
         parsedSources = parseAllSources(data)
@@ -2139,15 +1841,11 @@ local function smartInsertRbxm(filePath, fileName)
             break
         end
 
-        if updateInlineInsertProgress then
-            updateInlineInsertProgress(65, "[3/5] STRIPPING RICHTEXT TAGS...")
-        end
+        updateInlineInsertProgress(65, "[3/5] STRIPPING RICHTEXT TAGS...")
         task.wait(0.3)
     end
 
-    if updateInlineInsertProgress then
-        updateInlineInsertProgress(82, "[4/5] INJECTING TO WORKSPACE...")
-    end
+    updateInlineInsertProgress(82, "[4/5] INJECTING TO WORKSPACE...")
     task.wait(0.35)
 
     local function setupObjects(objs)
@@ -2156,9 +1854,6 @@ local function smartInsertRbxm(filePath, fileName)
             applyStudioLiteProps(o)
             loadAssetsToSLServer(o)
 
-            -- RECREATE SCRIPTS AS NATIVE ROBLOX INSTANCES
-            -- Mengubah semua script menjadi instance fresh & native dengan SL_CodeTextBox terpasang
-            -- dan SL_1ReadOnly dihancurkan agar Studio Lite mengenalinya sebagai script biasa yang bisa diedit!
             local scriptList = {}
             if o:IsA("LuaSourceContainer") then table.insert(scriptList, o) end
             for _, d in ipairs(o:GetDescendants()) do
@@ -2181,7 +1876,6 @@ local function smartInsertRbxm(filePath, fileName)
                 end
                 src = stripRichText(src or "-- Script source")
 
-                -- Recreate fresh native script
                 recreateScriptAsNative(scr, src)
             end
 
@@ -2231,10 +1925,8 @@ local function smartInsertRbxm(filePath, fileName)
         end)
     end
 
-    if updateInlineInsertProgress then
-        updateInlineInsertProgress(100, insertOk and "[5/5] SUCCESS! READY TO EDIT" or "[5/5] INSERT FINISHED")
-        resetInlineInsertProgress()
-    end
+    updateInlineInsertProgress(100, insertOk and "[5/5] SUCCESS! READY TO EDIT" or "[5/5] INSERT FINISHED")
+    resetInlineInsertProgress()
 
     return insertOk, statusMsg
 end
@@ -2301,7 +1993,6 @@ local function renderRbxmCards()
         pathLbl.TextColor3 = Color3.fromRGB(130, 130, 140)
         pathLbl.TextXAlignment = Enum.TextXAlignment.Left; pathLbl.TextTruncate = Enum.TextTruncate.AtEnd; pathLbl.Parent = card
 
-        -- Tombol Edit Langsung
         local edBtn = Instance.new("TextButton")
         edBtn.Size = UDim2.new(0, 50, 0, 30); edBtn.Position = UDim2.new(1, -135, 0.5, -15)
         edBtn.BackgroundColor3 = Color3.fromRGB(28, 28, 34)
@@ -2316,7 +2007,8 @@ local function renderRbxmCards()
         makeStroke(edBtn, Color3.fromRGB(255,255,255), 1, 0.7)
 
         edBtn.Activated:Connect(function()
-            local code = lookupScriptSource(file.name:gsub("%.rbxm.*", ""))
+            local baseName = file.name:gsub("%.rbxm.*", "")
+            local code = lookupScriptSource(baseName)
             if not code or code == "" then
                 local d = safeReadFile(file.path)
                 if d then
@@ -2324,7 +2016,7 @@ local function renderRbxmCards()
                     for _, v in pairs(s) do code = v; break end
                 end
             end
-            openInEditor(file.name:gsub("%.rbxm.*", ""), code or "-- Script tidak ditemukan")
+            openInEditor(baseName, code or "-- Script tidak ditemukan")
         end)
 
         local insertBtn = Instance.new("TextButton")
@@ -2366,6 +2058,9 @@ end
 
 RbxmScanBtn.Activated:Connect(renderRbxmCards)
 
+-- =====================================================
+-- TOOLBOX LOGIC
+-- =====================================================
 local function inspectAsset(id, name, creator)
     currentInspId = tostring(id)
     TbDetThumb.Image = "rbxthumb://type=Asset&id="..currentInspId.."&w=150&h=150"
@@ -2404,6 +2099,7 @@ TbDetInsert.Activated:Connect(function()
 end)
 
 local function queryMarketplace(catId, query)
+    if not httpRequest then return nil end
     local enc = HttpService:UrlEncode(query)
     local urls = {
         ("https://apis.roproxy.com/toolbox-service/v1/marketplace/%d?keyword=%s&limit=30"):format(catId, enc),
@@ -2418,6 +2114,10 @@ local function queryMarketplace(catId, query)
     end
     return nil
 end
+
+TbGrid:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+    TbGridScroll.CanvasSize = UDim2.new(0, 0, 0, TbGrid.AbsoluteContentSize.Y + 10)
+end)
 
 local function renderGrid(data)
     for _, c in ipairs(TbGridScroll:GetChildren()) do if c:IsA("Frame") then c:Destroy() end end
@@ -2485,9 +2185,6 @@ local function renderGrid(data)
             end
         end)
     end
-    TbGrid:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-        TbGridScroll.CanvasSize = UDim2.new(0, 0, 0, TbGrid.AbsoluteContentSize.Y + 10)
-    end)
     TbGridScroll.CanvasSize = UDim2.new(0, 0, 0, TbGrid.AbsoluteContentSize.Y + 10)
 end
 
@@ -2518,13 +2215,14 @@ TbInsertIdBtn.Activated:Connect(function()
     end
 end)
 
-
--- =====================================================
--- PAGE RBXL: INSERT RBXL PLACE FILE
--- Format identik dengan Page RBXM — scan .rbxl, extract
--- per-service (Workspace, SSS, StarterPack, StarterGui, dll)
--- lalu insert tiap item ke Studio Lite workspace
--- =====================================================
+-- =====================================================================
+-- =====================================================================
+--  PAGE RBXL: INSERT RBXL PLACE FILE (+ DEBUG LOG)
+--  Dibungkus do ... end supaya tidak menambah jumlah local di chunk
+--  utama (limit Luau = 200 local).
+-- =====================================================================
+-- =====================================================================
+do
 
 -- ─── RBXL HEADER ────────────────────────────────────────
 local RbxlHeader = Instance.new("Frame")
@@ -2532,7 +2230,7 @@ RbxlHeader.Size = UDim2.new(1, 0, 0, 28); RbxlHeader.BackgroundTransparency = 1
 RbxlHeader.ZIndex = 13; RbxlHeader.Parent = PageRBXL
 
 local RbxlTitleLbl = Instance.new("TextLabel")
-RbxlTitleLbl.Size = UDim2.new(1, -32, 1, 0); RbxlTitleLbl.Position = UDim2.new(0, 32, 0, 0)
+RbxlTitleLbl.Size = UDim2.new(1, -80, 1, 0)
 RbxlTitleLbl.BackgroundTransparency = 1; RbxlTitleLbl.Font = Enum.Font.GothamBold
 RbxlTitleLbl.TextSize = 11; RbxlTitleLbl.TextColor3 = Color3.fromRGB(255,255,255)
 RbxlTitleLbl.TextXAlignment = Enum.TextXAlignment.Left
@@ -2540,7 +2238,7 @@ RbxlTitleLbl.Text = "INSERT RBXL PLACE FILE"; RbxlTitleLbl.ZIndex = 14; RbxlTitl
 
 makeBackBtn(RbxlHeader, function() showPage(PageSplash) end)
 
--- ─── RBXL TOOLBAR (Scan + Inline Progress) ──────────────
+-- ─── RBXL TOOLBAR ───────────────────────────────────────
 local RbxlToolbar = Instance.new("Frame")
 RbxlToolbar.Size = UDim2.new(1, 0, 0, 28); RbxlToolbar.Position = UDim2.new(0, 0, 0, 32)
 RbxlToolbar.BackgroundTransparency = 1; RbxlToolbar.ZIndex = 13; RbxlToolbar.Parent = PageRBXL
@@ -2552,7 +2250,6 @@ RbxlScanBtn.TextColor3 = Color3.fromRGB(0,0,0)
 RbxlScanBtn.Active = true; RbxlScanBtn.ZIndex = 15; RbxlScanBtn.Parent = RbxlToolbar
 makeCorner(RbxlScanBtn, 6); makeStroke(RbxlScanBtn, Color3.fromRGB(0,0,0), 1)
 
--- INLINE PROGRESS (sejajar scan btn, di sebelah kanan)
 local RbxlProgressFrame = Instance.new("Frame")
 RbxlProgressFrame.Size = UDim2.new(1, -92, 1, 0)
 RbxlProgressFrame.Position = UDim2.new(0, 92, 0, 0)
@@ -2560,14 +2257,15 @@ RbxlProgressFrame.BackgroundTransparency = 1
 RbxlProgressFrame.ZIndex = 14; RbxlProgressFrame.Parent = RbxlToolbar
 
 local RbxlInsertStatus = Instance.new("TextLabel")
-RbxlInsertStatus.Size = UDim2.new(0.68, 0, 0, 14); RbxlInsertStatus.Position = UDim2.new(0, 4, 0, 0)
+RbxlInsertStatus.Size = UDim2.new(0.78, 0, 0, 14); RbxlInsertStatus.Position = UDim2.new(0, 4, 0, 0)
 RbxlInsertStatus.BackgroundTransparency = 1; RbxlInsertStatus.Font = Enum.Font.Code
 RbxlInsertStatus.TextSize = 9; RbxlInsertStatus.TextColor3 = Color3.fromRGB(180,180,195)
 RbxlInsertStatus.TextXAlignment = Enum.TextXAlignment.Left
+RbxlInsertStatus.TextTruncate = Enum.TextTruncate.AtEnd
 RbxlInsertStatus.Text = "[.] Klik SCAN FILES"; RbxlInsertStatus.ZIndex = 15; RbxlInsertStatus.Parent = RbxlProgressFrame
 
 local RbxlInsertPct = Instance.new("TextLabel")
-RbxlInsertPct.Size = UDim2.new(0.32, -4, 0, 14); RbxlInsertPct.Position = UDim2.new(0.68, 0, 0, 0)
+RbxlInsertPct.Size = UDim2.new(0.22, -4, 0, 14); RbxlInsertPct.Position = UDim2.new(0.78, 0, 0, 0)
 RbxlInsertPct.BackgroundTransparency = 1; RbxlInsertPct.Font = Enum.Font.Code
 RbxlInsertPct.TextSize = 9; RbxlInsertPct.TextColor3 = Color3.fromRGB(255,255,255)
 RbxlInsertPct.TextXAlignment = Enum.TextXAlignment.Right
@@ -2599,6 +2297,10 @@ local RbxlPad = Instance.new("UIPadding")
 RbxlPad.PaddingTop = UDim.new(0, 6); RbxlPad.PaddingLeft = UDim.new(0, 6)
 RbxlPad.PaddingRight = UDim.new(0, 6); RbxlPad.Parent = RbxlScroll
 
+RbxlList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+    RbxlScroll.CanvasSize = UDim2.new(0, 0, 0, RbxlList.AbsoluteContentSize.Y + 12)
+end)
+
 local RbxlEmpty = Instance.new("TextLabel")
 RbxlEmpty.Size = UDim2.new(1, 0, 0, 40); RbxlEmpty.BackgroundTransparency = 1
 RbxlEmpty.Text = "Belum ada file .rbxl ditemukan. Klik SCAN FILES."
@@ -2606,7 +2308,6 @@ RbxlEmpty.Font = Enum.Font.Gotham; RbxlEmpty.TextSize = 10
 RbxlEmpty.TextColor3 = Color3.fromRGB(140,140,150)
 RbxlEmpty.ZIndex = 15; RbxlEmpty.Parent = RbxlScroll
 
--- ─── INLINE PROGRESS HELPERS ────────────────────────────
 local function updateRbxlProgress(pct, statusText)
     RbxlInsertStatus.Text = statusText
     RbxlInsertStatus.TextColor3 = Color3.fromRGB(255,255,255)
@@ -2627,18 +2328,10 @@ local function resetRbxlProgress(fileCount)
     end)
 end
 
-
 -- =====================================================
-
+-- MCHLERN RBXL/RBXM FULL BINARY DESERIALIZER (fallback M5)
+-- Pure math float decode - aman untuk Delta Android
 -- =====================================================
--- MCHLERN RBXL/RBXM FULL BINARY DESERIALIZER v2.0
--- Verified against rojo.space/binary spec
--- Pure math float decode — NO string.pack/unpack needed
--- Luau/Delta Android safe
--- =====================================================
-
--- ── PURE MATH: u32 bits → IEEE 754 float ─────────────────────
--- No ffi, no buffer, no string.pack — works on ALL Delta versions
 local function uint32_to_float(u)
     if u == 0 then return 0.0 end
     local sign = 1
@@ -2646,20 +2339,17 @@ local function uint32_to_float(u)
         sign = -1
         u = u - 0x80000000
     end
-    local exp  = math.floor(u / 0x800000)  -- bits [30..23]
-    local mant = u % 0x800000              -- bits [22..0]
+    local exp  = math.floor(u / 0x800000)
+    local mant = u % 0x800000
     if exp == 255 then
         return sign * (mant == 0 and math.huge or 0/0)
     elseif exp == 0 then
-        -- denormalized
         return sign * (2 ^ -126) * (mant / 0x800000)
     else
         return sign * (2 ^ (exp - 127)) * (1 + mant / 0x800000)
     end
 end
 
--- Roblox rfloat32: big-endian u32 with sign bit rotated to LSB
--- Decode: un-rotate right 1 bit, then interpret as IEEE 754
 local function decode_rfloat32_bytes(b1, b2, b3, b4)
     local raw     = (b1 or 0)*16777216 + (b2 or 0)*65536 + (b3 or 0)*256 + (b4 or 0)
     local lsb     = raw % 2
@@ -2667,14 +2357,9 @@ local function decode_rfloat32_bytes(b1, b2, b3, b4)
     return uint32_to_float(unrot)
 end
 
--- ── INTERLEAVE DECODE ────────────────────────────────────────
--- Roblox stores N 4-byte values as: [all byte0][all byte1][all byte2][all byte3]
--- (column-wise, big-endian per element)
--- deinterleave_u32: data is count*4 bytes, returns count u32 values
 local function deinterleave_u32(data, count)
     local out = {}
     for i = 1, count do
-        -- byte j of element i is at index: (j-1)*count + i
         local b1 = data:byte(i)           or 0
         local b2 = data:byte(i + count)   or 0
         local b3 = data:byte(i + count*2) or 0
@@ -2684,7 +2369,6 @@ local function deinterleave_u32(data, count)
     return out
 end
 
--- Zigzag decode unsigned→signed: even→n/2, odd→-(n+1)/2
 local function zigzag32(n)
     if n % 2 == 0 then
         return math.floor(n / 2)
@@ -2693,7 +2377,6 @@ local function zigzag32(n)
     end
 end
 
--- Deinterleave + zigzag: for Int32 arrays
 local function deinterleave_i32(data, count)
     local raw = deinterleave_u32(data, count)
     local out = {}
@@ -2703,7 +2386,6 @@ local function deinterleave_i32(data, count)
     return out
 end
 
--- Delta-decode (cumulative sum)
 local function delta_decode(arr)
     local out = {}
     local acc = 0
@@ -2714,7 +2396,6 @@ local function delta_decode(arr)
     return out
 end
 
--- Deinterleave + rfloat32 decode: for Float32 arrays
 local function deinterleave_rfloat32(data, count)
     local out = {}
     for i = 1, count do
@@ -2727,21 +2408,20 @@ local function deinterleave_rfloat32(data, count)
     return out
 end
 
--- ── LZ4 CHUNK DECOMPRESSOR ───────────────────────────────────
--- Uses outer lz4Decompress if available, otherwise pure Lua fallback
 local function mchlern_lz4_decompress(compressed, outputSize)
-    -- Try executor lz4Decompress first
     if lz4Decompress then
         local ok, r = pcall(lz4Decompress, compressed, outputSize)
         if ok and r then return r end
     end
-    -- Pure Lua LZ4 Block decompressor
     local pos = 1
     local out = {}
     local written = 0
     local function rb() local b = compressed:byte(pos) or 0; pos=pos+1; return b end
     local function ru16() local a,b=compressed:byte(pos,pos+1); pos=pos+2; return (a or 0)+(b or 0)*256 end
+    local iter = 0
     while pos <= #compressed do
+        iter = iter + 1
+        if iter % 4000 == 0 then task.wait() end
         local token = rb()
         local litLen = math.floor(token / 16)
         local matLen = token % 16
@@ -2762,8 +2442,6 @@ local function mchlern_lz4_decompress(compressed, outputSize)
     return table.concat(out)
 end
 
--- ── CFRAME SPECIAL ROTATION TABLE ───────────────────────────
--- 24 canonical axis-aligned CFrame rotations (rojo spec, id 0x02..0x20)
 local CF_SPECIAL = {
     [0x02] = CFrame.new(0,0,0, 1,0,0, 0,1,0, 0,0,1),
     [0x03] = CFrame.new(0,0,0, 1,0,0, 0,0,-1, 0,1,0),
@@ -2787,105 +2465,86 @@ local CF_SPECIAL = {
     [0x20] = CFrame.new(0,0,0, 0,0,1, 0,-1,0, 1,0,0),
 }
 
--- Read one raw (non-interleaved) rfloat32 from stream position
-local function read_raw_rfloat32(data, pos)
-    -- data is non-interleaved: big-endian 4 bytes
-    local b1,b2,b3,b4 = data:byte(pos, pos+3)
-    return decode_rfloat32_bytes(b1,b2,b3,b4), pos+4
-end
-
--- ── SAFE CLASS WHITELIST ────────────────────────────────────
 local RBXL_SAFE_CLASSES = {
-    -- Geometry
     Part=true, WedgePart=true, CornerWedgePart=true, TrussPart=true,
     SpawnLocation=true, MeshPart=true, SpecialMesh=true, BlockMesh=true,
     CylinderMesh=true, FileMesh=true,
     UnionOperation=true, NegateOperation=true,
-    -- Structure
     Model=true, Folder=true, Accessory=true, Tool=true,
-    -- Physics
     Weld=true, WeldConstraint=true, Motor6D=true, HingeConstraint=true,
     BallSocketConstraint=true, RodConstraint=true, RopeConstraint=true,
     SpringConstraint=true, TorsionSpringConstraint=true,
-    -- Textures/Decals
     Texture=true, Decal=true, SelectionBox=true, SelectionSphere=true,
-    -- Lighting
     PointLight=true, SpotLight=true, SurfaceLight=true,
-    -- Scripts
     Script=true, LocalScript=true, ModuleScript=true,
-    -- GUI
     BillboardGui=true, SurfaceGui=true,
-    -- Values
     IntValue=true, StringValue=true, BoolValue=true, NumberValue=true,
     Vector3Value=true, CFrameValue=true, Color3Value=true, ObjectValue=true,
-    -- Config/Networking
     Configuration=true, RemoteEvent=true, RemoteFunction=true,
     BindableEvent=true, BindableFunction=true,
-    -- FX
     Sound=true, ParticleEmitter=true, Smoke=true, Fire=true, Sparkles=true,
     Trail=true, Attachment=true, Beam=true,
-    -- Animation
     Animation=true, Animator=true, Humanoid=true, HumanoidDescription=true,
 }
 
--- Properties to skip (read-only / protected / crash-causing)
 local RBXL_SKIP_PROPS = {
     UniqueId=true, HistoryId=true, SourceAssetId=true,
     AttributesSerialize=true, Tags=true, Capabilities=true,
-    Parent=true,  -- handled separately
+    Parent=true,
 }
 
--- ── MAIN BINARY DESERIALIZER ─────────────────────────────────
 local function deserializeRbxBinary(fileData)
-    local result = {
-        instances = {},  -- [ref] = {class, props={}, parent=nil}
-        errors    = {},
-    }
+    local result = { instances = {}, errors = {} }
 
     if not fileData or #fileData < 32 then
         result.errors[1] = "File terlalu kecil"; return result
     end
-
-    -- Validate magic
     if fileData:sub(1,8) ~= "<roblox!" then
         result.errors[1] = "Bukan binary RBXL/RBXM (magic salah)"; return result
     end
 
     local fileLen = #fileData
-    -- Header: 8 magic + 6 sig + 2 version + 4 numClass + 4 numInst + 8 reserved = 32
     local pos = 33
+    local classMap   = {}
+    local sharedStrs = {}
+    local chunkCounter = 0
 
-    local classMap   = {}  -- [classId] = {name, refs[]}
-    local sharedStrs = {}  -- [idx] = string (from SSTR)
-
-    -- ── CHUNK LOOP ──────────────────────────────────────────
     while pos <= fileLen - 16 do
+        chunkCounter = chunkCounter + 1
+        if chunkCounter % 20 == 0 then task.wait() end
+
         local tag = fileData:sub(pos, pos+3)
-        -- Chunk header: 4 tag + 4 compLen LE + 4 rawLen LE + 4 reserved
         local cB = {fileData:byte(pos+4, pos+7)}
         local rB = {fileData:byte(pos+8, pos+11)}
         local compLen = (cB[1] or 0) + (cB[2] or 0)*256 + (cB[3] or 0)*65536 + (cB[4] or 0)*16777216
         local rawLen  = (rB[1] or 0) + (rB[2] or 0)*256 + (rB[3] or 0)*65536 + (rB[4] or 0)*16777216
         pos = pos + 16
 
-        if tag == "END " then break end
+        if tag == "END " or tag == "END\0" then break end
 
-        -- Get chunk data
+        if compLen > fileLen or rawLen > 128*1024*1024 then
+            result.errors[#result.errors+1] = "Ukuran chunk tidak masuk akal (" .. tag:gsub("[^%w ]", "?") .. ")"
+            break
+        end
+
         local chunk
         if compLen == 0 then
             chunk = fileData:sub(pos, pos + rawLen - 1)
             pos = pos + rawLen
         else
             local comp = fileData:sub(pos, pos + compLen - 1)
+            if comp:sub(1, 4) == "\40\181\47\253" then
+                result.errors[#result.errors+1] = "Chunk ZSTD tidak didukung parser manual"
+                return result
+            end
             local ok2, dc = pcall(mchlern_lz4_decompress, comp, rawLen)
             chunk = (ok2 and dc) or comp
             pos = pos + compLen
         end
 
         if chunk and #chunk > 0 then
-        local cp = 1  -- chunk position
+        local cp = 1
 
-        -- helper: read bytes from chunk
         local function cb(n)
             local s = chunk:sub(cp, cp+n-1); cp=cp+n; return s
         end
@@ -2900,37 +2559,29 @@ local function deserializeRbxBinary(fileData)
             local b=chunk:byte(cp) or 0; cp=cp+1; return b
         end
 
-        -- ── SSTR ──────────────────────────────────────────
         if tag == "SSTR" then
-            cu32le() -- version
+            cu32le()
             local cnt = cu32le()
             for i = 0, cnt-1 do
-                cb(16) -- MD5 hash
+                cb(16)
                 sharedStrs[i] = cstr()
             end
 
-        -- ── INST ──────────────────────────────────────────
         elseif tag == "INST" then
             local classId   = cu32le()
             local className = cstr()
-            local objFmt    = cbyte()   -- 0=normal, 1=service
+            local objFmt    = cbyte()
             local cnt       = cu32le()
 
-            -- Referents: interleaved zigzag i32, then delta-decode
             local rawRefs = cb(cnt * 4)
             local refs = delta_decode(deinterleave_i32(rawRefs, cnt))
 
             classMap[classId] = { name=className, refs=refs }
 
             for _, ref in ipairs(refs) do
-                result.instances[ref] = {
-                    class  = className,
-                    props  = {},
-                    parent = nil,
-                }
+                result.instances[ref] = { class = className, props = {}, parent = nil }
             end
 
-        -- ── PROP ──────────────────────────────────────────
         elseif tag == "PROP" then
             local classId  = cu32le()
             local propName = cstr()
@@ -2941,7 +2592,6 @@ local function deserializeRbxBinary(fileData)
             local refs = cls.refs
             local cnt  = #refs
 
-            -- Read values based on typeId
             local function setAll(vals)
                 for i, ref in ipairs(refs) do
                     if result.instances[ref] then
@@ -2950,38 +2600,31 @@ local function deserializeRbxBinary(fileData)
                 end
             end
 
-            -- 0x01 String
             if typeId == 0x01 then
                 local vals = {}
                 for i=1,cnt do vals[i]=cstr() end
                 setAll(vals)
 
-            -- 0x02 Bool
             elseif typeId == 0x02 then
                 local vals = {}
                 for i=1,cnt do vals[i]=(cbyte()~=0) end
                 setAll(vals)
 
-            -- 0x03 Int32 interleaved zigzag
             elseif typeId == 0x03 then
                 setAll(deinterleave_i32(cb(cnt*4), cnt))
 
-            -- 0x04 Float32 interleaved rfloat32
             elseif typeId == 0x04 then
                 setAll(deinterleave_rfloat32(cb(cnt*4), cnt))
 
-            -- 0x05 Float64 LE (8 bytes, approximate via string ops)
             elseif typeId == 0x05 then
                 local vals = {}
                 for i=1,cnt do
                     local raw8 = cb(8)
-                    -- Approximate: extract the double via Lua 5.3 string.unpack if available
                     local ok2, v = pcall(string.unpack, "<d", raw8)
                     vals[i] = ok2 and v or 0
                 end
                 setAll(vals)
 
-            -- 0x06 UDim
             elseif typeId == 0x06 then
                 local scales  = deinterleave_rfloat32(cb(cnt*4), cnt)
                 local offsets = deinterleave_i32(cb(cnt*4), cnt)
@@ -2989,7 +2632,6 @@ local function deserializeRbxBinary(fileData)
                 for i=1,cnt do vals[i] = UDim.new(scales[i] or 0, offsets[i] or 0) end
                 setAll(vals)
 
-            -- 0x07 UDim2
             elseif typeId == 0x07 then
                 local xS = deinterleave_rfloat32(cb(cnt*4), cnt)
                 local yS = deinterleave_rfloat32(cb(cnt*4), cnt)
@@ -2999,7 +2641,6 @@ local function deserializeRbxBinary(fileData)
                 for i=1,cnt do vals[i]=UDim2.new(xS[i] or 0,xO[i] or 0,yS[i] or 0,yO[i] or 0) end
                 setAll(vals)
 
-            -- 0x0B BrickColor
             elseif typeId == 0x0B then
                 local raw = deinterleave_u32(cb(cnt*4), cnt)
                 local vals = {}
@@ -3009,7 +2650,6 @@ local function deserializeRbxBinary(fileData)
                 end
                 setAll(vals)
 
-            -- 0x0C Color3 (3 rfloat32 interleaved arrays: R, G, B)
             elseif typeId == 0x0C then
                 local vR = deinterleave_rfloat32(cb(cnt*4), cnt)
                 local vG = deinterleave_rfloat32(cb(cnt*4), cnt)
@@ -3020,7 +2660,6 @@ local function deserializeRbxBinary(fileData)
                 end
                 setAll(vals)
 
-            -- 0x0D Vector2
             elseif typeId == 0x0D then
                 local vX = deinterleave_rfloat32(cb(cnt*4), cnt)
                 local vY = deinterleave_rfloat32(cb(cnt*4), cnt)
@@ -3028,7 +2667,6 @@ local function deserializeRbxBinary(fileData)
                 for i=1,cnt do vals[i]=Vector2.new(vX[i] or 0,vY[i] or 0) end
                 setAll(vals)
 
-            -- 0x0E Vector3 (X,Y,Z each as interleaved rfloat32 array)
             elseif typeId == 0x0E then
                 local vX = deinterleave_rfloat32(cb(cnt*4), cnt)
                 local vY = deinterleave_rfloat32(cb(cnt*4), cnt)
@@ -3037,19 +2675,13 @@ local function deserializeRbxBinary(fileData)
                 for i=1,cnt do vals[i]=Vector3.new(vX[i] or 0,vY[i] or 0,vZ[i] or 0) end
                 setAll(vals)
 
-            -- 0x10 CFrame
-            -- Layout: [rotToken * cnt], then for token==0: [9 rfloat32 inline per instance],
-            -- then [posX * cnt interleaved], [posY * cnt interleaved], [posZ * cnt interleaved]
             elseif typeId == 0x10 then
-                -- 1. Read rotation tokens
                 local rotTokens = {}
                 for i=1,cnt do rotTokens[i]=cbyte() end
 
-                -- 2. Read inline rotation matrices for token==0 instances
                 local rotMats = {}
                 for i=1,cnt do
                     if rotTokens[i] == 0x00 then
-                        -- 9 raw rfloat32 (NOT interleaved here, stored inline)
                         local m = {}
                         for j=1,9 do
                             local b1,b2,b3,b4 = chunk:byte(cp,cp+3); cp=cp+4
@@ -3059,12 +2691,10 @@ local function deserializeRbxBinary(fileData)
                     end
                 end
 
-                -- 3. Read position arrays (interleaved rfloat32)
                 local pX = deinterleave_rfloat32(cb(cnt*4), cnt)
                 local pY = deinterleave_rfloat32(cb(cnt*4), cnt)
                 local pZ = deinterleave_rfloat32(cb(cnt*4), cnt)
 
-                -- 4. Reconstruct CFrames
                 local vals = {}
                 for i=1,cnt do
                     local x,y,z = pX[i] or 0, pY[i] or 0, pZ[i] or 0
@@ -3090,21 +2720,18 @@ local function deserializeRbxBinary(fileData)
                 end
                 setAll(vals)
 
-            -- 0x12 Enum/Token (interleaved u32)
             elseif typeId == 0x12 then
                 local raw = deinterleave_u32(cb(cnt*4), cnt)
                 local vals = {}
                 for i=1,cnt do vals[i] = {_enum=raw[i]} end
                 setAll(vals)
 
-            -- 0x13 Referent (interleaved zigzag delta i32)
             elseif typeId == 0x13 then
                 local refs2 = delta_decode(deinterleave_i32(cb(cnt*4), cnt))
                 local vals = {}
                 for i=1,cnt do vals[i] = {_ref=refs2[i]} end
                 setAll(vals)
 
-            -- 0x1A Color3uint8
             elseif typeId == 0x1A then
                 local allR = cb(cnt); local allG = cb(cnt); local allB = cb(cnt)
                 local vals = {}
@@ -3113,22 +2740,18 @@ local function deserializeRbxBinary(fileData)
                 end
                 setAll(vals)
 
-            -- 0x1C SharedString
             elseif typeId == 0x1C then
                 local idxs = deinterleave_u32(cb(cnt*4), cnt)
                 local vals = {}
                 for i=1,cnt do vals[i] = sharedStrs[idxs[i]] or "" end
                 setAll(vals)
             end
-            -- Unknown types: gracefully skip (don't break parsing)
             end
 
-        -- ── PRNT ──────────────────────────────────────────
         elseif tag == "PRNT" then
-            cbyte()           -- version (always 0)
+            cbyte()
             local cnt = cu32le()
 
-            -- BOTH child and parent refs: interleaved zigzag i32 + delta-decode
             local childRefs  = delta_decode(deinterleave_i32(cb(cnt*4), cnt))
             local parentRefs = delta_decode(deinterleave_i32(cb(cnt*4), cnt))
 
@@ -3136,25 +2759,23 @@ local function deserializeRbxBinary(fileData)
                 local cRef = childRefs[i]
                 local pRef = parentRefs[i]
                 if result.instances[cRef] then
-                    result.instances[cRef].parent = pRef  -- -1 = root
+                    result.instances[cRef].parent = pRef
                 end
             end
         end
 
-                end
+        end
     end
 
     return result
 end
 
--- ── APPLY TREE: Instance.new + set props + set parents ───────
 local function applyDeserializedTree(parsed, targetFolder, onProgress)
     local instMap = {}
     local total = 0
     for _ in pairs(parsed.instances) do total = total + 1 end
     local done = 0
 
-    -- Phase 1: Create instances
     for ref, data in pairs(parsed.instances) do
         local className = data.class
         local inst
@@ -3163,18 +2784,17 @@ local function applyDeserializedTree(parsed, targetFolder, onProgress)
             if ok2 and i then inst = i end
         end
         if not inst then
-            -- Placeholder folder for unsupported classes
             local ok2, f = pcall(Instance.new, "Folder")
             if ok2 and f then f.Name = "[" .. className .. "]"; inst = f end
         end
         if inst then instMap[ref] = inst end
         done = done + 1
+        if done % 200 == 0 then task.wait() end
         if onProgress and done % 100 == 0 then
             onProgress(done/total*0.45, "Creating " .. done .. "/" .. total)
         end
     end
 
-    -- Phase 2: Set properties
     done = 0
     for ref, data in pairs(parsed.instances) do
         local inst = instMap[ref]
@@ -3184,9 +2804,7 @@ local function applyDeserializedTree(parsed, targetFolder, onProgress)
                     pcall(function()
                         if type(pVal) == "table" then
                             if pVal._enum then
-                                inst[pName] = pVal._enum  -- try set as number
-                            elseif pVal._ref then
-                                -- deferred
+                                inst[pName] = pVal._enum
                             end
                         else
                             inst[pName] = pVal
@@ -3196,12 +2814,12 @@ local function applyDeserializedTree(parsed, targetFolder, onProgress)
             end
         end
         done = done + 1
+        if done % 200 == 0 then task.wait() end
         if onProgress and done % 100 == 0 then
             onProgress(0.45 + done/total*0.35, "Props " .. done .. "/" .. total)
         end
     end
 
-    -- Phase 3: Build hierarchy
     local sortedRefs = {}
     for ref in pairs(parsed.instances) do table.insert(sortedRefs, ref) end
     table.sort(sortedRefs)
@@ -3218,12 +2836,12 @@ local function applyDeserializedTree(parsed, targetFolder, onProgress)
             end
         end
         done = done + 1
+        if done % 200 == 0 then task.wait() end
         if onProgress and done % 100 == 0 then
             onProgress(0.8 + done/total*0.18, "Hierarchy " .. done .. "/" .. total)
         end
     end
 
-    -- Phase 4: Deferred ref props
     for ref, data in pairs(parsed.instances) do
         local inst = instMap[ref]
         if inst then
@@ -3241,12 +2859,10 @@ local function applyDeserializedTree(parsed, targetFolder, onProgress)
     return instMap, count
 end
 
--- ── RBXLX XML PARSER (fallback for .rbxlx format) ───────────
+-- ── RBXLX XML PARSER (fallback .rbxlx) ──────────────────
 local function parseRbxlxXml(xmlData, targetFolder)
     local created = 0
-    local stack = {targetFolder}
 
-    -- Extract all <Item class="...">...</Item> blocks (non-nested parse)
     for className, propsBlock in xmlData:gmatch('<Item%s+class="([^"]+)"[^>]*>%s*<Properties>(.-)</Properties>') do
         local inst
         if RBXL_SAFE_CLASSES[className] then
@@ -3258,66 +2874,57 @@ local function parseRbxlxXml(xmlData, targetFolder)
             if ok2 then f.Name = "[" .. className .. "]"; inst = f end
         end
         if inst then
-        -- Name
-        local name = propsBlock:match('<string%s+name="Name"%s*>([^<]+)</string>')
-        if name then pcall(function() inst.Name = name end) end
+            local name = propsBlock:match('<string%s+name="Name"%s*>([^<]+)</string>')
+            if name then pcall(function() inst.Name = name end) end
 
-        -- Size (Vector3)
-        local sXml = propsBlock:match('<Vector3%s+name="Size"%s*>(.-)</Vector3>')
-        if sXml then
-            local x,y,z = tonumber(sXml:match("<X>([^<]+)</X>")),tonumber(sXml:match("<Y>([^<]+)</Y>")),tonumber(sXml:match("<Z>([^<]+)</Z>"))
-            pcall(function() if x then inst.Size=Vector3.new(x,y or 0,z or 0) end end)
-        end
-
-        -- CFrame
-        local cfXml = propsBlock:match('<CoordinateFrame%s+name="CFrame"%s*>(.-)</CoordinateFrame>')
-        if cfXml then
-            local function n(t) return tonumber(cfXml:match('<'..t..'>([^<]+)</'..t..'>')) or 0 end
-            pcall(function() inst.CFrame = CFrame.new(n"X",n"Y",n"Z",n"R00",n"R01",n"R02",n"R10",n"R11",n"R12",n"R20",n"R21",n"R22") end)
-        end
-
-        -- BrickColor
-        local bc = propsBlock:match('<BrickColor%s+name="BrickColor"%s*>([^<]+)</BrickColor>')
-        if bc then pcall(function() inst.BrickColor=BrickColor.new(tonumber(bc)) end) end
-
-        -- Color
-        local colXml = propsBlock:match('<Color3uint8%s+name="Color"%s*>([^<]+)</Color3uint8>')
-        if colXml then
-            local cv = tonumber(colXml) or 0
-            local r,g,b = math.floor(cv/65536)%256, math.floor(cv/256)%256, cv%256
-            pcall(function() inst.Color=Color3.fromRGB(r,g,b) end)
-        end
-
-        -- Material (enum value)
-        local mat = propsBlock:match('<token%s+name="Material"%s*>([^<]+)</token>')
-        if mat then pcall(function() inst.Material = tonumber(mat) or 256 end) end
-
-        -- Anchored
-        local anch = propsBlock:match('<bool%s+name="Anchored"%s*>([^<]+)</bool>')
-        if anch then pcall(function() inst.Anchored=(anch=="true") end) end
-
-        -- Script Source (CDATA)
-        if className=="Script" or className=="LocalScript" or className=="ModuleScript" then
-            local src = propsBlock:match('<ProtectedString%s+name="Source"%s*>%s*<!%[CDATA%[(.-)]%]>%s*</ProtectedString>')
-                     or propsBlock:match('<string%s+name="Source"%s*>([^<]+)</string>')
-            if src and #src > 0 then
-                src = stripRichText(src)
-                pcall(function() inst.Source = src end)
-                storeScriptSource(name or className, src)
-                recreateScriptAsNative(inst, src)
+            local sXml = propsBlock:match('<Vector3%s+name="Size"%s*>(.-)</Vector3>')
+            if sXml then
+                local x,y,z = tonumber(sXml:match("<X>([^<]+)</X>")),tonumber(sXml:match("<Y>([^<]+)</Y>")),tonumber(sXml:match("<Z>([^<]+)</Z>"))
+                pcall(function() if x then inst.Size=Vector3.new(x,y or 0,z or 0) end end)
             end
-        end
 
-        pcall(function() inst.Parent = targetFolder end)
-        created = created + 1
+            local cfXml = propsBlock:match('<CoordinateFrame%s+name="CFrame"%s*>(.-)</CoordinateFrame>')
+            if cfXml then
+                local function n(t) return tonumber(cfXml:match('<'..t..'>([^<]+)</'..t..'>')) or 0 end
+                pcall(function() inst.CFrame = CFrame.new(n"X",n"Y",n"Z",n"R00",n"R01",n"R02",n"R10",n"R11",n"R12",n"R20",n"R21",n"R22") end)
+            end
+
+            local bc = propsBlock:match('<int%s+name="BrickColor"%s*>([^<]+)</int>') or propsBlock:match('<BrickColor%s+name="BrickColor"%s*>([^<]+)</BrickColor>')
+            if bc then pcall(function() inst.BrickColor=BrickColor.new(tonumber(bc)) end) end
+
+            local colXml = propsBlock:match('<Color3uint8%s+name="Color"%s*>([^<]+)</Color3uint8>')
+            if colXml then
+                local cv = tonumber(colXml) or 0
+                local r,g,b = math.floor(cv/65536)%256, math.floor(cv/256)%256, cv%256
+                pcall(function() inst.Color=Color3.fromRGB(r,g,b) end)
+            end
+
+            local mat = propsBlock:match('<token%s+name="Material"%s*>([^<]+)</token>')
+            if mat then pcall(function() inst.Material = tonumber(mat) or 256 end) end
+
+            local anch = propsBlock:match('<bool%s+name="Anchored"%s*>([^<]+)</bool>')
+            if anch then pcall(function() inst.Anchored=(anch=="true") end) end
+
+            if className=="Script" or className=="LocalScript" or className=="ModuleScript" then
+                local src = propsBlock:match('<ProtectedString%s+name="Source"%s*>%s*<!%[CDATA%[(.-)]%]>%s*</ProtectedString>')
+                         or propsBlock:match('<string%s+name="Source"%s*>([^<]+)</string>')
+                if src and #src > 0 then
+                    src = stripRichText(src)
+                    pcall(function() inst.Source = src end)
+                    storeScriptSource(name or className, src)
+                end
+            end
+
+            pcall(function() inst.Parent = targetFolder end)
+            created = created + 1
+            if created % 200 == 0 then task.wait() end
         end
     end
     return created
 end
 
--- ── SMART INSERT RBXL FULL v2 ────────────────────────────────
 -- =====================================================
--- STUDIO LITE SERVICE MAP & RBXL UNPACK ENGINE
+-- STUDIO LITE SERVICE MAP
 -- =====================================================
 local SVC_MAP = {
     ["Workspace"]           = workspace,
@@ -3334,172 +2941,255 @@ local SVC_MAP = {
     ["Teams"]               = game:GetService("Teams"),
 }
 
-local function insertRbxlObjects(objects, sourceMap)
-    local count = 0
-    sourceMap = sourceMap or {}
-    for _, obj in ipairs(objects) do
-        pcall(function()
-            local target = SVC_MAP[obj.ClassName] or SVC_MAP[obj.Name] or workspace
+-- =====================================================
+-- DEBUG LOGGER RBXL
+-- Tampil di: label status, console (print), file rbxl_debug.txt,
+-- dan otomatis dibuka di editor saat insert gagal.
+-- =====================================================
+local RBXL_LOG = {}
 
-            if target == workspace and (obj.Name == "Workspace" or obj.ClassName == "Workspace") then
-                -- Unpack all children of the place's Workspace into the live Workspace
-                for _, ch in ipairs(obj:GetChildren()) do
-                    pcall(function()
-                        ch.Parent = workspace
-                        applyStudioLiteProps(ch)
-                        loadAssetsToSLServer(ch)
-                        if ch:IsA("LuaSourceContainer") then
-                            recreateScriptAsNative(ch, sourceMap[ch.Name])
-                        end
-                        count = count + 1
-                    end)
-                    task.wait(0.01)
-                end
-            elseif target ~= workspace then
-                -- Unpack into respective service (Lighting, ReplicatedStorage, etc.)
-                for _, ch in ipairs(obj:GetChildren()) do
-                    pcall(function()
-                        ch.Parent = target
-                        applyStudioLiteProps(ch)
-                        loadAssetsToSLServer(ch)
-                        if ch:IsA("LuaSourceContainer") then
-                            recreateScriptAsNative(ch, sourceMap[ch.Name])
-                        end
-                        count = count + 1
-                    end)
-                    task.wait(0.01)
-                end
-            else
-                -- Standalone objects/models
-                obj.Parent = workspace
-                applyStudioLiteProps(obj)
-                loadAssetsToSLServer(obj)
-                if obj:IsA("LuaSourceContainer") then
-                    recreateScriptAsNative(obj, sourceMap[obj.Name])
-                end
-                count = count + 1
+local function DBG(tag, msg)
+    local line = string.format("[%s][%.2f] %s", tag, os.clock(), tostring(msg))
+    table.insert(RBXL_LOG, line)
+    print("[RBXL-DBG] " .. line)
+    pcall(function() RbxlInsertStatus.Text = line:sub(1, 70) end)
+    if writefile then pcall(writefile, "rbxl_debug.txt", table.concat(RBXL_LOG, "\n")) end
+end
+
+local function hex(s, n)
+    local t = {}
+    for i = 1, math.min(#s, n) do t[#t + 1] = string.format("%02X", s:byte(i)) end
+    return table.concat(t, " ")
+end
+
+-- Bedah struktur binary: tag chunk + jenis kompresi (LZ4 / ZSTD / RAW)
+local function describeBinary(data)
+    local pos, n = 33, 0
+    local hasZstd = false
+    while pos <= #data - 16 and n < 40 do
+        n = n + 1
+        local tag = data:sub(pos, pos + 3)
+        local c = {data:byte(pos + 4, pos + 7)}
+        local r = {data:byte(pos + 8, pos + 11)}
+        local compLen = (c[1] or 0) + (c[2] or 0) * 256 + (c[3] or 0) * 65536 + (c[4] or 0) * 16777216
+        local rawLen = (r[1] or 0) + (r[2] or 0) * 256 + (r[3] or 0) * 65536 + (r[4] or 0) * 16777216
+        local kind = "RAW"
+        if compLen > 0 then
+            kind = (data:sub(pos + 16, pos + 19) == "\40\181\47\253") and "ZSTD" or "LZ4"
+        end
+        if kind == "ZSTD" then hasZstd = true end
+        local safeTag = tag:gsub("[^%w ]", "?")
+        DBG("CHUNK", string.format("#%d %s comp=%d raw=%d %s", n, safeTag, compLen, rawLen, kind))
+        if tag == "END\0" or tag == "END " then break end
+        if compLen > #data or rawLen > 128 * 1024 * 1024 then
+            DBG("CHUNK-ERR", "ukuran chunk tidak masuk akal -> header salah / file rusak")
+            break
+        end
+        pos = pos + 16 + (compLen > 0 and compLen or rawLen)
+    end
+    return hasZstd
+end
+
+local function insertRbxlObjects(objects, sourceMap)
+    local count, fail = 0, 0
+    sourceMap = sourceMap or {}
+    DBG("OBJ", "objek top-level: " .. #objects)
+
+    local function place(ch, target)
+        local ok, err = pcall(function()
+            ch.Parent = target
+            applyStudioLiteProps(ch)
+            loadAssetsToSLServer(ch)
+            -- recreate semua script (termasuk nested) jadi native
+            local list = {}
+            if ch:IsA("LuaSourceContainer") then table.insert(list, ch) end
+            for _, d in ipairs(ch:GetDescendants()) do
+                if d:IsA("LuaSourceContainer") then table.insert(list, d) end
+            end
+            for i, scr in ipairs(list) do
+                pcall(recreateScriptAsNative, scr, sourceMap[scr.Name])
+                if i % 20 == 0 then task.wait() end
             end
         end)
+        if ok then
+            count = count + 1
+        else
+            fail = fail + 1
+            if fail <= 15 then DBG("OBJ-ERR", ch.ClassName .. "/" .. ch.Name .. ": " .. tostring(err)) end
+        end
     end
+
+    for i, obj in ipairs(objects) do
+        local okI, childN = pcall(function() return #obj:GetChildren() end)
+        DBG("OBJ", string.format("#%d %s '%s' anak=%s", i, obj.ClassName, obj.Name, tostring(okI and childN or "?")))
+        local target = SVC_MAP[obj.ClassName]
+        if target then
+            DBG("OBJ", "-> unpack ke service " .. obj.ClassName)
+            for _, ch in ipairs(obj:GetChildren()) do
+                place(ch, target)
+                task.wait()
+            end
+        else
+            place(obj, workspace)
+        end
+    end
+
+    DBG("OBJ", string.format("HASIL: masuk=%d gagal=%d", count, fail))
     return count
 end
 
 local function smartInsertRbxlFull(filePath, fileName)
-    local insertOk = false
-    local statusMsg = ""
-    local totalInserted = 0
+    RBXL_LOG = {}
+    local t0 = os.clock()
+    local insertOk, statusMsg, totalInserted = false, "", 0
 
-    updateRbxlProgress(15, "[1/5] MEMBACA FILE PLACE...")
-    task.wait(0.2)
+    DBG("INFO", "file=" .. tostring(fileName))
+    DBG("INFO", "path=" .. tostring(filePath))
+    DBG("ENV", string.format("customAsset=%s writefile=%s delfile=%s readfile=%s lz4=%s string.unpack=%s",
+        tostring(customAsset ~= nil), tostring(writefile ~= nil), tostring(delfile ~= nil),
+        tostring(readfile ~= nil), tostring(lz4Decompress ~= nil), tostring(string.unpack ~= nil)))
 
+    updateRbxlProgress(10, "[1/5] BACA FILE...")
     local rawData = safeReadFile(filePath)
     if not rawData or #rawData < 16 then
-        updateRbxlProgress(0, "[ERR] File kosong atau tidak bisa dibaca")
+        DBG("READ-ERR", "readfile gagal / file kosong (path salah?)")
+        updateRbxlProgress(0, "[ERR] gagal baca file")
         return false, "Gagal baca file"
     end
 
+    local head = rawData:sub(1, 8)
+    local fmt = "UNKNOWN"
+    if head == "<roblox!" then fmt = "BINARY"
+    elseif rawData:sub(1, 5) == "<?xml" or head:sub(1, 8) == "<roblox " then fmt = "XML" end
+    DBG("READ", string.format("ukuran=%d byte (%.1f MB) format=%s", #rawData, #rawData / 1048576, fmt))
+    DBG("READ", "16 byte awal: " .. hex(rawData, 16))
+
+    local hasZstd = false
+    if fmt == "BINARY" then
+        local okD, errD = pcall(function() hasZstd = describeBinary(rawData) end)
+        if not okD then DBG("CHUNK-ERR", errD) end
+        if hasZstd then
+            DBG("WARN", "ADA CHUNK ZSTD -> parser LZ4 manual TIDAK bisa baca. Pakai GetObjects, atau simpan ulang sbg .rbxlx")
+        end
+    elseif fmt == "UNKNOWN" then
+        DBG("WARN", "header bukan roblox! / xml. File mungkin rusak / bukan place.")
+    end
+
     local sourceMap = {}
-    pcall(function()
-        sourceMap = parseRBXMSources(rawData)
-    end)
+    local okS, errS = pcall(function() sourceMap = parseRBXMSources(rawData) end)
+    local sCount = 0
+    for _ in pairs(sourceMap) do sCount = sCount + 1 end
+    DBG("SRC", okS and ("source script terbaca: " .. sCount) or ("parseRBXMSources ERR: " .. tostring(errS)))
 
-    -- Method 1: getcustomasset (Primary for Delta Android)
-    updateRbxlProgress(35, "[2/5] NATIVE C++ ENGINE...")
-    task.wait(0.2)
+    local function runGetObjects(tag, url)
+        DBG(tag, "GetObjects(" .. tostring(url) .. ")")
+        local okG, objs = pcall(function() return game:GetObjects(url) end)
+        if not okG then
+            DBG(tag .. "-ERR", "GetObjects error: " .. tostring(objs))
+            return false
+        end
+        if not objs or #objs == 0 then
+            DBG(tag .. "-ERR", "GetObjects balik kosong (0 objek)")
+            return false
+        end
+        local names = {}
+        for i = 1, math.min(#objs, 8) do names[#names + 1] = objs[i].ClassName end
+        DBG(tag, "GetObjects dapat " .. #objs .. " objek: " .. table.concat(names, ", "))
+        local n = insertRbxlObjects(objs, sourceMap)
+        if n > 0 then
+            totalInserted, insertOk, statusMsg = n, true, tag .. " OK (" .. n .. " objek)"
+            return true
+        end
+        DBG(tag .. "-ERR", "objek ada tapi 0 yang berhasil dipasang -> lanjut method berikutnya")
+        return false
+    end
 
+    -- METHOD 1: customAsset langsung
+    updateRbxlProgress(30, "[2/5] M1 customAsset...")
     if customAsset then
-        pcall(function()
-            local aid = customAsset(filePath)
-            if aid then
-                local ok2, objs = pcall(function() return game:GetObjects(aid) end)
-                if ok2 and objs and #objs > 0 then
-                    totalInserted = insertRbxlObjects(objs, sourceMap)
-                    insertOk = true
-                    statusMsg = "CustomAsset OK (" .. totalInserted .. " objek)"
-                end
-            end
-        end)
+        local okA, aid = pcall(customAsset, filePath)
+        DBG("M1", okA and ("customAsset -> " .. tostring(aid)) or ("customAsset ERR: " .. tostring(aid)))
+        if okA and aid then runGetObjects("M1", aid) end
+    else
+        DBG("M1", "SKIP: getcustomasset tidak tersedia")
     end
 
-    -- Method 2: Temporary .rbxm Bridge Mount
+    -- METHOD 2: salin ke file temp lalu customAsset
     if not insertOk and writefile and customAsset then
-        updateRbxlProgress(50, "[3/5] BRIDGE MOUNT ENGINE...")
-        task.wait(0.2)
-        pcall(function()
-            local tmp = "tmp_place_" .. tick() .. ".rbxm"
-            writefile(tmp, rawData)
-            local aid = customAsset(tmp)
-            if aid then
-                local ok2, objs = pcall(function() return game:GetObjects(aid) end)
-                if ok2 and objs and #objs > 0 then
-                    totalInserted = insertRbxlObjects(objs, sourceMap)
-                    insertOk = true
-                    statusMsg = "Bridge Mount OK (" .. totalInserted .. " objek)"
+        updateRbxlProgress(45, "[3/5] M2 temp bridge...")
+        local ext = (fmt == "XML") and ".rbxmx" or ".rbxm"
+        local tmp = "tmp_place_" .. math.floor(os.clock() * 1000) .. ext
+        local okW, errW = pcall(writefile, tmp, rawData)
+        DBG("M2", okW and ("writefile " .. tmp .. " OK") or ("writefile ERR: " .. tostring(errW)))
+        if okW then
+            local okA, aid = pcall(customAsset, tmp)
+            DBG("M2", okA and ("customAsset -> " .. tostring(aid)) or ("customAsset ERR: " .. tostring(aid)))
+            if okA and aid then runGetObjects("M2", aid) end
+            if delfile then pcall(delfile, tmp) end
+        end
+    elseif not insertOk then
+        DBG("M2", "SKIP: writefile/customAsset tidak ada")
+    end
+
+    -- METHOD 3: rbxasset://
+    if not insertOk then
+        updateRbxlProgress(60, "[4/5] M3 rbxasset...")
+        runGetObjects("M3", "rbxasset://" .. filePath)
+    end
+
+    -- METHOD 4: XML DOM
+    if not insertOk and fmt == "XML" then
+        updateRbxlProgress(75, "[5/5] M4 XML...")
+        local okX, cnt = pcall(parseRbxlxXml, rawData, workspace)
+        DBG("M4", okX and ("XML dibuat: " .. tostring(cnt)) or ("XML ERR: " .. tostring(cnt)))
+        if okX and cnt and cnt > 0 then
+            totalInserted, insertOk, statusMsg = cnt, true, "M4 XML OK (" .. cnt .. " objek)"
+        end
+    end
+
+    -- METHOD 5: binary manual (LZ4 saja, ZSTD dilewati)
+    if not insertOk and fmt == "BINARY" then
+        if hasZstd then
+            DBG("M5", "SKIP: file pakai ZSTD, parser manual tidak mendukung")
+        else
+            updateRbxlProgress(85, "[5/5] M5 binary...")
+            DBG("M5", "mulai deserialize (kalau berhenti di sini = freeze di parser)")
+            local okB, parsed = pcall(deserializeRbxBinary, rawData)
+            if not okB then
+                DBG("M5-ERR", tostring(parsed))
+            else
+                local n = 0
+                for _ in pairs(parsed.instances) do n = n + 1 end
+                DBG("M5", "instance terbaca: " .. n)
+                for _, e in ipairs(parsed.errors or {}) do DBG("M5-ERR", e) end
+                if n > 0 then
+                    local okT, _, cnt = pcall(applyDeserializedTree, parsed, workspace)
+                    DBG("M5", okT and ("tree dibuat: " .. tostring(cnt)) or ("tree ERR: " .. tostring(cnt)))
+                    if okT and cnt and cnt > 0 then
+                        totalInserted, insertOk, statusMsg = cnt, true, "M5 Binary OK (" .. cnt .. " objek)"
+                    end
                 end
             end
-            pcall(function() if delfile then delfile(tmp) end end)
-        end)
-    end
-
-    -- Method 3: rbxasset:// internal path
-    if not insertOk then
-        updateRbxlProgress(65, "[4/5] RBXASSET MOUNT...")
-        task.wait(0.15)
-        pcall(function()
-            local ok3, objs = pcall(function() return game:GetObjects("rbxasset://" .. filePath) end)
-            if ok3 and objs and #objs > 0 then
-                totalInserted = insertRbxlObjects(objs, sourceMap)
-                insertOk = true
-                statusMsg = "rbxasset OK (" .. totalInserted .. " objek)"
-            end
-        end)
-    end
-
-    -- Method 4: XML DOM Fallback
-    local head8 = rawData:sub(1, 8)
-    local isXml = (head8:sub(1,5) == "<?xml") or (head8:sub(1,8) == "<roblox ")
-    if not insertOk and isXml then
-        updateRbxlProgress(80, "[5/5] XML DESERIALIZER...")
-        task.wait(0.2)
-        local okXml, cnt = pcall(parseRbxlxXml, rawData, workspace)
-        if okXml and cnt and cnt > 0 then
-            totalInserted = cnt
-            insertOk = true
-            statusMsg = "XML DOM OK (" .. totalInserted .. " objek)"
         end
     end
 
-    -- Method 5: Pure Binary Fallback
-    if not insertOk then
-        updateRbxlProgress(85, "[5/5] BINARY RECONSTRUCT...")
-        task.wait(0.2)
-        local okBin, parsed = pcall(deserializeRbxBinary, rawData)
-        if okBin and parsed and next(parsed.instances) then
-            local _, cnt = applyDeserializedTree(parsed, workspace, function(pct, msg)
-                updateRbxlProgress(85 + pct * 12, "[5/5] " .. msg)
-            end)
-            if cnt and cnt > 0 then
-                totalInserted = cnt
-                insertOk = true
-                statusMsg = "Binary Rebuilt OK (" .. totalInserted .. " objek)"
-            end
-        end
-    end
+    DBG("DONE", string.format("insertOk=%s total=%d waktu=%.1fs", tostring(insertOk), totalInserted, os.clock() - t0))
 
     if insertOk and totalInserted > 0 then
-        updateRbxlProgress(100, "[5/5] SUKSES! " .. totalInserted .. " objek masuk ke Studio Lite")
+        updateRbxlProgress(100, "[OK] " .. totalInserted .. " objek masuk")
         resetRbxlProgress(totalInserted)
         return true, statusMsg
-    else
-        updateRbxlProgress(0, "[ERR] Gagal memuat objek place")
-        resetRbxlProgress(0)
-        return false, "Semua metode load gagal"
     end
+
+    updateRbxlProgress(0, "[ERR] lihat log di editor")
+    resetRbxlProgress(0)
+    return false, "Semua method gagal"
 end
 
-
+-- =====================================================
+-- SCAN & RENDER KARTU RBXL
+-- =====================================================
 local function renderRbxlCards()
-    -- Clear old cards
     for _, c in ipairs(RbxlScroll:GetChildren()) do
         if c:IsA("Frame") or c:IsA("TextButton") then c:Destroy() end
     end
@@ -3508,28 +3198,25 @@ local function renderRbxlCards()
     RbxlInsertStatus.TextColor3 = Color3.fromRGB(200,200,215)
     RbxlInsertPct.Text = ""
 
-    local files = {}
-    local searchDirs = {
-        ".", "./", "./workspace/", "./saves/",
-        "rbxl/", "place/", "files/",
-        (writefile and "." or nil),
-    }
+    local files, seenPaths = {}, {}
+    local searchDirs = { ".", "./workspace/", "./saves/", "rbxl/", "place/", "files/", "workspace", "Delta/workspace" }
 
-    -- Collect .rbxl files using listfiles
+    local function norm(p)
+        local s = tostring(p):gsub("\\", "/"):gsub("^%./", "")
+        return s:lower()
+    end
+
     if listfilesFn then
         for _, dir in ipairs(searchDirs) do
-            if dir then
-                local ok, entries = pcall(listfilesFn, dir)
-                if ok and entries then
-                    for _, entry in ipairs(entries) do
-                        local lw = tostring(entry):lower()
-                        if lw:find("%.rbxl$") or lw:find("%.rbxlx$") then
-                            local name = entry:match("([^/\\]+)$") or entry
-                            local dup = false
-                            for _, f in ipairs(files) do if f.path == entry then dup = true; break end end
-                            if not dup then
-                                table.insert(files, {path = entry, name = name})
-                            end
+            local ok, entries = pcall(listfilesFn, dir)
+            if ok and entries then
+                for _, entry in ipairs(entries) do
+                    local lw = tostring(entry):lower()
+                    if lw:find("%.rbxl$") or lw:find("%.rbxlx$") then
+                        local key = norm(entry)
+                        if not seenPaths[key] then
+                            seenPaths[key] = true
+                            table.insert(files, {path = entry, name = entry:match("([^/\\]+)$") or entry})
                         end
                     end
                 end
@@ -3537,26 +3224,9 @@ local function renderRbxlCards()
         end
     end
 
-    -- Also check workspace folder files
-    if #files == 0 and readfile then
-        -- If Delta provides a file list via different API
-        local ok2, entries2 = pcall(function()
-            return listfiles and listfiles("") or {}
-        end)
-        if ok2 and entries2 then
-            for _, entry in ipairs(entries2) do
-                local lw = tostring(entry):lower()
-                if lw:find("%.rbxl") then
-                    local name = entry:match("([^/\\]+)$") or entry
-                    table.insert(files, {path = entry, name = name})
-                end
-            end
-        end
-    end
-
     if #files == 0 then
         RbxlEmpty.Parent = RbxlScroll
-        RbxlInsertStatus.Text = "[!] Tidak ada .rbxl ditemukan"
+        RbxlInsertStatus.Text = not listfilesFn and "[!] listfiles() tidak support" or "[!] Tidak ada .rbxl ditemukan"
         RbxlInsertStatus.TextColor3 = Color3.fromRGB(255, 120, 120)
         RbxlInsertPct.Text = "0 files"
         return
@@ -3567,7 +3237,6 @@ local function renderRbxlCards()
     RbxlInsertStatus.TextColor3 = Color3.fromRGB(160, 225, 160)
     RbxlInsertPct.Text = #files .. " files"
 
-    -- Render a card per .rbxl file
     for i, file in ipairs(files) do
         local card = Instance.new("Frame")
         card.Size = UDim2.new(1, 0, 0, 50)
@@ -3579,7 +3248,6 @@ local function renderRbxlCards()
         makeCorner(card, 7)
         makeStroke(card, Color3.fromRGB(255,255,255), 1, 0.82)
 
-        -- Service icon badge "[L]"
         local badge = Instance.new("TextLabel")
         badge.Size = UDim2.new(0, 28, 0, 28)
         badge.Position = UDim2.new(0, 8, 0.5, -14)
@@ -3589,7 +3257,6 @@ local function renderRbxlCards()
         badge.ZIndex = 16; badge.Parent = card
         makeCorner(badge, 5)
 
-        -- File name
         local nameLbl = Instance.new("TextLabel")
         nameLbl.Size = UDim2.new(1, -155, 0, 18)
         nameLbl.Position = UDim2.new(0, 44, 0, 6)
@@ -3600,7 +3267,6 @@ local function renderRbxlCards()
         nameLbl.TextTruncate = Enum.TextTruncate.AtEnd
         nameLbl.Text = file.name; nameLbl.ZIndex = 16; nameLbl.Parent = card
 
-        -- Path label
         local pathLbl = Instance.new("TextLabel")
         pathLbl.Size = UDim2.new(1, -155, 0, 14)
         pathLbl.Position = UDim2.new(0, 44, 0, 26)
@@ -3611,7 +3277,6 @@ local function renderRbxlCards()
         pathLbl.TextTruncate = Enum.TextTruncate.AtEnd
         pathLbl.Text = file.path; pathLbl.ZIndex = 16; pathLbl.Parent = card
 
-        -- EDIT button (open first script in editor)
         local edBtn = Instance.new("TextButton")
         edBtn.Size = UDim2.new(0, 50, 0, 30)
         edBtn.Position = UDim2.new(1, -130, 0.5, -15)
@@ -3622,17 +3287,17 @@ local function renderRbxlCards()
         makeCorner(edBtn, 6); makeStroke(edBtn, Color3.fromRGB(255,255,255), 1, 0.7)
 
         edBtn.Activated:Connect(function()
+            local baseName = file.name:gsub("%.rbxl.*", "")
             local raw = safeReadFile(file.path)
-            if not raw then openInEditor(file.name:gsub("%.rbxl.*",""), "-- Gagal baca file"); return end
+            if not raw then openInEditor(baseName, "-- Gagal baca file"); return end
             local sources = {}
             local ok3, s = pcall(parseRBXMSources, raw)
             if ok3 and s then sources = s end
             local firstCode = nil
             for _, v in pairs(sources) do firstCode = v; break end
-            openInEditor(file.name:gsub("%.rbxl.*",""), firstCode or "-- Tidak ada script di file ini")
+            openInEditor(baseName, firstCode or "-- Tidak ada script di file ini")
         end)
 
-        -- INSERT button
         local insertBtn = Instance.new("TextButton")
         insertBtn.Size = UDim2.new(0, 65, 0, 30)
         insertBtn.Position = UDim2.new(1, -72, 0.5, -15)
@@ -3644,18 +3309,24 @@ local function renderRbxlCards()
 
         local capturedFile = file
         insertBtn.Activated:Connect(function()
+            if insertBtn.Text == "..." then return end
             insertBtn.Text = "..."
             insertBtn.BackgroundColor3 = Color3.fromRGB(60,60,70)
             task.spawn(function()
-                -- Small delay so UI renders
                 task.wait(0.2)
-                local ok4, msg = smartInsertRbxlFull(capturedFile.path, capturedFile.name)
-                task.wait(1.5)
+                local okCall, ok4, msg = pcall(smartInsertRbxlFull, capturedFile.path, capturedFile.name)
+                if not okCall then
+                    DBG("FATAL", ok4)
+                    ok4 = false
+                end
+                if not ok4 then
+                    local logText = table.concat(RBXL_LOG, "\n")
+                    if clipFn then pcall(clipFn, logText) end
+                    openInEditor("RBXL DEBUG LOG", logText)
+                end
                 if insertBtn and insertBtn.Parent then
                     insertBtn.Text = ok4 and "DONE!" or "FAIL"
-                    insertBtn.BackgroundColor3 = ok4
-                        and Color3.fromRGB(255,255,255)
-                        or Color3.fromRGB(200,60,60)
+                    insertBtn.BackgroundColor3 = ok4 and Color3.fromRGB(255,255,255) or Color3.fromRGB(200,60,60)
                     task.delay(2, function()
                         if insertBtn and insertBtn.Parent then
                             insertBtn.Text = "INSERT"
@@ -3667,17 +3338,11 @@ local function renderRbxlCards()
         end)
     end
 
-    -- Update scroll canvas
-    RbxlList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-        RbxlScroll.CanvasSize = UDim2.new(0, 0, 0, RbxlList.AbsoluteContentSize.Y + 12)
-    end)
     RbxlScroll.CanvasSize = UDim2.new(0, 0, 0, RbxlList.AbsoluteContentSize.Y + 12)
 end
 
 RbxlScanBtn.Activated:Connect(renderRbxlCards)
 
--- =====================================================
--- END PAGE RBXL
--- =====================================================
+end -- do (RBXL section)
 
-print("[BLUExCrown] ENGINE MCHLERN ENGINE v6.8 ULTIMATE LOADED")
+print("[BLUExCrown] ENGINE MCHLERN ENGINE v6.9 FIXED LOADED")
