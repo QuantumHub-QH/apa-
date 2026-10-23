@@ -1,5 +1,5 @@
 -- =======================================================
--- MCHLERN ENGINE TOOLS ROBLOX STUDIO LITE (v6.7 GOD TIER MULTI-LAYER RBXL EDITION)
+-- MCHLERN ENGINE TOOLS ROBLOX STUDIO LITE (v6.8 ULTIMATE STUDIO LITE ENGINE)
 -- Fix 1: Menu Card Hitbox 100% Responsif (Tombol Toolbox & RBXM PASTI Kebuka)
 -- Fix 2: Togle Anti-Geser (Kunci permanen di sisi layar, aman dari swipe kamera)
 -- Fix 3: In-Game Code Editor (Bisa ketik, edit, save & execute script di HP)
@@ -41,6 +41,21 @@ local function stripRichText(s)
     return clean
 end
 
+
+local function parseRBXMSources(raw)
+    local sources = {}
+    if not raw or #raw < 30 then return sources end
+    for src in raw:gmatch("([^\0\r\n][^\0]+[\r\n]+[^\0]+)") do
+        if src:find("function") or src:find("local ") or src:find("return") or src:find("require") then
+            local nameMatch = src:match("([%a_][%w_]*)%s*=%s*function") or src:match("local%s+([%a_][%w_]*)") or "Script"
+            sources[nameMatch] = stripRichText(src)
+        end
+    end
+    for name, code in raw:gmatch('<Item class="[%w]+" referent="[^"]+">%s*<Properties>%s*<string name="Name">([^<]+)</string>.-<ProtectedString name="Source"><%!%[CDATA%[(.-)%]%]></ProtectedString>') do
+        sources[name] = stripRichText(code)
+    end
+    return sources
+end
 
 local function storeScriptSource(key, src)
     if not key or not src then return end
@@ -3301,13 +3316,80 @@ local function parseRbxlxXml(xmlData, targetFolder)
 end
 
 -- ── SMART INSERT RBXL FULL v2 ────────────────────────────────
+-- =====================================================
+-- STUDIO LITE SERVICE MAP & RBXL UNPACK ENGINE
+-- =====================================================
+local SVC_MAP = {
+    ["Workspace"]           = workspace,
+    ["Lighting"]            = game:GetService("Lighting"),
+    ["ReplicatedStorage"]   = game:GetService("ReplicatedStorage"),
+    ["ReplicatedFirst"]     = game:GetService("ReplicatedFirst"),
+    ["ServerScriptService"] = game:GetService("ServerScriptService"),
+    ["ServerStorage"]       = game:GetService("ServerStorage"),
+    ["StarterGui"]          = game:GetService("StarterGui"),
+    ["StarterPack"]         = game:GetService("StarterPack"),
+    ["StarterPlayer"]       = game:GetService("StarterPlayer"),
+    ["SoundService"]        = game:GetService("SoundService"),
+    ["Chat"]                = game:GetService("Chat"),
+    ["Teams"]               = game:GetService("Teams"),
+}
+
+local function insertRbxlObjects(objects, sourceMap)
+    local count = 0
+    sourceMap = sourceMap or {}
+    for _, obj in ipairs(objects) do
+        pcall(function()
+            local target = SVC_MAP[obj.ClassName] or SVC_MAP[obj.Name] or workspace
+
+            if target == workspace and (obj.Name == "Workspace" or obj.ClassName == "Workspace") then
+                -- Unpack all children of the place's Workspace into the live Workspace
+                for _, ch in ipairs(obj:GetChildren()) do
+                    pcall(function()
+                        ch.Parent = workspace
+                        applyStudioLiteProps(ch)
+                        loadAssetsToSLServer(ch)
+                        if ch:IsA("LuaSourceContainer") then
+                            recreateScriptAsNative(ch, sourceMap[ch.Name])
+                        end
+                        count = count + 1
+                    end)
+                    task.wait(0.01)
+                end
+            elseif target ~= workspace then
+                -- Unpack into respective service (Lighting, ReplicatedStorage, etc.)
+                for _, ch in ipairs(obj:GetChildren()) do
+                    pcall(function()
+                        ch.Parent = target
+                        applyStudioLiteProps(ch)
+                        loadAssetsToSLServer(ch)
+                        if ch:IsA("LuaSourceContainer") then
+                            recreateScriptAsNative(ch, sourceMap[ch.Name])
+                        end
+                        count = count + 1
+                    end)
+                    task.wait(0.01)
+                end
+            else
+                -- Standalone objects/models
+                obj.Parent = workspace
+                applyStudioLiteProps(obj)
+                loadAssetsToSLServer(obj)
+                if obj:IsA("LuaSourceContainer") then
+                    recreateScriptAsNative(obj, sourceMap[obj.Name])
+                end
+                count = count + 1
+            end
+        end)
+    end
+    return count
+end
+
 local function smartInsertRbxlFull(filePath, fileName)
-    local fileBase = fileName:gsub("%.rbxl[x]?$",""):gsub("%.rbxm[x]?$","")
     local insertOk = false
     local statusMsg = ""
     local totalInserted = 0
 
-    updateRbxlProgress(10, "[1/6] MEMBACA FILE PLACE...")
+    updateRbxlProgress(15, "[1/5] MEMBACA FILE PLACE...")
     task.wait(0.2)
 
     local rawData = safeReadFile(filePath)
@@ -3316,181 +3398,102 @@ local function smartInsertRbxlFull(filePath, fileName)
         return false, "Gagal baca file"
     end
 
-    -- Create root container in workspace
-    local rootFolder = Instance.new("Folder")
-    rootFolder.Name  = fileBase
-    pcall(function() rootFolder.Parent = workspace end)
+    local sourceMap = {}
+    pcall(function()
+        sourceMap = parseRBXMSources(rawData)
+    end)
 
-    -- Helper to process and unpack loaded instances
-    local function setupRbxlObjects(objs)
-        local count = 0
-        for _, obj in ipairs(objs) do
-            if obj.Name == "Workspace" or obj.ClassName == "Workspace" then
-                -- Unpack all children of the place's Workspace into rootFolder
-                local children = obj:GetChildren()
-                for _, ch in ipairs(children) do
-                    ch.Parent = rootFolder
-                    applyStudioLiteProps(ch)
-                    loadAssetsToSLServer(ch)
-                    count = count + 1
-                end
-                pcall(function() obj:Destroy() end)
-            else
-                obj.Parent = rootFolder
-                applyStudioLiteProps(obj)
-                loadAssetsToSLServer(obj)
-                count = count + 1
-            end
-        end
-
-        -- Move place in front of player character if it has parts/models
-        if LP.Character then
-            local hrp = LP.Character:FindFirstChild("HumanoidRootPart")
-            if hrp then
-                for _, c in ipairs(rootFolder:GetChildren()) do
-                    if c:IsA("Model") then
-                        pcall(function() c:MoveTo(hrp.Position + hrp.CFrame.LookVector * 10) end)
-                    elseif c:IsA("BasePart") then
-                        pcall(function() c.CFrame = hrp.CFrame + hrp.CFrame.LookVector * 10 end)
-                    end
-                end
-            end
-        end
-
-        -- Register all scripts in the tree
-        for _, s in ipairs(rootFolder:GetDescendants()) do
-            if s:IsA("LuaSourceContainer") then
-                pcall(function()
-                    if s.Source and #s.Source > 0 then
-                        storeScriptSource(s.Name, s.Source)
-                        storeScriptSource(s, s.Source)
-                        recreateScriptAsNative(s, s.Source)
-                    end
-                end)
-            end
-        end
-
-        return count
-    end
-
-    -- ── LAYER 1: Delta getcustomasset Native Load ──────────────────
-    updateRbxlProgress(25, "[2/6] NATIVE C++ ENGINE...")
+    -- Method 1: getcustomasset (Primary for Delta Android)
+    updateRbxlProgress(35, "[2/5] NATIVE C++ ENGINE...")
     task.wait(0.2)
 
     if customAsset then
         pcall(function()
-            local url = customAsset(filePath)
-            if url then
-                local objs = game:GetObjects(url)
-                if objs and #objs > 0 then
-                    totalInserted = setupRbxlObjects(objs)
+            local aid = customAsset(filePath)
+            if aid then
+                local ok2, objs = pcall(function() return game:GetObjects(aid) end)
+                if ok2 and objs and #objs > 0 then
+                    totalInserted = insertRbxlObjects(objs, sourceMap)
                     insertOk = true
-                    statusMsg = "Native C++ Load: " .. totalInserted .. " objek"
+                    statusMsg = "CustomAsset OK (" .. totalInserted .. " objek)"
                 end
             end
         end)
     end
 
-    -- ── LAYER 2: Temporary .rbxm Bridge Mount ──────────────────────
-    -- Roblox GetObjects often rejects .rbxl extension directly, but accepts
-    -- the identical binary payload if mounted with .rbxm extension!
+    -- Method 2: Temporary .rbxm Bridge Mount
     if not insertOk and writefile and customAsset then
-        updateRbxlProgress(40, "[3/6] MODEL BRIDGE ENGINE...")
+        updateRbxlProgress(50, "[3/5] BRIDGE MOUNT ENGINE...")
         task.wait(0.2)
         pcall(function()
-            local tmpName = "bce_rbxl_" .. fileBase .. ".rbxm"
-            writefile(tmpName, rawData)
-            local url = customAsset(tmpName)
-            if url then
-                local objs = game:GetObjects(url)
-                if objs and #objs > 0 then
-                    totalInserted = setupRbxlObjects(objs)
+            local tmp = "tmp_place_" .. tick() .. ".rbxm"
+            writefile(tmp, rawData)
+            local aid = customAsset(tmp)
+            if aid then
+                local ok2, objs = pcall(function() return game:GetObjects(aid) end)
+                if ok2 and objs and #objs > 0 then
+                    totalInserted = insertRbxlObjects(objs, sourceMap)
                     insertOk = true
-                    statusMsg = "Bridge Mount: " .. totalInserted .. " objek"
+                    statusMsg = "Bridge Mount OK (" .. totalInserted .. " objek)"
                 end
             end
-            pcall(function() if delfile then delfile(tmpName) end end)
+            pcall(function() if delfile then delfile(tmp) end end)
         end)
     end
 
-    -- ── LAYER 3: rbxasset:// Path Loading ─────────────────────────
+    -- Method 3: rbxasset:// internal path
     if not insertOk then
-        updateRbxlProgress(55, "[4/6] RBXASSET DIRECT ENGINE...")
+        updateRbxlProgress(65, "[4/5] RBXASSET MOUNT...")
         task.wait(0.15)
         pcall(function()
-            local objs = game:GetObjects("rbxasset://" .. filePath)
-            if objs and #objs > 0 then
-                totalInserted = setupRbxlObjects(objs)
+            local ok3, objs = pcall(function() return game:GetObjects("rbxasset://" .. filePath) end)
+            if ok3 and objs and #objs > 0 then
+                totalInserted = insertRbxlObjects(objs, sourceMap)
                 insertOk = true
-                statusMsg = "rbxasset: " .. totalInserted .. " objek"
+                statusMsg = "rbxasset OK (" .. totalInserted .. " objek)"
             end
         end)
     end
 
-    -- ── LAYER 4: XML DOM Parser (for .rbxlx or XML places) ────────
+    -- Method 4: XML DOM Fallback
     local head8 = rawData:sub(1, 8)
     local isXml = (head8:sub(1,5) == "<?xml") or (head8:sub(1,8) == "<roblox ")
     if not insertOk and isXml then
-        updateRbxlProgress(70, "[5/6] XML DOM DESERIALIZER...")
+        updateRbxlProgress(80, "[5/5] XML DESERIALIZER...")
         task.wait(0.2)
-        local okXml, cnt = pcall(parseRbxlxXml, rawData, rootFolder)
+        local okXml, cnt = pcall(parseRbxlxXml, rawData, workspace)
         if okXml and cnt and cnt > 0 then
             totalInserted = cnt
             insertOk = true
-            statusMsg = "XML DOM: " .. totalInserted .. " objek"
+            statusMsg = "XML DOM OK (" .. totalInserted .. " objek)"
         end
     end
 
-    -- ── LAYER 5: Pure Lua Binary Deserializer Fallback ───────────
+    -- Method 5: Pure Binary Fallback
     if not insertOk then
-        updateRbxlProgress(75, "[5/6] PURE BINARY DESERIALIZER...")
+        updateRbxlProgress(85, "[5/5] BINARY RECONSTRUCT...")
         task.wait(0.2)
         local okBin, parsed = pcall(deserializeRbxBinary, rawData)
         if okBin and parsed and next(parsed.instances) then
-            local _, cnt = applyDeserializedTree(parsed, rootFolder, function(pct, msg)
-                updateRbxlProgress(75 + pct * 20, "[5/6] " .. msg)
+            local _, cnt = applyDeserializedTree(parsed, workspace, function(pct, msg)
+                updateRbxlProgress(85 + pct * 12, "[5/5] " .. msg)
             end)
             if cnt and cnt > 0 then
                 totalInserted = cnt
                 insertOk = true
-                statusMsg = "Binary Rebuilt: " .. totalInserted .. " objek"
+                statusMsg = "Binary Rebuilt OK (" .. totalInserted .. " objek)"
             end
         end
     end
 
-    -- ── LAYER 6: Deep Script Recovery Fallback ────────────────────
-    -- If no 3D objects could be created, at least extract ALL scripts and create them!
-    if not insertOk or totalInserted == 0 then
-        updateRbxlProgress(90, "[6/6] EXTRACTING ALL PLACE SCRIPTS...")
-        task.wait(0.2)
-        local sources = parseRBXMSources(rawData)
-        local scCount = 0
-        for name2, src in pairs(sources) do
-            storeScriptSource(name2, src)
-            local si = Instance.new("Script")
-            si.Name = name2
-            pcall(function() si.Source = src end)
-            pcall(function() si.Parent = rootFolder end)
-            recreateScriptAsNative(si, src)
-            scCount = scCount + 1
-        end
-        if scCount > 0 then
-            totalInserted = scCount
-            insertOk = true
-            statusMsg = "Extracted " .. scCount .. " scripts"
-        end
-    end
-
-    -- ── FINALIZATION ──────────────────────────────────────────────
     if insertOk and totalInserted > 0 then
-        updateRbxlProgress(100, "[6/6] SUKSES! " .. totalInserted .. " objek masuk ke Workspace")
+        updateRbxlProgress(100, "[5/5] SUKSES! " .. totalInserted .. " objek masuk ke Studio Lite")
         resetRbxlProgress(totalInserted)
         return true, statusMsg
     else
-        pcall(function() rootFolder:Destroy() end)
-        updateRbxlProgress(0, "[ERR] Tidak ada objek yang bisa di-load dari file ini")
+        updateRbxlProgress(0, "[ERR] Gagal memuat objek place")
         resetRbxlProgress(0)
-        return false, "Gagal memuat objek dari file"
+        return false, "Semua metode load gagal"
     end
 end
 
@@ -3677,4 +3680,4 @@ RbxlScanBtn.Activated:Connect(renderRbxlCards)
 -- END PAGE RBXL
 -- =====================================================
 
-print("[BLUExCrown] ENGINE MCHLERN ENGINE v6.7 GOD TIER MULTI-LAYER RBXL LOADED")
+print("[BLUExCrown] ENGINE MCHLERN ENGINE v6.8 ULTIMATE LOADED")
