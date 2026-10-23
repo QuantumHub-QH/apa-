@@ -1,5 +1,5 @@
 -- =======================================================
--- MCHLERN ENGINE TOOLS ROBLOX STUDIO LITE (v6.1 PURE NATIVE EDITION)
+-- MCHLERN ENGINE TOOLS ROBLOX STUDIO LITE (v6.3 RBXL EDITION)
 -- Fix 1: Menu Card Hitbox 100% Responsif (Tombol Toolbox & RBXM PASTI Kebuka)
 -- Fix 2: Togle Anti-Geser (Kunci permanen di sisi layar, aman dari swipe kamera)
 -- Fix 3: In-Game Code Editor (Bisa ketik, edit, save & execute script di HP)
@@ -775,8 +775,9 @@ Content.Parent = MainFrame
 local PageSplash  = Instance.new("Frame")
 local PageToolbox = Instance.new("Frame")
 local PageRBXM    = Instance.new("Frame")
+local PageRBXL    = Instance.new("Frame")
 
-for _, pg in ipairs({PageSplash, PageToolbox, PageRBXM}) do
+for _, pg in ipairs({PageSplash, PageToolbox, PageRBXM, PageRBXL}) do
     pg.Size = UDim2.fromScale(1, 1)
     pg.BackgroundTransparency = 1
     pg.Visible = false
@@ -789,6 +790,7 @@ local function showPage(target)
     PageSplash.Visible  = false
     PageToolbox.Visible = false
     PageRBXM.Visible    = false
+    PageRBXL.Visible    = false
     target.Visible = true
 end
 
@@ -973,6 +975,10 @@ end)
 
 makeMenuCard(MenuArea, 108, "[R]", "INSERT RBXM FILE", "Scan & insert file .rbxm dengan Source Script", function()
     showPage(PageRBXM)
+end)
+
+makeMenuCard(MenuArea, 188, "[L]", "INSERT RBXL PLACE", "Scan & insert file .rbxl (full place) ke Workspace", function()
+    showPage(PageRBXL)
 end)
 
 local function makeBackBtn(parent, onBack)
@@ -2497,4 +2503,565 @@ TbInsertIdBtn.Activated:Connect(function()
     end
 end)
 
-print("[BLUExCrown] ENGINE MCHLERN ENGINE v6.1 LOADED")
+
+-- =====================================================
+-- PAGE RBXL: INSERT RBXL PLACE FILE
+-- Format identik dengan Page RBXM — scan .rbxl, extract
+-- per-service (Workspace, SSS, StarterPack, StarterGui, dll)
+-- lalu insert tiap item ke Studio Lite workspace
+-- =====================================================
+
+-- ─── RBXL HEADER ────────────────────────────────────────
+local RbxlHeader = Instance.new("Frame")
+RbxlHeader.Size = UDim2.new(1, 0, 0, 28); RbxlHeader.BackgroundTransparency = 1
+RbxlHeader.ZIndex = 13; RbxlHeader.Parent = PageRBXL
+
+local RbxlTitleLbl = Instance.new("TextLabel")
+RbxlTitleLbl.Size = UDim2.new(1, -32, 1, 0); RbxlTitleLbl.Position = UDim2.new(0, 32, 0, 0)
+RbxlTitleLbl.BackgroundTransparency = 1; RbxlTitleLbl.Font = Enum.Font.GothamBold
+RbxlTitleLbl.TextSize = 11; RbxlTitleLbl.TextColor3 = Color3.fromRGB(255,255,255)
+RbxlTitleLbl.TextXAlignment = Enum.TextXAlignment.Left
+RbxlTitleLbl.Text = "INSERT RBXL PLACE FILE"; RbxlTitleLbl.ZIndex = 14; RbxlTitleLbl.Parent = RbxlHeader
+
+makeBackBtn(RbxlHeader, function() showPage(PageSplash) end)
+
+-- ─── RBXL TOOLBAR (Scan + Inline Progress) ──────────────
+local RbxlToolbar = Instance.new("Frame")
+RbxlToolbar.Size = UDim2.new(1, 0, 0, 28); RbxlToolbar.Position = UDim2.new(0, 0, 0, 32)
+RbxlToolbar.BackgroundTransparency = 1; RbxlToolbar.ZIndex = 13; RbxlToolbar.Parent = PageRBXL
+
+local RbxlScanBtn = Instance.new("TextButton")
+RbxlScanBtn.Size = UDim2.new(0, 84, 0, 24); RbxlScanBtn.BackgroundColor3 = Color3.fromRGB(255,255,255)
+RbxlScanBtn.Text = "SCAN FILES"; RbxlScanBtn.Font = Enum.Font.GothamBold; RbxlScanBtn.TextSize = 10
+RbxlScanBtn.TextColor3 = Color3.fromRGB(0,0,0)
+RbxlScanBtn.Active = true; RbxlScanBtn.ZIndex = 15; RbxlScanBtn.Parent = RbxlToolbar
+makeCorner(RbxlScanBtn, 6); makeStroke(RbxlScanBtn, Color3.fromRGB(0,0,0), 1)
+
+-- INLINE PROGRESS (sejajar scan btn, di sebelah kanan)
+local RbxlProgressFrame = Instance.new("Frame")
+RbxlProgressFrame.Size = UDim2.new(1, -92, 1, 0)
+RbxlProgressFrame.Position = UDim2.new(0, 92, 0, 0)
+RbxlProgressFrame.BackgroundTransparency = 1
+RbxlProgressFrame.ZIndex = 14; RbxlProgressFrame.Parent = RbxlToolbar
+
+local RbxlInsertStatus = Instance.new("TextLabel")
+RbxlInsertStatus.Size = UDim2.new(0.68, 0, 0, 14); RbxlInsertStatus.Position = UDim2.new(0, 4, 0, 0)
+RbxlInsertStatus.BackgroundTransparency = 1; RbxlInsertStatus.Font = Enum.Font.Code
+RbxlInsertStatus.TextSize = 9; RbxlInsertStatus.TextColor3 = Color3.fromRGB(180,180,195)
+RbxlInsertStatus.TextXAlignment = Enum.TextXAlignment.Left
+RbxlInsertStatus.Text = "[.] Klik SCAN FILES"; RbxlInsertStatus.ZIndex = 15; RbxlInsertStatus.Parent = RbxlProgressFrame
+
+local RbxlInsertPct = Instance.new("TextLabel")
+RbxlInsertPct.Size = UDim2.new(0.32, -4, 0, 14); RbxlInsertPct.Position = UDim2.new(0.68, 0, 0, 0)
+RbxlInsertPct.BackgroundTransparency = 1; RbxlInsertPct.Font = Enum.Font.Code
+RbxlInsertPct.TextSize = 9; RbxlInsertPct.TextColor3 = Color3.fromRGB(255,255,255)
+RbxlInsertPct.TextXAlignment = Enum.TextXAlignment.Right
+RbxlInsertPct.Text = ""; RbxlInsertPct.ZIndex = 15; RbxlInsertPct.Parent = RbxlProgressFrame
+
+local RbxlBarBg = Instance.new("Frame")
+RbxlBarBg.Size = UDim2.new(1, -8, 0, 6); RbxlBarBg.Position = UDim2.new(0, 4, 0, 17)
+RbxlBarBg.BackgroundColor3 = Color3.fromRGB(25,25,30); RbxlBarBg.BorderSizePixel = 0
+RbxlBarBg.ZIndex = 15; RbxlBarBg.Parent = RbxlProgressFrame
+makeCorner(RbxlBarBg, 3)
+
+local RbxlBarFill = Instance.new("Frame")
+RbxlBarFill.Size = UDim2.new(0, 0, 1, 0)
+RbxlBarFill.BackgroundColor3 = Color3.fromRGB(255,255,255)
+RbxlBarFill.BorderSizePixel = 0; RbxlBarFill.ZIndex = 16; RbxlBarFill.Parent = RbxlBarBg
+makeCorner(RbxlBarFill, 3)
+
+-- ─── RBXL SCROLL ────────────────────────────────────────
+local RbxlScroll = Instance.new("ScrollingFrame")
+RbxlScroll.Size = UDim2.new(1, -12, 1, -66); RbxlScroll.Position = UDim2.new(0, 6, 0, 62)
+RbxlScroll.BackgroundColor3 = Color3.fromRGB(17,17,22); RbxlScroll.BorderSizePixel = 0
+RbxlScroll.ScrollBarThickness = 3; RbxlScroll.ScrollBarImageColor3 = Color3.fromRGB(255,255,255)
+RbxlScroll.ZIndex = 14; RbxlScroll.Parent = PageRBXL
+makeCorner(RbxlScroll, 8); makeStroke(RbxlScroll, Color3.fromRGB(255,255,255), 1, 0.78)
+
+local RbxlList = Instance.new("UIListLayout")
+RbxlList.Padding = UDim.new(0, 5); RbxlList.SortOrder = Enum.SortOrder.LayoutOrder; RbxlList.Parent = RbxlScroll
+local RbxlPad = Instance.new("UIPadding")
+RbxlPad.PaddingTop = UDim.new(0, 6); RbxlPad.PaddingLeft = UDim.new(0, 6)
+RbxlPad.PaddingRight = UDim.new(0, 6); RbxlPad.Parent = RbxlScroll
+
+local RbxlEmpty = Instance.new("TextLabel")
+RbxlEmpty.Size = UDim2.new(1, 0, 0, 40); RbxlEmpty.BackgroundTransparency = 1
+RbxlEmpty.Text = "Belum ada file .rbxl ditemukan. Klik SCAN FILES."
+RbxlEmpty.Font = Enum.Font.Gotham; RbxlEmpty.TextSize = 10
+RbxlEmpty.TextColor3 = Color3.fromRGB(140,140,150)
+RbxlEmpty.ZIndex = 15; RbxlEmpty.Parent = RbxlScroll
+
+-- ─── INLINE PROGRESS HELPERS ────────────────────────────
+local function updateRbxlProgress(pct, statusText)
+    RbxlInsertStatus.Text = statusText
+    RbxlInsertStatus.TextColor3 = Color3.fromRGB(255,255,255)
+    RbxlInsertPct.Text = tostring(math.floor(pct)) .. "%"
+    TweenService:Create(RbxlBarFill, TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+        Size = UDim2.new(pct / 100, 0, 1, 0)
+    }):Play()
+end
+
+local function resetRbxlProgress(fileCount)
+    task.delay(1.8, function()
+        pcall(function()
+            TweenService:Create(RbxlBarFill, TweenInfo.new(0.4), {Size = UDim2.new(0, 0, 1, 0)}):Play()
+            RbxlInsertStatus.Text = "READY | RBXL SOURCE: ON"
+            RbxlInsertStatus.TextColor3 = Color3.fromRGB(160, 225, 160)
+            RbxlInsertPct.Text = tostring(fileCount or 0) .. " files found"
+        end)
+    end)
+end
+
+-- ─── RBXL BINARY PARSER ─────────────────────────────────
+-- RBXL & RBXM share the EXACT same binary format.
+-- Difference: RBXL INST chunks can have Object Format = 1 (service flag).
+-- We reuse parseRBXMSources() for script extraction.
+-- For structure, we also extract top-level service names.
+
+local KNOWN_SERVICES = {
+    Workspace = true,
+    ServerScriptService = true,
+    StarterPack = true,
+    StarterGui = true,
+    ReplicatedStorage = true,
+    ServerStorage = true,
+    Lighting = true,
+    SoundService = true,
+    Chat = true,
+    Players = true,
+    Teams = true,
+    LocalizationService = true,
+    TestService = true,
+}
+
+-- Parse RBXL binary: returns { services = { [name] = {scripts=[], itemCount=N} } }
+-- and also the full source map (same as RBXM)
+local function parseRBXLFile(data)
+    local result = {
+        services = {},
+        sources  = {},
+        totalItems = 0,
+        error = nil,
+    }
+
+    if not data or #data < 32 then
+        result.error = "File terlalu kecil / kosong"
+        return result
+    end
+
+    -- Reuse RBXM source extractor for scripts
+    local ok, sources = pcall(parseRBXMSources, data)
+    if ok and sources then
+        result.sources = sources
+        for k, v in pairs(sources) do
+            storeScriptSource(k, v)
+        end
+    end
+
+    -- Detect services from XML if it's an XML RBXL (.rbxlx-style)
+    -- Binary: look for class names in INST chunks
+    local isXML = data:sub(1, 10):find("<?xml") or data:sub(1, 10):find("<roblox")
+    if isXML then
+        -- XML format: parse <Item class="Workspace"> etc.
+        for className in data:gmatch('<Item%s+class="([^"]+)"') do
+            if KNOWN_SERVICES[className] then
+                result.services[className] = result.services[className] or {scripts = {}, itemCount = 0}
+                result.services[className].itemCount = result.services[className].itemCount + 1
+            end
+            result.totalItems = result.totalItems + 1
+        end
+    else
+        -- Binary format: scan INST chunks for service markers
+        -- Magic header: <roblox! (8 bytes) + signature (23 bytes) = 31 bytes
+        local pos = 32
+        local fileLen = #data
+
+        local function readU32(p)
+            if p + 3 > fileLen then return 0, p + 4 end
+            local b0, b1, b2, b3 = data:byte(p, p+3)
+            return b0 + b1*256 + b2*65536 + b3*16777216, p + 4
+        end
+
+        local function readStr(p, len)
+            return data:sub(p, p + len - 1), p + len
+        end
+
+        while pos < fileLen - 16 do
+            -- Read chunk header: 4-byte tag, 4-byte compLen, 4-byte rawLen, 4-byte reserved
+            local tag = data:sub(pos, pos + 3)
+            local compLen, p1 = readU32(pos + 4)
+            local rawLen,  p2 = readU32(pos + 8)
+            -- reserved
+            pos = pos + 16
+
+            if tag == "END\0" then break end
+
+            local chunkData
+            if compLen == 0 then
+                -- uncompressed
+                chunkData = data:sub(pos, pos + rawLen - 1)
+            else
+                -- LZ4 compressed: try decompressing using our existing decompressor
+                local raw = data:sub(pos, pos + compLen - 1)
+                local ok2, dec = pcall(function()
+                    -- Use lz4Decompress if available in scope
+                    if lz4Decompress then return lz4Decompress(raw, rawLen) end
+                    return nil
+                end)
+                if ok2 and dec then
+                    chunkData = dec
+                else
+                    chunkData = raw -- fallback: raw bytes (limited parse)
+                end
+            end
+
+            pos = pos + compLen
+            if compLen == 0 then pos = pos - compLen + rawLen end
+
+            if tag == "INST" and chunkData then
+                -- Parse INST chunk:
+                -- u32 classId, string className (u32 len + bytes),
+                -- u8 objectFormat, u32 instanceCount, referents[]
+                -- if objectFormat == 1: service flags u8[] follow referents
+                local cp = 1
+                local function ciu32(p)
+                    if p + 3 > #chunkData then return 0, p + 4 end
+                    local a,b,c,d = chunkData:byte(p, p+3)
+                    return a+b*256+c*65536+d*16777216, p+4
+                end
+                local classId; classId, cp = ciu32(cp)
+                local nameLen; nameLen, cp = ciu32(cp)
+                local className
+                if nameLen > 0 and cp + nameLen - 1 <= #chunkData then
+                    className = chunkData:sub(cp, cp + nameLen - 1)
+                    cp = cp + nameLen
+                else
+                    break
+                end
+                local objectFormat = chunkData:byte(cp) or 0
+                cp = cp + 1
+                local instCount; instCount, cp = ciu32(cp)
+
+                result.totalItems = result.totalItems + instCount
+
+                -- objectFormat == 1 → this class is a Service
+                if objectFormat == 1 and className then
+                    result.services[className] = result.services[className] or {scripts = {}, itemCount = 0}
+                    result.services[className].itemCount = result.services[className].itemCount + instCount
+                end
+            end
+
+            -- safety: if pos went backwards, break
+            if compLen == 0 and rawLen == 0 then break end
+        end
+    end
+
+    -- Add script count from sources to each service
+    for scriptName, src in pairs(result.sources) do
+        local placed = false
+        for svcName, svc in pairs(result.services) do
+            if scriptName:lower():find(svcName:lower(), 1, true) then
+                table.insert(svc.scripts, {name = scriptName, src = src})
+                placed = true
+                break
+            end
+        end
+        if not placed then
+            result.services["Workspace"] = result.services["Workspace"] or {scripts = {}, itemCount = 0}
+            table.insert(result.services["Workspace"].scripts, {name = scriptName, src = src})
+        end
+    end
+
+    return result
+end
+
+-- ─── SMART INSERT RBXL ──────────────────────────────────
+-- Endpoint: sama dengan RBXM — parse binary, recreate scripts,
+-- insert ke workspace Studio Lite via injectStudioLiteUI
+local function smartInsertRbxl(filePath, fileName)
+    local fileBase = fileName:gsub("%.rbxl[x]?$", "")
+    updateRbxlProgress(10, "[1/5] READING RBXL BINARY...")
+    task.wait(0.3)
+
+    local rawData = safeReadFile(filePath)
+    if not rawData or #rawData < 32 then
+        updateRbxlProgress(0, "[ERR] Gagal baca file!")
+        return false, "Gagal baca file"
+    end
+
+    updateRbxlProgress(30, "[2/5] DECOMPRESSING LZ4 CHUNKS...")
+    task.wait(0.3)
+
+    local placeInfo = parseRBXLFile(rawData)
+    if placeInfo.error then
+        updateRbxlProgress(0, "[ERR] " .. placeInfo.error)
+        return false, placeInfo.error
+    end
+
+    -- Count total scripts
+    local totalScripts = 0
+    for _, svc in pairs(placeInfo.services) do
+        totalScripts = totalScripts + #svc.scripts
+    end
+
+    updateRbxlProgress(55, "[3/5] EXTRACTING SERVICES... (" .. tostring(totalScripts) .. " scripts)")
+    task.wait(0.4)
+
+    -- Insert: create a root Folder named after the place file
+    local placeFolder = Instance.new("Folder")
+    placeFolder.Name = fileBase
+    pcall(function() placeFolder.Parent = workspace end)
+
+    local insertedCount = 0
+    local svcOrder = {"Workspace", "ServerScriptService", "StarterPack", "StarterGui",
+                      "ReplicatedStorage", "StarterPlayer", "Lighting", "SoundService"}
+
+    -- Insert all services content into sub-folders
+    for _, svcName in ipairs(svcOrder) do
+        local svc = placeInfo.services[svcName]
+        if svc and (#svc.scripts > 0 or svc.itemCount > 0) then
+            local svcFolder = Instance.new("Folder")
+            svcFolder.Name = svcName
+            pcall(function() svcFolder.Parent = placeFolder end)
+
+            for _, sc in ipairs(svc.scripts) do
+                storeScriptSource(sc.name, sc.src)
+                local scriptInst = Instance.new("Script")
+                scriptInst.Name = sc.name
+                pcall(function() scriptInst.Source = sc.src end)
+                pcall(function() scriptInst.Parent = svcFolder end)
+                injectStudioLiteUI(scriptInst, {[sc.name] = sc.src})
+                recreateScriptAsNative(scriptInst, sc.src)
+                insertedCount = insertedCount + 1
+            end
+        end
+    end
+
+    -- Also handle any service not in the order list
+    for svcName, svc in pairs(placeInfo.services) do
+        local found = false
+        for _, s in ipairs(svcOrder) do if s == svcName then found = true; break end end
+        if not found and #svc.scripts > 0 then
+            local svcFolder = Instance.new("Folder")
+            svcFolder.Name = svcName
+            pcall(function() svcFolder.Parent = placeFolder end)
+            for _, sc in ipairs(svc.scripts) do
+                storeScriptSource(sc.name, sc.src)
+                local scriptInst = Instance.new("Script")
+                scriptInst.Name = sc.name
+                pcall(function() scriptInst.Source = sc.src end)
+                pcall(function() scriptInst.Parent = svcFolder end)
+                injectStudioLiteUI(scriptInst, {[sc.name] = sc.src})
+                recreateScriptAsNative(scriptInst, sc.src)
+                insertedCount = insertedCount + 1
+            end
+        end
+    end
+
+    -- Use Studio Lite endpoint for place itself (trigger server load of place)
+    if serverFuncs then
+        pcall(function()
+            -- Try loading place by file path (Studio Lite may support local path)
+            serverFuncs:InvokeServer("LoadPlaceFromFileServerFunction", filePath)
+        end)
+        pcall(function()
+            -- Fallback: trigger insert via InsertFromFile endpoint
+            serverFuncs:InvokeServer("InsertFromFileServerFunction", filePath)
+        end)
+    end
+
+    updateRbxlProgress(80, "[4/5] INJECTING TO STUDIO LITE...")
+    task.wait(0.5)
+
+    local statusMsg = insertedCount > 0
+        and ("[5/5] DONE! " .. insertedCount .. " scripts injected")
+        or  "[5/5] PLACE LOADED (0 scripts found)"
+    updateRbxlProgress(100, statusMsg)
+    resetRbxlProgress(insertedCount)
+    return true, statusMsg
+end
+
+-- ─── RENDER RBXL FILE CARDS ─────────────────────────────
+local function renderRbxlCards()
+    -- Clear old cards
+    for _, c in ipairs(RbxlScroll:GetChildren()) do
+        if c:IsA("Frame") or c:IsA("TextButton") then c:Destroy() end
+    end
+
+    RbxlInsertStatus.Text = "[.] Scanning .rbxl files..."
+    RbxlInsertStatus.TextColor3 = Color3.fromRGB(200,200,215)
+    RbxlInsertPct.Text = ""
+
+    local files = {}
+    local searchDirs = {
+        ".", "./", "./workspace/", "./saves/",
+        "rbxl/", "place/", "files/",
+        (writefile and "." or nil),
+    }
+
+    -- Collect .rbxl files using listfiles
+    if listfilesFn then
+        for _, dir in ipairs(searchDirs) do
+            if dir then
+                local ok, entries = pcall(listfilesFn, dir)
+                if ok and entries then
+                    for _, entry in ipairs(entries) do
+                        local lw = tostring(entry):lower()
+                        if lw:find("%.rbxl$") or lw:find("%.rbxlx$") then
+                            local name = entry:match("([^/\\]+)$") or entry
+                            local dup = false
+                            for _, f in ipairs(files) do if f.path == entry then dup = true; break end end
+                            if not dup then
+                                table.insert(files, {path = entry, name = name})
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    -- Also check workspace folder files
+    if #files == 0 and readfile then
+        -- If Delta provides a file list via different API
+        local ok2, entries2 = pcall(function()
+            return listfiles and listfiles("") or {}
+        end)
+        if ok2 and entries2 then
+            for _, entry in ipairs(entries2) do
+                local lw = tostring(entry):lower()
+                if lw:find("%.rbxl") then
+                    local name = entry:match("([^/\\]+)$") or entry
+                    table.insert(files, {path = entry, name = name})
+                end
+            end
+        end
+    end
+
+    if #files == 0 then
+        RbxlEmpty.Parent = RbxlScroll
+        RbxlInsertStatus.Text = "[!] Tidak ada .rbxl ditemukan"
+        RbxlInsertStatus.TextColor3 = Color3.fromRGB(255, 120, 120)
+        RbxlInsertPct.Text = "0 files"
+        return
+    end
+
+    RbxlEmpty.Parent = nil
+    RbxlInsertStatus.Text = "READY | " .. #files .. " place file(s)"
+    RbxlInsertStatus.TextColor3 = Color3.fromRGB(160, 225, 160)
+    RbxlInsertPct.Text = #files .. " files"
+
+    -- Render a card per .rbxl file
+    for i, file in ipairs(files) do
+        local card = Instance.new("Frame")
+        card.Size = UDim2.new(1, 0, 0, 50)
+        card.BackgroundColor3 = Color3.fromRGB(22, 22, 28)
+        card.BorderSizePixel = 0
+        card.LayoutOrder = i
+        card.ZIndex = 15
+        card.Parent = RbxlScroll
+        makeCorner(card, 7)
+        makeStroke(card, Color3.fromRGB(255,255,255), 1, 0.82)
+
+        -- Service icon badge "[L]"
+        local badge = Instance.new("TextLabel")
+        badge.Size = UDim2.new(0, 28, 0, 28)
+        badge.Position = UDim2.new(0, 8, 0.5, -14)
+        badge.BackgroundColor3 = Color3.fromRGB(255,255,255)
+        badge.Text = "[L]"; badge.Font = Enum.Font.GothamBold; badge.TextSize = 9
+        badge.TextColor3 = Color3.fromRGB(0,0,0)
+        badge.ZIndex = 16; badge.Parent = card
+        makeCorner(badge, 5)
+
+        -- File name
+        local nameLbl = Instance.new("TextLabel")
+        nameLbl.Size = UDim2.new(1, -155, 0, 18)
+        nameLbl.Position = UDim2.new(0, 44, 0, 6)
+        nameLbl.BackgroundTransparency = 1
+        nameLbl.Font = Enum.Font.GothamBold; nameLbl.TextSize = 10
+        nameLbl.TextColor3 = Color3.fromRGB(235, 235, 240)
+        nameLbl.TextXAlignment = Enum.TextXAlignment.Left
+        nameLbl.TextTruncate = Enum.TextTruncate.AtEnd
+        nameLbl.Text = file.name; nameLbl.ZIndex = 16; nameLbl.Parent = card
+
+        -- Path label
+        local pathLbl = Instance.new("TextLabel")
+        pathLbl.Size = UDim2.new(1, -155, 0, 14)
+        pathLbl.Position = UDim2.new(0, 44, 0, 26)
+        pathLbl.BackgroundTransparency = 1
+        pathLbl.Font = Enum.Font.Code; pathLbl.TextSize = 8
+        pathLbl.TextColor3 = Color3.fromRGB(120, 120, 135)
+        pathLbl.TextXAlignment = Enum.TextXAlignment.Left
+        pathLbl.TextTruncate = Enum.TextTruncate.AtEnd
+        pathLbl.Text = file.path; pathLbl.ZIndex = 16; pathLbl.Parent = card
+
+        -- EDIT button (open first script in editor)
+        local edBtn = Instance.new("TextButton")
+        edBtn.Size = UDim2.new(0, 50, 0, 30)
+        edBtn.Position = UDim2.new(1, -130, 0.5, -15)
+        edBtn.BackgroundColor3 = Color3.fromRGB(28,28,34)
+        edBtn.Text = "EDIT"; edBtn.Font = Enum.Font.GothamBold; edBtn.TextSize = 9
+        edBtn.TextColor3 = Color3.fromRGB(255,255,255)
+        edBtn.Active = true; edBtn.ZIndex = 16; edBtn.Parent = card
+        makeCorner(edBtn, 6); makeStroke(edBtn, Color3.fromRGB(255,255,255), 1, 0.7)
+
+        edBtn.Activated:Connect(function()
+            local raw = safeReadFile(file.path)
+            if not raw then openInEditor(file.name:gsub("%.rbxl.*",""), "-- Gagal baca file"); return end
+            local sources = {}
+            local ok3, s = pcall(parseRBXMSources, raw)
+            if ok3 and s then sources = s end
+            local firstCode = nil
+            for _, v in pairs(sources) do firstCode = v; break end
+            openInEditor(file.name:gsub("%.rbxl.*",""), firstCode or "-- Tidak ada script di file ini")
+        end)
+
+        -- INSERT button
+        local insertBtn = Instance.new("TextButton")
+        insertBtn.Size = UDim2.new(0, 65, 0, 30)
+        insertBtn.Position = UDim2.new(1, -72, 0.5, -15)
+        insertBtn.BackgroundColor3 = Color3.fromRGB(255,255,255)
+        insertBtn.Text = "INSERT"; insertBtn.Font = Enum.Font.GothamBold; insertBtn.TextSize = 9
+        insertBtn.TextColor3 = Color3.fromRGB(0,0,0)
+        insertBtn.Active = true; insertBtn.ZIndex = 16; insertBtn.Parent = card
+        makeCorner(insertBtn, 6); makeStroke(insertBtn, Color3.fromRGB(0,0,0), 1)
+
+        local capturedFile = file
+        insertBtn.Activated:Connect(function()
+            insertBtn.Text = "..."
+            insertBtn.BackgroundColor3 = Color3.fromRGB(60,60,70)
+            task.spawn(function()
+                -- Small delay so UI renders
+                task.wait(0.2)
+                local ok4, msg = smartInsertRbxl(capturedFile.path, capturedFile.name)
+                task.wait(1.5)
+                if insertBtn and insertBtn.Parent then
+                    insertBtn.Text = ok4 and "DONE!" or "FAIL"
+                    insertBtn.BackgroundColor3 = ok4
+                        and Color3.fromRGB(255,255,255)
+                        or Color3.fromRGB(200,60,60)
+                    task.delay(2, function()
+                        if insertBtn and insertBtn.Parent then
+                            insertBtn.Text = "INSERT"
+                            insertBtn.BackgroundColor3 = Color3.fromRGB(255,255,255)
+                        end
+                    end)
+                end
+            end)
+        end)
+    end
+
+    -- Update scroll canvas
+    RbxlList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+        RbxlScroll.CanvasSize = UDim2.new(0, 0, 0, RbxlList.AbsoluteContentSize.Y + 12)
+    end)
+    RbxlScroll.CanvasSize = UDim2.new(0, 0, 0, RbxlList.AbsoluteContentSize.Y + 12)
+end
+
+RbxlScanBtn.Activated:Connect(renderRbxlCards)
+
+-- =====================================================
+-- END PAGE RBXL
+-- =====================================================
+
+print("[BLUExCrown] ENGINE MCHLERN ENGINE v6.3 RBXL LOADED")
