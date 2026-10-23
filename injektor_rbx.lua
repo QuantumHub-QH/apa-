@@ -1,5 +1,5 @@
 -- =======================================================
--- MCHLERN ENGINE TOOLS ROBLOX STUDIO LITE (v6.0 MASTER COMFORT EDITION)
+-- MCHLERN ENGINE TOOLS ROBLOX STUDIO LITE (v6.1 PURE NATIVE EDITION)
 -- Fix 1: Menu Card Hitbox 100% Responsif (Tombol Toolbox & RBXM PASTI Kebuka)
 -- Fix 2: Togle Anti-Geser (Kunci permanen di sisi layar, aman dari swipe kamera)
 -- Fix 3: In-Game Code Editor (Bisa ketik, edit, save & execute script di HP)
@@ -59,24 +59,41 @@ local function lookupScriptSource(searchKey)
     if not searchKey or searchKey == "" then return nil end
     local sKey = tostring(searchKey):lower():gsub("%s+", "")
 
+    -- Exact match in memory tables
     for k, v in pairs(_G.BLUE_RAW_SOURCES) do
         local kname = typeof(k) == "Instance" and (k.ClassName .. k.Name) or tostring(k)
-        if kname:lower():gsub("%s+", "") == sKey or kname:lower():find(sKey, 1, true) or sKey:find(kname:lower(), 1, true) then
+        if kname:lower():gsub("%s+", "") == sKey then
             if type(v) == "string" and #v > 0 then return stripRichText(v) end
         end
     end
     for k, v in pairs(_G.LANGZ_RAW_SOURCES) do
         local kname = typeof(k) == "Instance" and (k.ClassName .. k.Name) or tostring(k)
-        if kname:lower():gsub("%s+", "") == sKey or kname:lower():find(sKey, 1, true) or sKey:find(kname:lower(), 1, true) then
+        if kname:lower():gsub("%s+", "") == sKey then
             if type(v) == "string" and #v > 0 then return stripRichText(v) end
         end
     end
-    for _, v in pairs(_G.BLUE_RAW_SOURCES) do
-        if type(v) == "string" and #v > 15 then return stripRichText(v) end
+
+    -- Match by instance name in hierarchy
+    for _, place in ipairs({workspace, ReplicatedStorage, LP:FindFirstChild("PlayerGui")}) do
+        if place then
+            for _, obj in ipairs(place:GetDescendants()) do
+                if obj:IsA("LuaSourceContainer") then
+                    local fullId = (obj.ClassName .. obj.Name):lower():gsub("%s+", "")
+                    local nameId = obj.Name:lower():gsub("%s+", "")
+                    if fullId == sKey or nameId == sKey then
+                        local src = _G.BLUE_RAW_SOURCES[obj] or _G.LANGZ_RAW_SOURCES[obj]
+                        if src and #src > 0 then return stripRichText(src) end
+                        local tb = obj:FindFirstChild("SL_CodeTextBox")
+                        if tb and tb.Text and #tb.Text > 0 then return stripRichText(tb.Text) end
+                        local ok, raw = pcall(function() return obj.Source end)
+                        if ok and raw and #raw > 0 then return stripRichText(raw) end
+                    end
+                end
+            end
+        end
     end
-    for _, v in pairs(_G.LANGZ_RAW_SOURCES) do
-        if type(v) == "string" and #v > 15 then return stripRichText(v) end
-    end
+
+    -- NEVER return random scripts from other objects!
     return nil
 end
 
@@ -632,21 +649,37 @@ EdTextBox.TextXAlignment = Enum.TextXAlignment.Left
 EdTextBox.TextYAlignment = Enum.TextYAlignment.Top
 EdTextBox.ClearTextOnFocus = false
 EdTextBox.TextEditable = true
+EdTextBox.RichText = false  -- Prevent <font color> tag injection
 EdTextBox.MultiLine = true
 EdTextBox.Active = true
 EdTextBox.ZIndex = 202
 EdTextBox.Text = ""
 EdTextBox.Parent = EdScroll
 
+-- SAFE canvas resize: programmatic sets scroll back to top, user typing keeps position
+local _progTextSet = false
 EdTextBox:GetPropertyChangedSignal("Text"):Connect(function()
     local lines = #EdTextBox.Text:split("\n")
     EdScroll.CanvasSize = UDim2.new(0, 0, 0, math.max(340, lines * 18 + 40))
+    if _progTextSet then
+        -- reset to top only on programmatic open, not while user is typing
+        task.defer(function() pcall(function() EdScroll.CanvasPosition = Vector2.new(0, 0) end) end)
+    end
 end)
 
 local function openInEditor(scriptName, code)
     activeEditingScript = scriptName or "Script"
     EdTitleLbl.Text = "EDITOR: " .. activeEditingScript
-    EdTextBox.Text = code or lookupScriptSource(scriptName) or "-- Ketik code di sini..."
+    -- Use flag so scroll resets to top (not halfway through code)
+    _progTextSet = true
+    local safeCode = code or lookupScriptSource(scriptName) or "-- Ketik code di sini..."
+    -- Strip any RichText tags Studio Lite may have injected
+    safeCode = stripRichText(safeCode)
+    EdTextBox.Text = safeCode
+    task.defer(function()
+        _progTextSet = false
+        pcall(function() EdScroll.CanvasPosition = Vector2.new(0, 0) end)
+    end)
     EditorModal.Active = true
     EditorModal.Visible = true
 end
@@ -724,57 +757,11 @@ end)
 -- 4. STUDIO LITE REAL-TIME UI WATCHER & INJECTOR
 -- =====================================================
 -- =====================================================
--- 4. NON-INTRUSIVE STUDIO LITE EDITOR BRIDGE
--- 100% Fix: Tanpa toolbar yang menutupi layar, tanpa modal pop-up tak terduga,
--- tanpa rubberband scroll (tidak mental ke bawah), dan teks tetap rapi di dalam pembatas!
+-- 4. PURE NATIVE STUDIO LITE INTEGRATION (ZERO INTERFERENCE)
+-- Sesuai instruksi: Script kita HANYA membuat ulang script secara native saat import.
+-- Setelah script dibuat, game & text editor Studio Lite berjalan 100% normal dan murni
+-- tanpa ada campur tangan atau gangguan apa pun terhadap PlayerGui!
 -- =====================================================
-task.spawn(function()
-    local pg = LP:WaitForChild("PlayerGui", 5)
-    if not pg then return end
-
-    local function unlockEditor(desc)
-        pcall(function()
-            -- Bersihkan label "(read only)" secara pasif
-            if desc:IsA("TextLabel") and desc.Text:find("%([Rr]ead%s*[Oo]nly%)") then
-                desc.Text = desc.Text:gsub("%s*%([Rr]ead%s*[Oo]nly%)", "")
-            end
-
-            -- Unlock TextBox Studio Lite tanpa mengubah Text / Canvas / Scroll
-            if desc:IsA("TextBox") and not desc:GetAttribute("MchlernUnlocked") then
-                desc:SetAttribute("MchlernUnlocked", true)
-                desc.TextEditable = true
-                desc.ClearTextOnFocus = false
-                desc.Active = true
-
-                -- Simpan perubahan secara bersih saat selesai mengetik (FocusLost)
-                desc.FocusLost:Connect(function()
-                    local clean = stripRichText(desc.Text)
-                    local parentWin = desc:FindFirstAncestorWhichIsA("Frame") or desc.Parent
-                    local title = ""
-                    if parentWin then
-                        for _, t in ipairs(parentWin:GetDescendants()) do
-                            if t:IsA("TextLabel") and (t.Name:find("Title") or t.Name:find("Header")) then
-                                title = t.Text:gsub("%s*%([Rr]ead%s*[Oo]nly%)", ""):match("([%w_]+)") or ""
-                                break
-                            end
-                        end
-                    end
-                    if title ~= "" then
-                        storeScriptSource(title, clean)
-                        if serverFuncs then
-                            pcall(function() serverFuncs:InvokeServer("SaveScriptSourceServerFunction", title, clean) end)
-                        end
-                    end
-                end)
-            end
-        end)
-    end
-
-    pg.DescendantAdded:Connect(function(desc)
-        task.delay(0.1, function() unlockEditor(desc) end)
-    end)
-    for _, d in ipairs(pg:GetDescendants()) do unlockEditor(d) end
-end)
 
 -- 5. PAGES & NAVIGATION (100% INSTANT HITBOX)
 -- =====================================================
@@ -2148,8 +2135,34 @@ local function smartInsertRbxm(filePath, fileName)
             applyStudioLiteProps(o)
             loadAssetsToSLServer(o)
 
-            -- Inject full source & unlock Studio Lite editing on all scripts!
-            injectAllScripts(o, parsedSources)
+            -- RECREATE SCRIPTS AS NATIVE ROBLOX INSTANCES
+            -- Mengubah semua script menjadi instance fresh & native dengan SL_CodeTextBox terpasang
+            -- dan SL_1ReadOnly dihancurkan agar Studio Lite mengenalinya sebagai script biasa yang bisa diedit!
+            local scriptList = {}
+            if o:IsA("LuaSourceContainer") then table.insert(scriptList, o) end
+            for _, d in ipairs(o:GetDescendants()) do
+                if d:IsA("LuaSourceContainer") then table.insert(scriptList, d) end
+            end
+
+            for _, scr in ipairs(scriptList) do
+                local path = scr.ClassName .. ":" .. scr.Name
+                local src = parsedSources[path] or parsedSources[scr.Name]
+                if not src then
+                    for k, v in pairs(parsedSources) do
+                        if k:sub(-#scr.Name) == scr.Name or k:find(scr.Name, 1, true) then
+                            src = v
+                            break
+                        end
+                    end
+                end
+                if not src then
+                    pcall(function() src = scr.Source end)
+                end
+                src = stripRichText(src or "-- Script source")
+
+                -- Recreate fresh native script
+                recreateScriptAsNative(scr, src)
+            end
 
             if o:IsA("Model") and LP.Character then
                 local hrp = LP.Character:FindFirstChild("HumanoidRootPart")
@@ -2484,4 +2497,4 @@ TbInsertIdBtn.Activated:Connect(function()
     end
 end)
 
-print("[BLUExCrown] ENGINE MCHLERN ENGINE v6.0 LOADED")
+print("[BLUExCrown] ENGINE MCHLERN ENGINE v6.1 LOADED")
