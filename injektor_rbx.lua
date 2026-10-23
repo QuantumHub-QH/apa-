@@ -1,5 +1,5 @@
 -- =======================================================
--- MCHLERN ENGINE TOOLS ROBLOX STUDIO LITE (v5.8 ULTIMATE EDITION)
+-- MCHLERN ENGINE TOOLS ROBLOX STUDIO LITE (v5.9 ULTIMATE EDITION)
 -- Fix 1: Menu Card Hitbox 100% Responsif (Tombol Toolbox & RBXM PASTI Kebuka)
 -- Fix 2: Togle Anti-Geser (Kunci permanen di sisi layar, aman dari swipe kamera)
 -- Fix 3: In-Game Code Editor (Bisa ketik, edit, save & execute script di HP)
@@ -234,7 +234,7 @@ LoadingScreen.Active = true
 LoadingScreen.Parent = ScreenGui
 
 local LoadContainer = Instance.new("Frame")
-LoadContainer.Size = UDim2.new(0.88, 0, 0, 190)
+LoadContainer.Size = UDim2.new(0.9, 0, 0, 200)
 LoadContainer.AnchorPoint = Vector2.new(0.5, 0.5)
 LoadContainer.Position = UDim2.fromScale(0.5, 0.5)
 LoadContainer.BackgroundTransparency = 1
@@ -249,19 +249,20 @@ LeftBox.BackgroundTransparency = 1
 LeftBox.ZIndex = 5002
 LeftBox.Parent = LoadContainer
 
+-- Logo (Enlarged)
 local LogoImg = Instance.new("ImageLabel")
-LogoImg.Size = UDim2.new(0, 76, 0, 76)
-LogoImg.Position = UDim2.new(0.5, -38, 0, 8)
+LogoImg.Size = UDim2.new(0, 96, 0, 96)
+LogoImg.Position = UDim2.new(0.5, -48, 0, 6)
 LogoImg.BackgroundTransparency = 1
 LogoImg.Image = "rbxassetid://102337382069600"
 LogoImg.ZIndex = 5003
 LogoImg.Parent = LeftBox
-makeCorner(LogoImg, 12)
+makeCorner(LogoImg, 14)
 makeStroke(LogoImg, Color3.fromRGB(255, 255, 255), 1.5, 0.6)
 
 local BrandTitle = Instance.new("TextLabel")
-BrandTitle.Size = UDim2.new(1, 0, 0, 50)
-BrandTitle.Position = UDim2.new(0, 0, 0, 92)
+BrandTitle.Size = UDim2.new(1, 0, 0, 46)
+BrandTitle.Position = UDim2.new(0, 0, 0, 108)
 BrandTitle.BackgroundTransparency = 1
 BrandTitle.Font = Enum.Font.GothamBold
 BrandTitle.TextSize = 11
@@ -272,10 +273,21 @@ BrandTitle.Text = ""
 BrandTitle.ZIndex = 5003
 BrandTitle.Parent = LeftBox
 
+-- Vertical Divider Line in the Middle
+local MidDivider = Instance.new("Frame")
+MidDivider.Size = UDim2.new(0, 1, 0, 140)
+MidDivider.AnchorPoint = Vector2.new(0.5, 0.5)
+MidDivider.Position = UDim2.new(0.48, 0, 0.5, 0)
+MidDivider.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+MidDivider.BackgroundTransparency = 0.75
+MidDivider.BorderSizePixel = 0
+MidDivider.ZIndex = 5003
+MidDivider.Parent = LoadContainer
+
 -- Right side: Progress Bar & Status Text
 local RightBox = Instance.new("Frame")
-RightBox.Size = UDim2.new(0.52, 0, 1, 0)
-RightBox.Position = UDim2.new(0.48, 0, 0, 0)
+RightBox.Size = UDim2.new(0.5, 0, 1, 0)
+RightBox.Position = UDim2.new(0.5, 10, 0, 0)
 RightBox.BackgroundTransparency = 1
 RightBox.ZIndex = 5002
 RightBox.Parent = LoadContainer
@@ -411,7 +423,7 @@ task.spawn(function()
                                 desc.Text = desc.Text:gsub("%s*%([Rr]ead%s*[Oo]nly%)", "")
                             end
 
-                            -- 2. Unlock editor TextBoxes & STRIP HTML/RICHTEXT TAGS
+                            -- 2. Unlock editor TextBoxes (ONE-TIME HOOK - NEVER TOUCH TEXT DURING ACTIVE EDITING)
                             if desc:IsA("TextBox") and (desc.MultiLine or desc.Name:find("Code") or desc.Name:find("Text") or desc.Text:find("function") or desc.Text:find("local ") or desc.Text:find("return")) then
                                 if not desc.TextEditable then
                                     desc.TextEditable = true
@@ -419,17 +431,19 @@ task.spawn(function()
                                 desc.ClearTextOnFocus = false
                                 desc.Active = true
 
-                                -- Anti-coder warna / strip font tags in realtime
-                                if desc.Text:find("<font") or desc.Text:find("</font>") or desc.Text:find("<[^>]+>") then
-                                    desc.Text = stripRichText(desc.Text)
-                                end
-
-                                -- Hook change and focus lost to auto-save
+                                -- Only initialize ONCE when opening so it NEVER resets cursor or edits itself!
                                 if not desc:GetAttribute("BLUExHooked") then
                                     desc:SetAttribute("BLUExHooked", true)
 
+                                    -- Sanitize once upon opening
+                                    if desc.Text:find("<font") or desc.Text:find("</font>") or desc.Text:find("<[^>]+>") then
+                                        desc.Text = stripRichText(desc.Text)
+                                    end
+
                                     local function autoSync()
-                                        local code = desc.Text
+                                        -- Only sync on FocusLost when user explicitly finishes editing
+                                        local rawCode = desc.Text
+                                        local cleanCode = stripRichText(rawCode)
                                         local title = ""
                                         for _, t in ipairs(desc.Parent.Parent:GetDescendants()) do
                                             if t:IsA("TextLabel") and (t.Name:find("Title") or t.Name:find("Header")) then
@@ -438,9 +452,9 @@ task.spawn(function()
                                             end
                                         end
                                         if title ~= "" then
-                                            storeScriptSource(title, code)
+                                            storeScriptSource(title, cleanCode)
                                             if serverFuncs then
-                                                pcall(function() serverFuncs:InvokeServer("SaveScriptSourceServerFunction", title, code) end)
+                                                pcall(function() serverFuncs:InvokeServer("SaveScriptSourceServerFunction", title, cleanCode) end)
                                             end
                                         end
                                     end
@@ -1462,30 +1476,81 @@ RbxmToolbar.Size = UDim2.new(1, 0, 0, 28); RbxmToolbar.Position = UDim2.new(0, 0
 RbxmToolbar.BackgroundTransparency = 1; RbxmToolbar.ZIndex = 13; RbxmToolbar.Parent = PageRBXM
 
 local RbxmScanBtn = Instance.new("TextButton")
-RbxmScanBtn.Size = UDim2.new(0, 90, 0, 24); RbxmScanBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+RbxmScanBtn.Size = UDim2.new(0, 84, 0, 24); RbxmScanBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
 RbxmScanBtn.Text = "SCAN FILES"; RbxmScanBtn.Font = Enum.Font.GothamBold; RbxmScanBtn.TextSize = 10
 RbxmScanBtn.TextColor3 = Color3.fromRGB(0, 0, 0)
 RbxmScanBtn.Active = true; RbxmScanBtn.ZIndex = 15; RbxmScanBtn.Parent = RbxmToolbar; makeCorner(RbxmScanBtn, 6)
 
-local RbxmSLStatus = Instance.new("TextLabel")
-RbxmSLStatus.Size = UDim2.new(0, 120, 1, 0); RbxmSLStatus.Position = UDim2.new(0, 96, 0, 0)
-RbxmSLStatus.BackgroundTransparency = 1
-RbxmSLStatus.Text = "[AUTO-SOURCE: ON]"
-RbxmSLStatus.Font = Enum.Font.GothamBold; RbxmSLStatus.TextSize = 9
-RbxmSLStatus.TextColor3 = Color3.fromRGB(120, 220, 120)
-RbxmSLStatus.TextXAlignment = Enum.TextXAlignment.Left
-RbxmSLStatus.ZIndex = 14
-RbxmSLStatus.Parent = RbxmToolbar
+-- INLINE INSERT PROGRESS BAR (SEJAJAR DENGAN SCAN FILES BUTTON)
+local RbxmProgressFrame = Instance.new("Frame")
+RbxmProgressFrame.Size = UDim2.new(1, -92, 1, 0)
+RbxmProgressFrame.Position = UDim2.new(0, 92, 0, 0)
+RbxmProgressFrame.BackgroundTransparency = 1
+RbxmProgressFrame.ZIndex = 14
+RbxmProgressFrame.Parent = RbxmToolbar
 
-local RbxmCountLbl = Instance.new("TextLabel")
-RbxmCountLbl.Size = UDim2.new(1, -230, 1, 0); RbxmCountLbl.Position = UDim2.new(0, 220, 0, 0)
-RbxmCountLbl.BackgroundTransparency = 1
-RbxmCountLbl.Text = "[.] Klik SCAN untuk mencari file .rbxm"
-RbxmCountLbl.Font = Enum.Font.Gotham; RbxmCountLbl.TextSize = 9
-RbxmCountLbl.TextColor3 = Color3.fromRGB(140, 140, 150)
-RbxmCountLbl.TextXAlignment = Enum.TextXAlignment.Left
-RbxmCountLbl.ZIndex = 14
-RbxmCountLbl.Parent = RbxmToolbar
+local RbxmInsertStatus = Instance.new("TextLabel")
+RbxmInsertStatus.Size = UDim2.new(0.68, 0, 0, 14)
+RbxmInsertStatus.Position = UDim2.new(0, 0, 0, 0)
+RbxmInsertStatus.BackgroundTransparency = 1
+RbxmInsertStatus.Text = "READY | AUTO-SOURCE: ON"
+RbxmInsertStatus.Font = Enum.Font.GothamBold
+RbxmInsertStatus.TextSize = 8.5
+RbxmInsertStatus.TextColor3 = Color3.fromRGB(160, 225, 160)
+RbxmInsertStatus.TextXAlignment = Enum.TextXAlignment.Left
+RbxmInsertStatus.ZIndex = 15
+RbxmInsertStatus.Parent = RbxmProgressFrame
+
+local RbxmInsertPct = Instance.new("TextLabel")
+RbxmInsertPct.Size = UDim2.new(0.32, 0, 0, 14)
+RbxmInsertPct.Position = UDim2.new(0.68, 0, 0, 0)
+RbxmInsertPct.BackgroundTransparency = 1
+RbxmInsertPct.Text = "[.] Klik SCAN FILES"
+RbxmInsertPct.Font = Enum.Font.Code
+RbxmInsertPct.TextSize = 8.5
+RbxmInsertPct.TextColor3 = Color3.fromRGB(200, 200, 210)
+RbxmInsertPct.TextXAlignment = Enum.TextXAlignment.Right
+RbxmInsertPct.ZIndex = 15
+RbxmInsertPct.Parent = RbxmProgressFrame
+
+local RbxmBarBg = Instance.new("Frame")
+RbxmBarBg.Size = UDim2.new(1, 0, 0, 5)
+RbxmBarBg.Position = UDim2.new(0, 0, 0, 17)
+RbxmBarBg.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
+RbxmBarBg.BorderSizePixel = 0
+RbxmBarBg.ZIndex = 15
+RbxmBarBg.Parent = RbxmProgressFrame
+makeCorner(RbxmBarBg, 3)
+
+local RbxmBarFill = Instance.new("Frame")
+RbxmBarFill.Size = UDim2.new(0, 0, 1, 0)
+RbxmBarFill.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+RbxmBarFill.BorderSizePixel = 0
+RbxmBarFill.ZIndex = 16
+RbxmBarFill.Parent = RbxmBarBg
+makeCorner(RbxmBarFill, 3)
+
+local function updateInlineInsertProgress(pct, statusText)
+    RbxmInsertStatus.Text = statusText
+    RbxmInsertStatus.TextColor3 = Color3.fromRGB(255, 255, 255)
+    RbxmInsertPct.Text = tostring(math.floor(pct)) .. "%"
+    TweenService:Create(RbxmBarFill, TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+        Size = UDim2.new(pct / 100, 0, 1, 0)
+    }):Play()
+end
+
+local function resetInlineInsertProgress(fileCount)
+    task.delay(1.5, function()
+        pcall(function()
+            TweenService:Create(RbxmBarFill, TweenInfo.new(0.4), { Size = UDim2.new(0, 0, 1, 0) }):Play()
+            RbxmInsertStatus.Text = "READY | AUTO-SOURCE: ON"
+            RbxmInsertStatus.TextColor3 = Color3.fromRGB(160, 225, 160)
+            RbxmInsertPct.Text = tostring(fileCount or 0) .. " files found"
+        end)
+    end)
+end
+
+local RbxmCountLbl = RbxmInsertPct
 
 local RbxmScroll = Instance.new("ScrollingFrame")
 RbxmScroll.Size = UDim2.new(1, -12, 1, -66); RbxmScroll.Position = UDim2.new(0, 6, 0, 62)
@@ -2234,112 +2299,21 @@ local function recreateScriptAsNative(oldScript, sourceCode)
     return newScript
 end
 
-local function showInsertProgressModal(fileName)
-    local Modal = Instance.new("Frame")
-    Modal.Name = "InsertProgressModal"
-    Modal.Size = UDim2.new(0, 360, 0, 110)
-    Modal.AnchorPoint = Vector2.new(0.5, 0.5)
-    Modal.Position = UDim2.fromScale(0.5, 0.5)
-    Modal.BackgroundColor3 = Color3.fromRGB(12, 12, 16)
-    Modal.BorderSizePixel = 0
-    Modal.ZIndex = 300
-    Modal.Parent = ScreenGui
-    makeCorner(Modal, 10)
-    makeStroke(Modal, Color3.fromRGB(255, 255, 255), 1.5, 0.4)
-
-    local Title = Instance.new("TextLabel")
-    Title.Size = UDim2.new(1, -20, 0, 20)
-    Title.Position = UDim2.new(0, 12, 0, 10)
-    Title.BackgroundTransparency = 1
-    Title.Font = Enum.Font.GothamBold
-    Title.TextSize = 11
-    Title.TextColor3 = Color3.fromRGB(255, 255, 255)
-    Title.TextXAlignment = Enum.TextXAlignment.Left
-    Title.Text = "INSERTING: " .. fileName
-    Title.ZIndex = 301
-    Title.Parent = Modal
-
-    local StatusLbl = Instance.new("TextLabel")
-    StatusLbl.Size = UDim2.new(0.75, 0, 0, 18)
-    StatusLbl.Position = UDim2.new(0, 12, 0, 35)
-    StatusLbl.BackgroundTransparency = 1
-    StatusLbl.Font = Enum.Font.Code
-    StatusLbl.TextSize = 9
-    StatusLbl.TextColor3 = Color3.fromRGB(200, 200, 215)
-    StatusLbl.TextXAlignment = Enum.TextXAlignment.Left
-    StatusLbl.Text = "READING FILE..."
-    StatusLbl.ZIndex = 301
-    StatusLbl.Parent = Modal
-
-    local PctLbl = Instance.new("TextLabel")
-    PctLbl.Size = UDim2.new(0.2, 0, 0, 18)
-    PctLbl.Position = UDim2.new(0.78, 0, 0, 35)
-    PctLbl.BackgroundTransparency = 1
-    PctLbl.Font = Enum.Font.GothamBold
-    PctLbl.TextSize = 10
-    PctLbl.TextColor3 = Color3.fromRGB(255, 255, 255)
-    PctLbl.TextXAlignment = Enum.TextXAlignment.Right
-    PctLbl.Text = "0%"
-    PctLbl.ZIndex = 301
-    PctLbl.Parent = Modal
-
-    local BarBg = Instance.new("Frame")
-    BarBg.Size = UDim2.new(1, -24, 0, 8)
-    BarBg.Position = UDim2.new(0, 12, 0, 60)
-    BarBg.BackgroundColor3 = Color3.fromRGB(24, 24, 30)
-    BarBg.BorderSizePixel = 0
-    BarBg.ZIndex = 301
-    BarBg.Parent = Modal
-    makeCorner(BarBg, 4)
-
-    local BarFill = Instance.new("Frame")
-    BarFill.Size = UDim2.new(0, 0, 1, 0)
-    BarFill.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-    BarFill.BorderSizePixel = 0
-    BarFill.ZIndex = 302
-    BarFill.Parent = BarBg
-    makeCorner(BarFill, 4)
-
-    local function updateStep(pct, msg)
-        StatusLbl.Text = msg
-        PctLbl.Text = tostring(math.floor(pct)) .. "%"
-        TweenService:Create(BarFill, TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-            Size = UDim2.new(pct / 100, 0, 1, 0)
-        }):Play()
-    end
-
-    local function close()
-        task.delay(0.6, function()
-            TweenService:Create(Modal, TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-                BackgroundTransparency = 1
-            }):Play()
-            for _, d in ipairs(Modal:GetDescendants()) do
-                pcall(function()
-                    if d:IsA("TextLabel") then TweenService:Create(d, TweenInfo.new(0.3), {TextTransparency = 1}):Play()
-                    elseif d:IsA("Frame") then TweenService:Create(d, TweenInfo.new(0.3), {BackgroundTransparency = 1}):Play()
-                    elseif d:IsA("UIStroke") then TweenService:Create(d, TweenInfo.new(0.3), {Transparency = 1}):Play() end
-                end)
-            end
-            task.wait(0.45)
-            Modal:Destroy()
-        end)
-    end
-
-    return updateStep, close
-end
-
 local function smartInsertRbxm(filePath, fileName)
-    local updateProgress, closeProgress = showInsertProgressModal(fileName)
-    updateProgress(15, "READING BINARY FILE DATA...")
-    task.wait(0.35)
+    if updateInlineInsertProgress then
+        updateInlineInsertProgress(15, "[1/5] READING BINARY FILE...")
+    end
+    task.wait(0.3)
 
     local insertOk, statusMsg = false, ""
     local data = safeReadFile(filePath)
     local parsedSources = {}
 
     if data and #data > 0 then
-        updateProgress(38, "DECOMPRESSING LZ4 CHUNKS & SOURCE...")
-        task.wait(0.4)
+        if updateInlineInsertProgress then
+            updateInlineInsertProgress(38, "[2/5] DECOMPRESSING LZ4 CHUNKS...")
+        end
+        task.wait(0.35)
 
         parsedSources = parseAllSources(data)
         for k, v in pairs(parsedSources) do
@@ -2351,12 +2325,16 @@ local function smartInsertRbxm(filePath, fileName)
             break
         end
 
-        updateProgress(65, "STRIPPING RICHTEXT & HTML TAGS...")
-        task.wait(0.35)
+        if updateInlineInsertProgress then
+            updateInlineInsertProgress(65, "[3/5] STRIPPING RICHTEXT TAGS...")
+        end
+        task.wait(0.3)
     end
 
-    updateProgress(82, "INJECTING INSTANCES TO WORKSPACE...")
-    task.wait(0.4)
+    if updateInlineInsertProgress then
+        updateInlineInsertProgress(82, "[4/5] INJECTING TO WORKSPACE...")
+    end
+    task.wait(0.35)
 
     local function setupObjects(objs)
         for _, o in ipairs(objs) do
@@ -2413,9 +2391,10 @@ local function smartInsertRbxm(filePath, fileName)
         end)
     end
 
-    updateProgress(100, insertOk and "INSERT SUCCESSFUL! (100% CLEAN CODE)" or "INSERT FINISHED!")
-    task.wait(0.5)
-    closeProgress()
+    if updateInlineInsertProgress then
+        updateInlineInsertProgress(100, insertOk and "[5/5] SUCCESS! READY TO EDIT" or "[5/5] INSERT FINISHED")
+        resetInlineInsertProgress()
+    end
 
     return insertOk, statusMsg
 end
@@ -2699,4 +2678,4 @@ TbInsertIdBtn.Activated:Connect(function()
     end
 end)
 
-print("[BLUExCrown] ENGINE MCHLERN ENGINE v5.8 LOADED")
+print("[BLUExCrown] ENGINE MCHLERN ENGINE v5.9 LOADED")
