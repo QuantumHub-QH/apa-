@@ -1,10 +1,12 @@
 -- =======================================================
--- BLUExCrown ENGINE - MONOCHROME EDITION (LANDSCAPE)
--- Strictly Black & White | Modern Minimalist
+-- BLUExCrown ENGINE - REBUILT MONOCHROME EDITION
+-- Designed with Roblox GUI Builder Best Practices
+-- Palette: Strictly Black & White | Landscape: 420x245
 -- =======================================================
 
 local HttpService = game:GetService("HttpService")
 local MarketplaceService = game:GetService("MarketplaceService")
+local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local CoreGui = game:GetService("CoreGui")
 local Players = game:GetService("Players")
@@ -12,7 +14,6 @@ local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local ParentGui = (gethui and gethui()) or CoreGui or LocalPlayer:WaitForChild("PlayerGui")
 
--- Cek executor
 local httpRequest = request or http_request or (syn and syn.request) or (http and http.request)
 local copyClipboard = setclipboard or toclipboard or (Clipboard and Clipboard.set)
 
@@ -21,36 +22,40 @@ if not httpRequest then
     return
 end
 
--- Bersihkan versi sebelumnya
+-- Bersihkan instance lama
 if ParentGui:FindFirstChild("BLUExCrownEngine") then
     ParentGui.BLUExCrownEngine:Destroy()
 end
 
+-- ScreenGui Container
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "BLUExCrownEngine"
 ScreenGui.ResetOnSpawn = false
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 ScreenGui.Parent = ParentGui
 
--- 1. CUSTOM IMAGE TOGGLE BUTTON (ID: 102337382069600)
+-- 1. FLOATING TOGGLE BUTTON (Custom Asset ID: 102337382069600)
 local ToggleBtn = Instance.new("ImageButton")
 ToggleBtn.Name = "ToggleBtn"
 ToggleBtn.Size = UDim2.new(0, 42, 0, 42)
 ToggleBtn.Position = UDim2.new(0.02, 0, 0.45, 0)
-ToggleBtn.BackgroundColor3 = Color3.fromRGB(15, 15, 18)
+ToggleBtn.BackgroundColor3 = Color3.fromRGB(16, 16, 18)
 ToggleBtn.Image = "rbxassetid://102337382069600"
 ToggleBtn.ScaleType = Enum.ScaleType.Fit
 ToggleBtn.Parent = ScreenGui
 
 Instance.new("UICorner", ToggleBtn).CornerRadius = UDim.new(0, 8)
 local ToggleStroke = Instance.new("UIStroke", ToggleBtn)
+ToggleStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 ToggleStroke.Color = Color3.fromRGB(255, 255, 255)
-ToggleStroke.Thickness = 1.5
+ToggleStroke.Thickness = 1.4
 
--- 2. MAIN WINDOW FRAME (COMPACT LANDSCAPE: 420 x 245)
+-- 2. MAIN WINDOW FRAME (LANDSCAPE COMPACT: 420 x 245)
 local MainFrame = Instance.new("Frame")
 MainFrame.Name = "MainFrame"
+MainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+MainFrame.Position = UDim2.fromScale(0.5, 0.5)
 MainFrame.Size = UDim2.new(0, 420, 0, 245)
-MainFrame.Position = UDim2.new(0.5, -210, 0.5, -122)
 MainFrame.BackgroundColor3 = Color3.fromRGB(14, 14, 16)
 MainFrame.BorderSizePixel = 0
 MainFrame.ClipsDescendants = true
@@ -58,10 +63,11 @@ MainFrame.Parent = ScreenGui
 
 Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 10)
 local MainStroke = Instance.new("UIStroke", MainFrame)
+MainStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 MainStroke.Color = Color3.fromRGB(255, 255, 255)
-MainStroke.Thickness = 1.5
+MainStroke.Thickness = 1.4
 
--- Top Bar (Header)
+-- Top Bar Header
 local TopBar = Instance.new("Frame")
 TopBar.Size = UDim2.new(1, 0, 0, 32)
 TopBar.BackgroundColor3 = Color3.fromRGB(20, 20, 24)
@@ -74,38 +80,38 @@ Title.Position = UDim2.new(0, 12, 0, 0)
 Title.BackgroundTransparency = 1
 Title.Text = "BLUExCrown ENGINE"
 Title.Font = Enum.Font.GothamBold
-Title.TextSize = 12
+Title.TextSize = 11
 Title.TextColor3 = Color3.fromRGB(255, 255, 255)
 Title.TextXAlignment = Enum.TextXAlignment.Left
 Title.Parent = TopBar
 
 local CloseBtn = Instance.new("TextButton")
-CloseBtn.Size = UDim2.new(0, 24, 0, 24)
-CloseBtn.Position = UDim2.new(1, -28, 0, 4)
-CloseBtn.BackgroundColor3 = Color3.fromRGB(28, 28, 34)
+CloseBtn.Size = UDim2.new(0, 22, 0, 22)
+CloseBtn.Position = UDim2.new(1, -28, 0, 5)
+CloseBtn.BackgroundColor3 = Color3.fromRGB(26, 26, 30)
 CloseBtn.Text = "✕"
 CloseBtn.Font = Enum.Font.GothamBold
-CloseBtn.TextSize = 11
+CloseBtn.TextSize = 10
 CloseBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 CloseBtn.Parent = TopBar
-Instance.new("UICorner", CloseBtn).CornerRadius = UDim.new(0, 6)
+Instance.new("UICorner", CloseBtn).CornerRadius = UDim.new(0, 5)
 local CloseStroke = Instance.new("UIStroke", CloseBtn)
+CloseStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 CloseStroke.Color = Color3.fromRGB(255, 255, 255)
 CloseStroke.Thickness = 1
 CloseStroke.Transparency = 0.5
 
--- Control Area (Kategori & Search)
-local selectedCategory = 10 -- 10: Models
+-- 3. CATEGORY SWITCHER (Row 1)
+local selectedCategory = 10
 local categoryButtons = {}
 
 local categories = {
-    {name = "Models", id = 10},
-    {name = "Decals", id = 13},
-    {name = "Audio", id = 3},
-    {name = "Meshes", id = 11}
+    {name = "MODELS", id = 10},
+    {name = "DECALS", id = 13},
+    {name = "AUDIO", id = 3},
+    {name = "MESHES", id = 11}
 }
 
--- Row 1: Kategori Pills
 local CategoryFrame = Instance.new("Frame")
 CategoryFrame.Size = UDim2.new(1, -20, 0, 24)
 CategoryFrame.Position = UDim2.new(0, 10, 0, 38)
@@ -120,32 +126,35 @@ CatLayout.Parent = CategoryFrame
 local function updateTabs()
     for id, btn in pairs(categoryButtons) do
         if id == selectedCategory then
-            -- Active Tab (Putih Text Hitam)
-            btn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-            btn.TextColor3 = Color3.fromRGB(0, 0, 0)
+            TweenService:Create(btn, TweenInfo.new(0.15), {
+                BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+                TextColor3 = Color3.fromRGB(0, 0, 0)
+            }):Play()
         else
-            -- Inactive Tab (Hitam Text Putih)
-            btn.BackgroundColor3 = Color3.fromRGB(22, 22, 26)
-            btn.TextColor3 = Color3.fromRGB(180, 180, 180)
+            TweenService:Create(btn, TweenInfo.new(0.15), {
+                BackgroundColor3 = Color3.fromRGB(20, 20, 24),
+                TextColor3 = Color3.fromRGB(160, 160, 170)
+            }):Play()
         end
     end
 end
 
 for _, cat in ipairs(categories) do
     local cBtn = Instance.new("TextButton")
-    cBtn.Size = UDim2.new(0, 58, 1, 0)
-    cBtn.BackgroundColor3 = Color3.fromRGB(22, 22, 26)
+    cBtn.Size = UDim2.new(0, 60, 1, 0)
+    cBtn.BackgroundColor3 = Color3.fromRGB(20, 20, 24)
     cBtn.Text = cat.name
     cBtn.Font = Enum.Font.GothamBold
-    cBtn.TextSize = 10
-    cBtn.TextColor3 = Color3.fromRGB(180, 180, 180)
+    cBtn.TextSize = 9
+    cBtn.TextColor3 = Color3.fromRGB(160, 160, 170)
     cBtn.Parent = CategoryFrame
     Instance.new("UICorner", cBtn).CornerRadius = UDim.new(0, 6)
 
     local cStroke = Instance.new("UIStroke", cBtn)
+    cStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
     cStroke.Color = Color3.fromRGB(255, 255, 255)
     cStroke.Thickness = 1
-    cStroke.Transparency = 0.6
+    cStroke.Transparency = 0.7
 
     categoryButtons[cat.id] = cBtn
     cBtn.MouseButton1Click:Connect(function()
@@ -155,7 +164,7 @@ for _, cat in ipairs(categories) do
 end
 updateTabs()
 
--- Row 2: Search Input & Button
+-- 4. SEARCH BAR (Row 2)
 local SearchFrame = Instance.new("Frame")
 SearchFrame.Size = UDim2.new(1, -20, 0, 28)
 SearchFrame.Position = UDim2.new(0, 10, 0, 68)
@@ -166,7 +175,7 @@ local SearchBox = Instance.new("TextBox")
 SearchBox.Size = UDim2.new(1, -66, 1, 0)
 SearchBox.Position = UDim2.new(0, 0, 0, 0)
 SearchBox.BackgroundColor3 = Color3.fromRGB(20, 20, 24)
-SearchBox.PlaceholderText = "Ketik aset yang ingin dicari..."
+SearchBox.PlaceholderText = "Cari nama aset..."
 SearchBox.PlaceholderColor3 = Color3.fromRGB(110, 110, 120)
 SearchBox.Text = ""
 SearchBox.Font = Enum.Font.Gotham
@@ -177,23 +186,23 @@ SearchBox.Parent = SearchFrame
 Instance.new("UICorner", SearchBox).CornerRadius = UDim.new(0, 6)
 
 local SearchBoxStroke = Instance.new("UIStroke", SearchBox)
+SearchBoxStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 SearchBoxStroke.Color = Color3.fromRGB(255, 255, 255)
 SearchBoxStroke.Thickness = 1
-SearchBoxStroke.Transparency = 0.7
+SearchBoxStroke.Transparency = 0.75
 
--- Tombol Cari (Warna Putih, Teks Hitam)
 local SearchBtn = Instance.new("TextButton")
 SearchBtn.Size = UDim2.new(0, 58, 1, 0)
 SearchBtn.Position = UDim2.new(1, -58, 0, 0)
 SearchBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-SearchBtn.Text = "CARI"
+SearchBtn.Text = "SEARCH"
 SearchBtn.Font = Enum.Font.GothamBold
 SearchBtn.TextSize = 10
 SearchBtn.TextColor3 = Color3.fromRGB(0, 0, 0)
 SearchBtn.Parent = SearchFrame
 Instance.new("UICorner", SearchBtn).CornerRadius = UDim.new(0, 6)
 
--- Scroll Area (Cards)
+-- 5. RESULTS CONTAINER
 local ScrollFrame = Instance.new("ScrollingFrame")
 ScrollFrame.Size = UDim2.new(1, -20, 1, -108)
 ScrollFrame.Position = UDim2.new(0, 10, 0, 102)
@@ -210,13 +219,30 @@ UIList.Parent = ScrollFrame
 local StatusLabel = Instance.new("TextLabel")
 StatusLabel.Size = UDim2.new(1, 0, 0, 30)
 StatusLabel.BackgroundTransparency = 1
-StatusLabel.Text = "Pilih kategori & klik Cari"
+StatusLabel.Text = "Pilih kategori & klik SEARCH"
 StatusLabel.TextColor3 = Color3.fromRGB(140, 140, 150)
 StatusLabel.Font = Enum.Font.Gotham
 StatusLabel.TextSize = 11
 StatusLabel.Parent = ScrollFrame
 
--- 3. TOUCH DRAG
+-- 6. INTERACTIVE TACTILE EFFECTS & DRAGGING
+local function attachTapEffect(button)
+    local origSize = button.Size
+    button.MouseButton1Down:Connect(function()
+        TweenService:Create(button, TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+            Size = UDim2.new(origSize.X.Scale, origSize.X.Offset - 2, origSize.Y.Scale, origSize.Y.Offset - 2)
+        }):Play()
+    end)
+    button.MouseButton1Up:Connect(function()
+        TweenService:Create(button, TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+            Size = origSize
+        }):Play()
+    end)
+end
+
+attachTapEffect(SearchBtn)
+attachTapEffect(ToggleBtn)
+
 local function makeDraggable(frame, handle)
     handle = handle or frame
     local dragging, dragStart, startPos = false, nil, nil
@@ -245,14 +271,31 @@ end
 makeDraggable(MainFrame, TopBar)
 makeDraggable(ToggleBtn, ToggleBtn)
 
-ToggleBtn.MouseButton1Click:Connect(function()
-    MainFrame.Visible = not MainFrame.Visible
-end)
-CloseBtn.MouseButton1Click:Connect(function()
-    MainFrame.Visible = false
-end)
+-- Animasi Buka/Tutup Window
+local isOpen = true
+local function toggleWindow()
+    isOpen = not isOpen
+    if isOpen then
+        MainFrame.Visible = true
+        MainFrame.Size = UDim2.new(0, 400, 0, 230)
+        TweenService:Create(MainFrame, TweenInfo.new(0.2, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+            Size = UDim2.new(0, 420, 0, 245)
+        }):Play()
+    else
+        local tween = TweenService:Create(MainFrame, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+            Size = UDim2.new(0, 390, 0, 225)
+        })
+        tween:Play()
+        tween.Completed:Connect(function()
+            if not isOpen then MainFrame.Visible = false end
+        end)
+    end
+end
 
--- 4. MARKETPLACE LOGIC
+ToggleBtn.MouseButton1Click:Connect(toggleWindow)
+CloseBtn.MouseButton1Click:Connect(toggleWindow)
+
+-- 7. MARKETPLACE QUERY ENGINE
 local function queryMarketplace(category, query)
     local encoded = HttpService:UrlEncode(query)
     local endpoints = {
@@ -319,6 +362,7 @@ local function searchAssets(query)
         Instance.new("UICorner", Card).CornerRadius = UDim.new(0, 6)
 
         local CardStroke = Instance.new("UIStroke", Card)
+        CardStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
         CardStroke.Color = Color3.fromRGB(255, 255, 255)
         CardStroke.Thickness = 1
         CardStroke.Transparency = 0.85
@@ -327,7 +371,7 @@ local function searchAssets(query)
         local Thumb = Instance.new("ImageLabel")
         Thumb.Size = UDim2.new(0, 36, 0, 36)
         Thumb.Position = UDim2.new(0, 5, 0, 5)
-        Thumb.BackgroundColor3 = Color3.fromRGB(28, 28, 34)
+        Thumb.BackgroundColor3 = Color3.fromRGB(26, 26, 30)
         Thumb.Image = "rbxthumb://type=Asset&id=" .. assetId .. "&w=150&h=150"
         Thumb.Parent = Card
         Instance.new("UICorner", Thumb).CornerRadius = UDim.new(0, 5)
@@ -350,7 +394,7 @@ local function searchAssets(query)
         SubLabel.Size = UDim2.new(1, -135, 0, 14)
         SubLabel.Position = UDim2.new(0, 48, 0, 24)
         SubLabel.BackgroundTransparency = 1
-        SubLabel.Text = "@" .. rawCreator .. " | ID: " .. assetId
+        SubLabel.Text = "@" .. rawCreator .. " • ID: " .. assetId
         SubLabel.Font = Enum.Font.Gotham
         SubLabel.TextSize = 9
         SubLabel.TextColor3 = Color3.fromRGB(150, 150, 160)
@@ -358,17 +402,19 @@ local function searchAssets(query)
         SubLabel.TextTruncate = Enum.TextTruncate.AtEnd
         SubLabel.Parent = Card
 
-        -- Tombol Copy ID (Warna Putih, Text Hitam)
+        -- Tombol Copy ID (Warna Putih Solid, Teks Hitam)
         local CopyBtn = Instance.new("TextButton")
         CopyBtn.Size = UDim2.new(0, 62, 0, 26)
         CopyBtn.Position = UDim2.new(1, -68, 0.5, -13)
         CopyBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
         CopyBtn.Text = "COPY ID"
         CopyBtn.Font = Enum.Font.GothamBold
-        CopyBtn.TextSize = 10
+        CopyBtn.TextSize = 9
         CopyBtn.TextColor3 = Color3.fromRGB(0, 0, 0)
         CopyBtn.Parent = Card
         Instance.new("UICorner", CopyBtn).CornerRadius = UDim.new(0, 6)
+
+        attachTapEffect(CopyBtn)
 
         CopyBtn.MouseButton1Click:Connect(function()
             if copyClipboard then
@@ -382,7 +428,7 @@ local function searchAssets(query)
             end
         end)
 
-        -- Sync Nama Resmi Asli
+        -- Resolusi Nama Asli dari Roblox Cache Engine
         local numId = tonumber(assetId)
         if numId and numId > 0 then
             task.spawn(function()
@@ -392,7 +438,7 @@ local function searchAssets(query)
                 if s and info and info.Name and NameLabel and NameLabel.Parent then
                     NameLabel.Text = info.Name
                     local finalCreator = (info.Creator and info.Creator.Name) or rawCreator
-                    SubLabel.Text = "@" .. finalCreator .. " | ID: " .. assetId
+                    SubLabel.Text = "@" .. finalCreator .. " • ID: " .. assetId
                 end
             end)
         end
