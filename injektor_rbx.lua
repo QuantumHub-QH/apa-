@@ -195,8 +195,28 @@ local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "BLUExCrownV5"
 ScreenGui.ResetOnSpawn = false
 ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-ScreenGui.DisplayOrder = 999
+ScreenGui.DisplayOrder = 9999
+ScreenGui.IgnoreGuiInset = true -- 100% TRUE FULLSCREEN EDGE-TO-EDGE
 ScreenGui.Parent = ParentGui
+
+local function makeCorner(parent, radius)
+    local c = Instance.new("UICorner", parent)
+    c.CornerRadius = UDim.new(0, radius or 8)
+    return c
+end
+
+local function makeStroke(parent, color, thickness, transparency)
+    local s = Instance.new("UIStroke", parent)
+    s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    s.Color = color or Color3.fromRGB(255,255,255)
+    s.Thickness = thickness or 1.2
+    s.Transparency = transparency or 0
+    return s
+end
+
+local function bindBtn(btn, callback)
+    btn.Activated:Connect(callback)
+end
 
 -- =====================================================
 -- FULLSCREEN EPIC LOADING SCREEN (MCHLERN ENGINE)
@@ -205,15 +225,16 @@ ScreenGui.Parent = ParentGui
 -- =====================================================
 local LoadingScreen = Instance.new("Frame")
 LoadingScreen.Name = "MCHLERN_LoadingScreen"
-LoadingScreen.Size = UDim2.fromScale(1, 1)
-LoadingScreen.Position = UDim2.fromScale(0, 0)
+LoadingScreen.Size = UDim2.new(1, 0, 1, 0)
+LoadingScreen.Position = UDim2.new(0, 0, 0, 0)
 LoadingScreen.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
 LoadingScreen.BorderSizePixel = 0
 LoadingScreen.ZIndex = 5000
+LoadingScreen.Active = true
 LoadingScreen.Parent = ScreenGui
 
 local LoadContainer = Instance.new("Frame")
-LoadContainer.Size = UDim2.new(0, 560, 0, 240)
+LoadContainer.Size = UDim2.new(0.88, 0, 0, 190)
 LoadContainer.AnchorPoint = Vector2.new(0.5, 0.5)
 LoadContainer.Position = UDim2.fromScale(0.5, 0.5)
 LoadContainer.BackgroundTransparency = 1
@@ -222,28 +243,28 @@ LoadContainer.Parent = LoadingScreen
 
 -- Left side: Logo & Typewriter
 local LeftBox = Instance.new("Frame")
-LeftBox.Size = UDim2.new(0.48, 0, 1, 0)
+LeftBox.Size = UDim2.new(0.46, 0, 1, 0)
 LeftBox.Position = UDim2.new(0, 0, 0, 0)
 LeftBox.BackgroundTransparency = 1
 LeftBox.ZIndex = 5002
 LeftBox.Parent = LoadContainer
 
 local LogoImg = Instance.new("ImageLabel")
-LogoImg.Size = UDim2.new(0, 84, 0, 84)
-LogoImg.Position = UDim2.new(0.5, -42, 0, 10)
+LogoImg.Size = UDim2.new(0, 76, 0, 76)
+LogoImg.Position = UDim2.new(0.5, -38, 0, 8)
 LogoImg.BackgroundTransparency = 1
 LogoImg.Image = "rbxassetid://102337382069600"
 LogoImg.ZIndex = 5003
 LogoImg.Parent = LeftBox
-makeCorner(LogoImg, 14)
+makeCorner(LogoImg, 12)
 makeStroke(LogoImg, Color3.fromRGB(255, 255, 255), 1.5, 0.6)
 
 local BrandTitle = Instance.new("TextLabel")
-BrandTitle.Size = UDim2.new(1, 0, 0, 56)
-BrandTitle.Position = UDim2.new(0, 0, 0, 105)
+BrandTitle.Size = UDim2.new(1, 0, 0, 50)
+BrandTitle.Position = UDim2.new(0, 0, 0, 92)
 BrandTitle.BackgroundTransparency = 1
 BrandTitle.Font = Enum.Font.GothamBold
-BrandTitle.TextSize = 12
+BrandTitle.TextSize = 11
 BrandTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
 BrandTitle.TextWrapped = true
 BrandTitle.TextXAlignment = Enum.TextXAlignment.Center
@@ -253,27 +274,27 @@ BrandTitle.Parent = LeftBox
 
 -- Right side: Progress Bar & Status Text
 local RightBox = Instance.new("Frame")
-RightBox.Size = UDim2.new(0.48, 0, 1, 0)
-RightBox.Position = UDim2.new(0.52, 0, 0, 0)
+RightBox.Size = UDim2.new(0.52, 0, 1, 0)
+RightBox.Position = UDim2.new(0.48, 0, 0, 0)
 RightBox.BackgroundTransparency = 1
 RightBox.ZIndex = 5002
 RightBox.Parent = LoadContainer
 
 local StatusStepLbl = Instance.new("TextLabel")
-StatusStepLbl.Size = UDim2.new(0.75, 0, 0, 24)
-StatusStepLbl.Position = UDim2.new(0, 0, 0, 50)
+StatusStepLbl.Size = UDim2.new(0.75, 0, 0, 22)
+StatusStepLbl.Position = UDim2.new(0, 0, 0, 38)
 StatusStepLbl.BackgroundTransparency = 1
 StatusStepLbl.Font = Enum.Font.GothamBold
 StatusStepLbl.TextSize = 12
 StatusStepLbl.TextColor3 = Color3.fromRGB(255, 255, 255)
 StatusStepLbl.TextXAlignment = Enum.TextXAlignment.Left
-StatusStepLbl.Text = "INITIALIZING..."
+StatusStepLbl.Text = "INITIALIZING KERNEL..."
 StatusStepLbl.ZIndex = 5003
 StatusStepLbl.Parent = RightBox
 
 local PctLbl = Instance.new("TextLabel")
-PctLbl.Size = UDim2.new(0.25, 0, 0, 24)
-PctLbl.Position = UDim2.new(0.75, 0, 0, 50)
+PctLbl.Size = UDim2.new(0.25, 0, 0, 22)
+PctLbl.Position = UDim2.new(0.75, 0, 0, 38)
 PctLbl.BackgroundTransparency = 1
 PctLbl.Font = Enum.Font.GothamBold
 PctLbl.TextSize = 12
@@ -285,7 +306,7 @@ PctLbl.Parent = RightBox
 
 local BarBg = Instance.new("Frame")
 BarBg.Size = UDim2.new(1, 0, 0, 10)
-BarBg.Position = UDim2.new(0, 0, 0, 80)
+BarBg.Position = UDim2.new(0, 0, 0, 68)
 BarBg.BackgroundColor3 = Color3.fromRGB(22, 22, 28)
 BarBg.BorderSizePixel = 0
 BarBg.ZIndex = 5003
@@ -303,13 +324,13 @@ makeCorner(BarFill, 5)
 
 local SubStatusLbl = Instance.new("TextLabel")
 SubStatusLbl.Size = UDim2.new(1, 0, 0, 20)
-SubStatusLbl.Position = UDim2.new(0, 0, 0, 98)
+SubStatusLbl.Position = UDim2.new(0, 0, 0, 86)
 SubStatusLbl.BackgroundTransparency = 1
 SubStatusLbl.Font = Enum.Font.Code
 SubStatusLbl.TextSize = 9
 SubStatusLbl.TextColor3 = Color3.fromRGB(160, 160, 175)
 SubStatusLbl.TextXAlignment = Enum.TextXAlignment.Left
-SubStatusLbl.Text = "Preparing core environment..."
+SubStatusLbl.Text = "Setting up Luau memory hooks..."
 SubStatusLbl.ZIndex = 5003
 SubStatusLbl.Parent = RightBox
 
@@ -317,11 +338,13 @@ SubStatusLbl.Parent = RightBox
 task.spawn(function()
     local targetText = "MCHLERN ENGINE TOOLS\nROBLOX STUDIO LITE"
     for i = 1, #targetText do
-        if not LoadingScreen.Parent then break end
+        if not LoadingScreen or not LoadingScreen.Parent then break end
         BrandTitle.Text = targetText:sub(1, i) .. "_"
         task.wait(0.04)
     end
-    BrandTitle.Text = targetText
+    if BrandTitle and BrandTitle.Parent then
+        BrandTitle.Text = targetText
+    end
 end)
 
 -- Cinematic Progress Steps
@@ -335,36 +358,39 @@ task.spawn(function()
     }
 
     for _, stg in ipairs(stages) do
+        if not LoadingScreen or not LoadingScreen.Parent then break end
         StatusStepLbl.Text = stg.text
         SubStatusLbl.Text = stg.sub
         PctLbl.Text = tostring(stg.pct) .. "%"
-        TweenService:Create(BarFill, TweenInfo.new(0.55, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+        TweenService:Create(BarFill, TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
             Size = UDim2.new(stg.pct / 100, 0, 1, 0)
         }):Play()
         task.wait(0.65)
     end
 
-    task.wait(0.6)
+    task.wait(0.5)
     -- Smooth Fade-out
-    local fadeTween = TweenService:Create(LoadingScreen, TweenInfo.new(0.8, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-        BackgroundTransparency = 1
-    })
-    for _, d in ipairs(LoadingScreen:GetDescendants()) do
-        pcall(function()
-            if d:IsA("TextLabel") or d:IsA("TextBox") then
-                TweenService:Create(d, TweenInfo.new(0.6, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { TextTransparency = 1 }):Play()
-            elseif d:IsA("ImageLabel") then
-                TweenService:Create(d, TweenInfo.new(0.6, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { ImageTransparency = 1 }):Play()
-            elseif d:IsA("Frame") then
-                TweenService:Create(d, TweenInfo.new(0.6, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { BackgroundTransparency = 1 }):Play()
-            elseif d:IsA("UIStroke") then
-                TweenService:Create(d, TweenInfo.new(0.6, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Transparency = 1 }):Play()
-            end
-        end)
-    end
-    fadeTween:Play()
-    fadeTween.Completed:Wait()
-    LoadingScreen:Destroy()
+    pcall(function()
+        local fadeTween = TweenService:Create(LoadingScreen, TweenInfo.new(0.7, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+            BackgroundTransparency = 1
+        })
+        for _, d in ipairs(LoadingScreen:GetDescendants()) do
+            pcall(function()
+                if d:IsA("TextLabel") or d:IsA("TextBox") then
+                    TweenService:Create(d, TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { TextTransparency = 1 }):Play()
+                elseif d:IsA("ImageLabel") then
+                    TweenService:Create(d, TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { ImageTransparency = 1 }):Play()
+                elseif d:IsA("Frame") then
+                    TweenService:Create(d, TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { BackgroundTransparency = 1 }):Play()
+                elseif d:IsA("UIStroke") then
+                    TweenService:Create(d, TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Transparency = 1 }):Play()
+                end
+            end)
+        end
+        fadeTween:Play()
+        fadeTween.Completed:Wait()
+        LoadingScreen:Destroy()
+    end)
 end)
 
 
@@ -438,25 +464,7 @@ task.spawn(function()
 end)
 
 
-local function makeCorner(parent, radius)
-    local c = Instance.new("UICorner", parent)
-    c.CornerRadius = UDim.new(0, radius or 8)
-    return c
-end
-
-local function makeStroke(parent, color, thickness, transparency)
-    local s = Instance.new("UIStroke", parent)
-    s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-    s.Color = color or Color3.fromRGB(255,255,255)
-    s.Thickness = thickness or 1.2
-    s.Transparency = transparency or 0
-    return s
-end
-
--- Simple and Reliable Click Handler for Mobile
-local function bindBtn(btn, callback)
-    btn.Activated:Connect(callback)
-end
+-- Core UI helpers already defined at top of ScreenGui
 
 -- =====================================================
 -- 1. TOGGLE BUTTON (PATEN DI KIRI - TIDAK GESER KARENA KAMERA)
