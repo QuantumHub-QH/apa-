@@ -1,5 +1,5 @@
 -- =======================================================
--- MCHLERN ENGINE TOOLS ROBLOX STUDIO LITE (v5.9 ULTIMATE EDITION)
+-- MCHLERN ENGINE TOOLS ROBLOX STUDIO LITE (v6.0 MASTER COMFORT EDITION)
 -- Fix 1: Menu Card Hitbox 100% Responsif (Tombol Toolbox & RBXM PASTI Kebuka)
 -- Fix 2: Togle Anti-Geser (Kunci permanen di sisi layar, aman dari swipe kamera)
 -- Fix 3: In-Game Code Editor (Bisa ketik, edit, save & execute script di HP)
@@ -407,77 +407,7 @@ end)
 
 
 -- =====================================================
--- ACTIVE STUDIO LITE EDITOR HOOK BOT (ANTI-READONLY DAEMON)
--- Removes "(read only)" locks, unlocks TextBoxes, binds auto-save!
--- =====================================================
-task.spawn(function()
-    while true do
-        pcall(function()
-            local pg = LP:FindFirstChild("PlayerGui")
-            if pg then
-                for _, gui in ipairs(pg:GetChildren()) do
-                    if gui:IsA("ScreenGui") and gui.Enabled then
-                        for _, desc in ipairs(gui:GetDescendants()) do
-                            -- 1. Remove "(read only)" from title labels
-                            if desc:IsA("TextLabel") and desc.Text:find("%([Rr]ead%s*[Oo]nly%)") then
-                                desc.Text = desc.Text:gsub("%s*%([Rr]ead%s*[Oo]nly%)", "")
-                            end
-
-                            -- 2. Unlock editor TextBoxes (ONE-TIME HOOK - NEVER TOUCH TEXT DURING ACTIVE EDITING)
-                            if desc:IsA("TextBox") and (desc.MultiLine or desc.Name:find("Code") or desc.Name:find("Text") or desc.Text:find("function") or desc.Text:find("local ") or desc.Text:find("return")) then
-                                if not desc.TextEditable then
-                                    desc.TextEditable = true
-                                end
-                                desc.ClearTextOnFocus = false
-                                desc.Active = true
-
-                                -- Only initialize ONCE when opening so it NEVER resets cursor or edits itself!
-                                if not desc:GetAttribute("BLUExHooked") then
-                                    desc:SetAttribute("BLUExHooked", true)
-
-                                    -- Sanitize once upon opening
-                                    if desc.Text:find("<font") or desc.Text:find("</font>") or desc.Text:find("<[^>]+>") then
-                                        desc.Text = stripRichText(desc.Text)
-                                    end
-
-                                    local function autoSync()
-                                        -- Only sync on FocusLost when user explicitly finishes editing
-                                        local rawCode = desc.Text
-                                        local cleanCode = stripRichText(rawCode)
-                                        local title = ""
-                                        for _, t in ipairs(desc.Parent.Parent:GetDescendants()) do
-                                            if t:IsA("TextLabel") and (t.Name:find("Title") or t.Name:find("Header")) then
-                                                title = t.Text:gsub("%s*%([Rr]ead%s*[Oo]nly%)", ""):match("([%w_]+)") or ""
-                                                break
-                                            end
-                                        end
-                                        if title ~= "" then
-                                            storeScriptSource(title, cleanCode)
-                                            if serverFuncs then
-                                                pcall(function() serverFuncs:InvokeServer("SaveScriptSourceServerFunction", title, cleanCode) end)
-                                            end
-                                        end
-                                    end
-
-                                    desc.FocusLost:Connect(autoSync)
-                                end
-                            end
-
-                            -- 3. Disable any blocker overlay frames
-                            if desc:IsA("Frame") and desc.Active and desc.BackgroundTransparency >= 0.95 and desc.Size.Y.Scale > 0.4 then
-                                desc.Active = false
-                                desc.Visible = false
-                            end
-                        end
-                    end
-                end
-            end
-        end)
-        task.wait(0.6)
-    end
-end)
-
-
+-- Active hook daemon consolidated into Non-Intrusive Editor Bridge
 -- Core UI helpers already defined at top of ScreenGui
 
 -- =====================================================
@@ -679,6 +609,7 @@ local EdCloseBtn = makeEdBtn("X", 26, function()
 end)
 
 local EdScroll = Instance.new("ScrollingFrame")
+EdScroll.ClipsDescendants = true
 EdScroll.Size = UDim2.new(1, -12, 1, -48)
 EdScroll.Position = UDim2.new(0, 6, 0, 42)
 EdScroll.BackgroundColor3 = Color3.fromRGB(18, 18, 22)
@@ -792,184 +723,59 @@ end)
 -- =====================================================
 -- 4. STUDIO LITE REAL-TIME UI WATCHER & INJECTOR
 -- =====================================================
-local function fixEditorUI(desc)
-    if not desc then return end
-
-    if desc:IsA("TextBox") or desc:IsA("TextLabel") then
-        local t = desc.Text
-        if t == "Not found." or t == "Not found" or t:find("Not found") or t == "-- [LANGZ] Source tidak ditemukan." then
-            local win = desc:FindFirstAncestorWhichIsA("Frame") or desc.Parent
-            local scriptName = ""
-            if win then
-                for _, wChild in ipairs(win:GetDescendants()) do
-                    if (wChild:IsA("TextLabel") or wChild:IsA("TextBox")) and wChild ~= desc then
-                        local wt = wChild.Text
-                        if wt:find("%(read only%)") or wt:find("%[EDITABLE%]") or #wt > 1 then
-                            scriptName = wt:gsub("%s*%(read only%)%s*", ""):gsub("%s*%[EDITABLE%]%s*", ""):gsub("%s+", "")
-                            if wChild:IsA("TextLabel") then
-                                wChild.Text = scriptName .. " [EDITABLE]"
-                                wChild.TextColor3 = Color3.fromRGB(180, 255, 180)
-                            end
-                            break
-                        end
-                    end
-                end
-            end
-
-            local source = lookupScriptSource(scriptName)
-            if source then desc.Text = source end
-        end
-
-        if desc:IsA("TextBox") then
-            desc.TextEditable = true
-            desc.ClearTextOnFocus = false
-            desc.Active = true
-        end
-
-        if desc:IsA("TextLabel") and desc.Text:find("%(read only%)") then
-            desc.Text = desc.Text:gsub("%s*%(read only%)%s*", "") .. " [EDITABLE]"
-            desc.TextColor3 = Color3.fromRGB(180, 255, 180)
-        end
-    end
-
-    if desc:IsA("Frame") then
-        local titleLbl = nil
-        local codeBox  = nil
-        local hasReadOnly = false
-
-        for _, d in ipairs(desc:GetDescendants()) do
-            if d:IsA("TextLabel") or d:IsA("TextBox") then
-                local txt = d.Text
-                if txt:find("%(read only%)") or txt:find("%[EDITABLE%]") then
-                    titleLbl = d
-                    hasReadOnly = true
-                elseif txt == "Not found." or txt == "Not found" or txt:find("Not found") or #txt > 15 then
-                    codeBox = d
-                end
-            end
-        end
-
-        if hasReadOnly and titleLbl then
-            local cleanTitle = titleLbl.Text:gsub("%s*%(read only%)%s*", ""):gsub("%s*%[EDITABLE%]%s*", ""):gsub("%s+", "")
-            titleLbl.Text = cleanTitle .. " [EDITABLE]"
-            titleLbl.TextColor3 = Color3.fromRGB(180, 255, 180)
-
-            if codeBox then
-                if codeBox.Text == "Not found." or codeBox.Text == "Not found" or codeBox.Text:find("Not found") then
-                    local s = lookupScriptSource(cleanTitle)
-                    if s then codeBox.Text = s end
-                end
-                if codeBox:IsA("TextBox") then
-                    codeBox.TextEditable = true
-                    codeBox.ClearTextOnFocus = false
-                    codeBox.Active = true
-                end
-            end
-
-            if not desc:FindFirstChild("BLUExToolbar") then
-                local toolbar = Instance.new("Frame")
-                toolbar.Name = "BLUExToolbar"
-                toolbar.Size = UDim2.new(0, 260, 0, 24)
-                toolbar.Position = UDim2.new(1, -295, 0, 4)
-                toolbar.BackgroundTransparency = 1
-                toolbar.ZIndex = 60
-                toolbar.Parent = desc
-
-                local function makeToolBtn(text, posX, width, onClick)
-                    local btn = Instance.new("TextButton")
-                    btn.Size = UDim2.new(0, width, 1, 0)
-                    btn.Position = UDim2.new(0, posX, 0, 0)
-                    btn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-                    btn.Text = text
-                    btn.Font = Enum.Font.GothamBold
-                    btn.TextSize = 8
-                    btn.TextColor3 = Color3.fromRGB(0, 0, 0)
-                    btn.ZIndex = 61
-                    btn.Parent = toolbar
-                    local c = Instance.new("UICorner", btn); c.CornerRadius = UDim.new(0, 4)
-                    btn.Activated:Connect(onClick)
-                    return btn
-                end
-
-                makeToolBtn("EDIT CODE", 0, 70, function()
-                    local currentCode = (codeBox and codeBox.Text) or lookupScriptSource(cleanTitle) or ""
-                    openInEditor(cleanTitle, currentCode)
-                end)
-
-                local saveBtn = makeToolBtn("SAVE", 74, 55, function()
-                    local newCode = (codeBox and codeBox.Text) or lookupScriptSource(cleanTitle) or ""
-                    storeScriptSource(cleanTitle, newCode)
-                    pcall(function()
-                        for _, inst in ipairs(workspace:GetDescendants()) do
-                            if inst:IsA("LuaSourceContainer") and inst.Name:lower() == cleanTitle:lower() then
-                                storeScriptSource(inst, newCode)
-                                pcall(function() inst.Source = newCode end)
-                            end
-                        end
-                    end)
-                    if serverFuncs then
-                        pcall(function() serverFuncs:InvokeServer("SaveScriptSourceServerFunction", cleanTitle, newCode) end)
-                    end
-                    saveBtn.Text = "SAVED!"
-                    task.delay(1.2, function() if saveBtn and saveBtn.Parent then saveBtn.Text = "SAVE" end end)
-                end)
-
-                local runBtn = makeToolBtn("RUN", 133, 55, function()
-                    local codeToRun = (codeBox and codeBox.Text) or lookupScriptSource(cleanTitle)
-                    if codeToRun and codeToRun ~= "" then
-                        local fn, err = loadstring(codeToRun)
-                        if fn then
-                            task.spawn(fn)
-                            runBtn.Text = "RUNNING!"
-                        else
-                            runBtn.Text = "ERR!"
-                            warn("[BLUExCrown] Compile error: " .. tostring(err))
-                        end
-                        task.delay(1.5, function() if runBtn and runBtn.Parent then runBtn.Text = "RUN" end end)
-                    end
-                end)
-
-                local copyBtn = makeToolBtn("COPY", 192, 60, function()
-                    local codeToCopy = (codeBox and codeBox.Text) or lookupScriptSource(cleanTitle)
-                    if codeToCopy and clipFn then
-                        pcall(clipFn, codeToCopy)
-                        copyBtn.Text = "COPIED!"
-                        task.delay(1.2, function() if copyBtn and copyBtn.Parent then copyBtn.Text = "COPY" end end)
-                    end
-                end)
-            end
-        end
-    end
-end
-
+-- =====================================================
+-- 4. NON-INTRUSIVE STUDIO LITE EDITOR BRIDGE
+-- 100% Fix: Tanpa toolbar yang menutupi layar, tanpa modal pop-up tak terduga,
+-- tanpa rubberband scroll (tidak mental ke bawah), dan teks tetap rapi di dalam pembatas!
+-- =====================================================
 task.spawn(function()
-    pcall(function()
-        local pg = LP:WaitForChild("PlayerGui", 5)
-        if pg then
-            pg.DescendantAdded:Connect(function(desc)
-                task.delay(0.05, function() fixEditorUI(desc) end)
-            end)
-            for _, d in ipairs(pg:GetDescendants()) do fixEditorUI(d) end
-        end
-    end)
-end)
+    local pg = LP:WaitForChild("PlayerGui", 5)
+    if not pg then return end
 
-task.spawn(function()
-    while task.wait(0.6) do
+    local function unlockEditor(desc)
         pcall(function()
-            local pg = LP:FindFirstChild("PlayerGui")
-            if pg then
-                for _, d in ipairs(pg:GetDescendants()) do
-                    if (d:IsA("TextBox") or d:IsA("TextLabel")) and (d.Text == "Not found." or d.Text:find("%(read only%)")) then
-                        fixEditorUI(d)
+            -- Bersihkan label "(read only)" secara pasif
+            if desc:IsA("TextLabel") and desc.Text:find("%([Rr]ead%s*[Oo]nly%)") then
+                desc.Text = desc.Text:gsub("%s*%([Rr]ead%s*[Oo]nly%)", "")
+            end
+
+            -- Unlock TextBox Studio Lite tanpa mengubah Text / Canvas / Scroll
+            if desc:IsA("TextBox") and not desc:GetAttribute("MchlernUnlocked") then
+                desc:SetAttribute("MchlernUnlocked", true)
+                desc.TextEditable = true
+                desc.ClearTextOnFocus = false
+                desc.Active = true
+
+                -- Simpan perubahan secara bersih saat selesai mengetik (FocusLost)
+                desc.FocusLost:Connect(function()
+                    local clean = stripRichText(desc.Text)
+                    local parentWin = desc:FindFirstAncestorWhichIsA("Frame") or desc.Parent
+                    local title = ""
+                    if parentWin then
+                        for _, t in ipairs(parentWin:GetDescendants()) do
+                            if t:IsA("TextLabel") and (t.Name:find("Title") or t.Name:find("Header")) then
+                                title = t.Text:gsub("%s*%([Rr]ead%s*[Oo]nly%)", ""):match("([%w_]+)") or ""
+                                break
+                            end
+                        end
                     end
-                end
+                    if title ~= "" then
+                        storeScriptSource(title, clean)
+                        if serverFuncs then
+                            pcall(function() serverFuncs:InvokeServer("SaveScriptSourceServerFunction", title, clean) end)
+                        end
+                    end
+                end)
             end
         end)
     end
+
+    pg.DescendantAdded:Connect(function(desc)
+        task.delay(0.1, function() unlockEditor(desc) end)
+    end)
+    for _, d in ipairs(pg:GetDescendants()) do unlockEditor(d) end
 end)
 
--- =====================================================
 -- 5. PAGES & NAVIGATION (100% INSTANT HITBOX)
 -- =====================================================
 local Content = Instance.new("Frame")
@@ -2678,4 +2484,4 @@ TbInsertIdBtn.Activated:Connect(function()
     end
 end)
 
-print("[BLUExCrown] ENGINE MCHLERN ENGINE v5.9 LOADED")
+print("[BLUExCrown] ENGINE MCHLERN ENGINE v6.0 LOADED")
