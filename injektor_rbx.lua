@@ -1,5 +1,5 @@
 -- =======================================================
--- MCHLERN ENGINE TOOLS ROBLOX STUDIO LITE (v6.9 GOD-TIER RBXL RECONSTRUCTOR)
+-- MCHLERN ENGINE TOOLS ROBLOX STUDIO LITE (v7.1 CLEAN SERVICE DISTRIBUTOR)
 -- Fix 1: Menu Card Hitbox 100% Responsif (Tombol Toolbox & RBXM PASTI Kebuka)
 -- Fix 2: Togle Anti-Geser (Kunci permanen di sisi layar, aman dari swipe kamera)
 -- Fix 3: In-Game Code Editor (Bisa ketik, edit, save & execute script di HP)
@@ -3344,72 +3344,143 @@ end
 
 -- ── SMART INSERT RBXL FULL v2 ────────────────────────────────
 -- =====================================================
--- STUDIO LITE SERVICE MAP & RBXL UNPACK ENGINE
+-- STUDIO LITE SERVICE RESOLVER & RBXL DISTRIBUTOR
+-- Mendistribusikan isi .rbxl ke service masing-masing:
+-- Workspace -> workspace
+-- StarterGui -> StarterGui (UI)
+-- ServerScriptService -> ServerScriptService (Scripts)
+-- ReplicatedStorage -> ReplicatedStorage
+-- Lighting -> Lighting (Skybox, Atmosphere)
+-- SoundService -> SoundService
 -- =====================================================
-local SVC_MAP = {
-    ["Workspace"]           = workspace,
-    ["Lighting"]            = game:GetService("Lighting"),
-    ["ReplicatedStorage"]   = game:GetService("ReplicatedStorage"),
-    ["ReplicatedFirst"]     = game:GetService("ReplicatedFirst"),
-    ["ServerScriptService"] = game:GetService("ServerScriptService"),
-    ["ServerStorage"]       = game:GetService("ServerStorage"),
-    ["StarterGui"]          = game:GetService("StarterGui"),
-    ["StarterPack"]         = game:GetService("StarterPack"),
-    ["StarterPlayer"]       = game:GetService("StarterPlayer"),
-    ["SoundService"]        = game:GetService("SoundService"),
-    ["Chat"]                = game:GetService("Chat"),
-    ["Teams"]               = game:GetService("Teams"),
-}
+local function resolveServiceTarget(serviceName)
+    if not serviceName or serviceName == "" then return nil end
+
+    -- 1. Cari container Ugc (lokasi virtual services di Studio Lite)
+    for _, container in ipairs({workspace, game, ReplicatedStorage}) do
+        if container then
+            local ugc = container:FindFirstChild("Ugc")
+            if ugc then
+                local svc = ugc:FindFirstChild(serviceName)
+                if svc then return svc end
+            end
+        end
+    end
+
+    -- 2. Cari di dalam hierarki workspace/ReplicatedStorage yang bernama serviceName
+    for _, inst in ipairs(workspace:GetDescendants()) do
+        if inst.Name == serviceName and inst.Parent and inst.Parent.Name == "Ugc" then
+            return inst
+        end
+    end
+    for _, inst in ipairs(ReplicatedStorage:GetDescendants()) do
+        if inst.Name == serviceName and inst.Parent and inst.Parent.Name == "Ugc" then
+            return inst
+        end
+    end
+
+    -- 3. Cek service engine resmi via game:GetService (jika bisa ditulis di client)
+    local ok, realSvc = pcall(game.GetService, game, serviceName)
+    if ok and realSvc then
+        local writable = pcall(function()
+            local probe = Instance.new("Folder")
+            probe.Parent = realSvc
+            probe:Destroy()
+        end)
+        if writable then return realSvc end
+    end
+
+    -- 4. Cek StudioLiteFolder
+    local slFolder = ReplicatedStorage:FindFirstChild("StudioLiteFolder")
+    if slFolder then
+        local slSvc = slFolder:FindFirstChild(serviceName)
+        if slSvc then return slSvc end
+    end
+
+    -- 5. Fallback ke Folder dedicated agar Explorer tetap rapi dan tidak ditumpuk
+    local existingFolder = workspace:FindFirstChild(serviceName)
+    if existingFolder and existingFolder:IsA("Folder") then
+        return existingFolder
+    end
+
+    return nil
+end
 
 local function insertRbxlObjects(objects, sourceMap)
     local count = 0
     sourceMap = sourceMap or {}
-    for _, obj in ipairs(objects) do
-        pcall(function()
-            local target = SVC_MAP[obj.ClassName] or SVC_MAP[obj.Name] or workspace
 
-            if target == workspace and (obj.Name == "Workspace" or obj.ClassName == "Workspace") then
-                -- Unpack all children of the place's Workspace into the live Workspace
-                for _, ch in ipairs(obj:GetChildren()) do
+    print("[MCHLERN RBXL] Mendistribusikan " .. #objects .. " root object ke service Studio Lite...")
+
+    for i, obj in ipairs(objects) do
+        local objClass = tostring(obj.ClassName)
+        local objName  = tostring(obj.Name)
+        local children = obj:GetChildren()
+
+        print(string.format("[MCHLERN RBXL] Obj #%d: Class=%s, Name=%s, Anak=%d", i, objClass, objName, #children))
+
+        -- Cek apakah objek merupakan container DataModel / Game / Place root
+        local isPlaceContainer = (objClass == "DataModel" or objName == "Game" or (#children > 0 and (obj:FindFirstChild("Workspace") or obj:FindFirstChild("Lighting"))))
+
+        local serviceContainers = isPlaceContainer and children or {obj}
+
+        for _, svcOrGroup in ipairs(serviceContainers) do
+            local sName  = tostring(svcOrGroup.Name)
+            local sClass = tostring(svcOrGroup.ClassName)
+            local sChildren = svcOrGroup:GetChildren()
+
+            print(string.format("[MCHLERN RBXL] -> Rute Service: %s (%s) [%d items]", sName, sClass, #sChildren))
+
+            if sName == "Workspace" or sClass == "Workspace" then
+                -- Bagian Workspace: masuk ke live workspace (3D Viewport)
+                for _, item in ipairs(sChildren) do
                     pcall(function()
-                        ch.Parent = workspace
-                        applyStudioLiteProps(ch)
-                        loadAssetsToSLServer(ch)
-                        if ch:IsA("LuaSourceContainer") then
-                            recreateScriptAsNative(ch, sourceMap[ch.Name])
+                        item.Parent = workspace
+                        pcall(applyStudioLiteProps, item)
+                        pcall(loadAssetsToSLServer, item)
+                        if item:IsA("LuaSourceContainer") then
+                            recreateScriptAsNative(item, sourceMap[item.Name])
                         end
                         count = count + 1
                     end)
-                    task.wait(0.01)
-                end
-            elseif target ~= workspace then
-                -- Unpack into respective service (Lighting, ReplicatedStorage, etc.)
-                for _, ch in ipairs(obj:GetChildren()) do
-                    pcall(function()
-                        ch.Parent = target
-                        applyStudioLiteProps(ch)
-                        loadAssetsToSLServer(ch)
-                        if ch:IsA("LuaSourceContainer") then
-                            recreateScriptAsNative(ch, sourceMap[ch.Name])
-                        end
-                        count = count + 1
-                    end)
-                    task.wait(0.01)
                 end
             else
-                -- Standalone objects/models
-                obj.Parent = workspace
-                applyStudioLiteProps(obj)
-                loadAssetsToSLServer(obj)
-                if obj:IsA("LuaSourceContainer") then
-                    recreateScriptAsNative(obj, sourceMap[obj.Name])
+                -- Layanan non-Workspace: distribusikan ke service aslinya!
+                local target = resolveServiceTarget(sName) or resolveServiceTarget(sClass)
+
+                if not target then
+                    -- Jika service diproteksi di client (seperti ServerScriptService/ServerStorage),
+                    -- buatkan Folder rapi dengan nama service tersebut
+                    local f = workspace:FindFirstChild(sName)
+                    if not f then
+                        f = Instance.new("Folder")
+                        f.Name = sName
+                        f.Parent = workspace
+                    end
+                    target = f
                 end
-                count = count + 1
+
+                print(string.format("[MCHLERN RBXL]    -> Memindahkan %d item ke service: %s", #sChildren, target.Name))
+
+                for _, item in ipairs(sChildren) do
+                    pcall(function()
+                        item.Parent = target
+                        pcall(applyStudioLiteProps, item)
+                        pcall(loadAssetsToSLServer, item)
+                        if item:IsA("LuaSourceContainer") then
+                            recreateScriptAsNative(item, sourceMap[item.Name])
+                        end
+                        count = count + 1
+                    end)
+                end
             end
-        end)
+        end
     end
+
+    print("[MCHLERN RBXL] Berhasil mendistribusikan total " .. count .. " objek ke service masing-masing!")
     return count
 end
+
 
 local function smartInsertRbxlFull(filePath, fileName)
     local insertOk = false
@@ -3720,4 +3791,4 @@ RbxlScanBtn.Activated:Connect(renderRbxlCards)
 -- END PAGE RBXL
 -- =====================================================
 
-print("[BLUExCrown] ENGINE MCHLERN ENGINE v6.9 LOADED")
+print("[BLUExCrown] ENGINE MCHLERN ENGINE v7.1 LOADED")
