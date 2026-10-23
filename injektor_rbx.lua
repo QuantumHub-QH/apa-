@@ -1,5 +1,5 @@
 -- =======================================================
--- BLUExCrown ENGINE v5.6 - PERFECT MOBILE EDITION
+-- BLUExCrown ENGINE v5.7 - ULTIMATE SCRIPT RECOVERY & FULL STUDIO LITE INTEGRATION
 -- Fix 1: Menu Card Hitbox 100% Responsif (Tombol Toolbox & RBXM PASTI Kebuka)
 -- Fix 2: Togle Anti-Geser (Kunci permanen di sisi layar, aman dari swipe kamera)
 -- Fix 3: In-Game Code Editor (Bisa ketik, edit, save & execute script di HP)
@@ -128,11 +128,39 @@ task.spawn(function()
                     if self.Name == "GetScriptSourceServerFunction" then
                         local target = tostring(args[1])
                         local found = lookupScriptSource(target)
-                        if found then return found end
+                        if found and #found > 0 then return found end
+                        
+                        -- Search in hierarchy
+                        for _, place in ipairs({workspace, ReplicatedStorage, LP:FindFirstChild("PlayerGui")}) do
+                            if place then
+                                for _, obj in ipairs(place:GetDescendants()) do
+                                    if obj:IsA("LuaSourceContainer") and (obj.Name == target or (obj.ClassName .. obj.Name) == target) then
+                                        local s = lookupScriptSource(obj)
+                                        if s and #s > 0 then return s end
+                                    end
+                                end
+                            end
+                        end
                     elseif self.Name == "SaveScriptSourceServerFunction" then
                         local target = tostring(args[1])
                         local newSource = tostring(args[2])
                         storeScriptSource(target, newSource)
+                        
+                        -- Immediate synchronization to instance in workspace
+                        pcall(function()
+                            for _, place in ipairs({workspace, ReplicatedStorage, LP:FindFirstChild("PlayerGui")}) do
+                                if place then
+                                    for _, obj in ipairs(place:GetDescendants()) do
+                                        if obj:IsA("LuaSourceContainer") and (obj.Name == target or (obj.ClassName .. obj.Name) == target) then
+                                            storeScriptSource(obj, newSource)
+                                            pcall(function() obj.Source = newSource end)
+                                            local tb = obj:FindFirstChild("SL_CodeTextBox")
+                                            if tb then tb.Text = newSource end
+                                        end
+                                    end
+                                end
+                            end
+                        end)
                     end
                 end
                 return oldNamecall(self, ...)
@@ -154,6 +182,71 @@ ScreenGui.ResetOnSpawn = false
 ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 ScreenGui.DisplayOrder = 999
 ScreenGui.Parent = ParentGui
+
+-- =====================================================
+-- ACTIVE STUDIO LITE EDITOR HOOK BOT (ANTI-READONLY DAEMON)
+-- Removes "(read only)" locks, unlocks TextBoxes, binds auto-save!
+-- =====================================================
+task.spawn(function()
+    while true do
+        pcall(function()
+            local pg = LP:FindFirstChild("PlayerGui")
+            if pg then
+                for _, gui in ipairs(pg:GetChildren()) do
+                    if gui:IsA("ScreenGui") and gui.Enabled then
+                        for _, desc in ipairs(gui:GetDescendants()) do
+                            -- 1. Remove "(read only)" from title labels
+                            if desc:IsA("TextLabel") and desc.Text:find("%([Rr]ead%s*[Oo]nly%)") then
+                                desc.Text = desc.Text:gsub("%s*%([Rr]ead%s*[Oo]nly%)", "")
+                            end
+
+                            -- 2. Unlock editor TextBoxes
+                            if desc:IsA("TextBox") and (desc.MultiLine or desc.Name:find("Code") or desc.Name:find("Text") or desc.Text:find("function") or desc.Text:find("local ") or desc.Text:find("return")) then
+                                if not desc.TextEditable then
+                                    desc.TextEditable = true
+                                end
+                                desc.ClearTextOnFocus = false
+                                desc.Active = true
+
+                                -- Hook change and focus lost to auto-save
+                                if not desc:GetAttribute("BLUExHooked") then
+                                    desc:SetAttribute("BLUExHooked", true)
+
+                                    local function autoSync()
+                                        local code = desc.Text
+                                        local title = ""
+                                        for _, t in ipairs(desc.Parent.Parent:GetDescendants()) do
+                                            if t:IsA("TextLabel") and (t.Name:find("Title") or t.Name:find("Header")) then
+                                                title = t.Text:gsub("%s*%([Rr]ead%s*[Oo]nly%)", ""):match("([%w_]+)") or ""
+                                                break
+                                            end
+                                        end
+                                        if title ~= "" then
+                                            storeScriptSource(title, code)
+                                            if serverFuncs then
+                                                pcall(function() serverFuncs:InvokeServer("SaveScriptSourceServerFunction", title, code) end)
+                                            end
+                                        end
+                                    end
+
+                                    desc.FocusLost:Connect(autoSync)
+                                end
+                            end
+
+                            -- 3. Disable any blocker overlay frames
+                            if desc:IsA("Frame") and desc.Active and desc.BackgroundTransparency >= 0.95 and desc.Size.Y.Scale > 0.4 then
+                                desc.Active = false
+                                desc.Visible = false
+                            end
+                        end
+                    end
+                end
+            end
+        end)
+        task.wait(0.6)
+    end
+end)
+
 
 local function makeCorner(parent, radius)
     local c = Instance.new("UICorner", parent)
@@ -367,6 +460,7 @@ local activeEditingScript = ""
 local EdSaveBtn = makeEdBtn("SAVE & APPLY", 90, function() end)
 local EdRunBtn  = makeEdBtn("RUN SCRIPT", 75, function() end)
 local EdCopyBtn = makeEdBtn("COPY ALL", 65, function() end)
+local EdRecBtn  = makeEdBtn("RECREATE SCRIPT", 100, function() end)
 local EdCloseBtn = makeEdBtn("X", 26, function()
     EditorModal.Visible = false
     EditorModal.Active = false
@@ -430,6 +524,35 @@ bindBtn(EdSaveBtn, function()
     end
     EdSaveBtn.Text = "SAVED!"
     task.delay(1.2, function() EdSaveBtn.Text = "SAVE & APPLY" end)
+end)
+
+
+bindBtn(EdRecBtn, function()
+    local code = EdTextBox.Text
+    local target = activeEditingScript
+    local recreated = nil
+    for _, place in ipairs({workspace, ReplicatedStorage, LP:FindFirstChild("PlayerGui")}) do
+        if place then
+            for _, obj in ipairs(place:GetDescendants()) do
+                if obj:IsA("LuaSourceContainer") and (obj.Name:lower() == target:lower() or (obj.ClassName .. obj.Name):lower() == target:lower()) then
+                    recreated = recreateScriptAsNative(obj, code)
+                    break
+                end
+            end
+        end
+        if recreated then break end
+    end
+    if recreated then
+        EdRecBtn.Text = "RECREATED!"
+    else
+        local fresh = Instance.new("Script")
+        fresh.Name = target
+        pcall(function() fresh.Source = code end)
+        fresh.Parent = workspace
+        injectStudioLiteUI(fresh, {[fresh.ClassName .. ":" .. fresh.Name] = code})
+        EdRecBtn.Text = "CREATED NEW!"
+    end
+    task.delay(1.5, function() EdRecBtn.Text = "RECREATE SCRIPT" end)
 end)
 
 bindBtn(EdRunBtn, function()
@@ -1241,37 +1364,681 @@ local function safeReadFile(p)
     return ok and d or nil
 end
 
-local function parseRBXMSources(raw)
+-- =====================================================
+-- PURE LUA LZ4 & BINARY RBXM DECOMPRESSOR / PARSER
+-- 100% LOSSLESS RECOVERY OF SCRIPT SOURCES
+-- =====================================================
+-- RBXM FILE PARSER (LZ4 + Binary Format)
+
+--                                                                        
+
+local function Buffer(str, allowOverflows)
+
+    local Stream = { Offset = 0, Source = str, Length = string.len(str), AllowOverflows = (allowOverflows == nil and true) or allowOverflows }
+
+    function Stream:read(len, shift)
+
+        len = len or 1; shift = (shift == nil and true) or shift
+
+        local dat = string.sub(self.Source, self.Offset + 1, self.Offset + len)
+
+        if shift then self:seek(len) end
+
+        return dat
+
+    end
+
+    function Stream:seek(len) self.Offset = math.clamp(self.Offset + len, 0, self.Length) end
+
+    function Stream:readNumber(fmt, shift)
+
+        fmt = fmt or "I1"; local chunk = self:read(string.packsize(fmt), shift); return string.unpack(fmt, chunk)
+
+    end
+
+    function Stream:append(s) self.Source = self.Source .. s; self.Length = #self.Source end
+
+    function Stream:toEnd() self.Offset = self.Length end
+
+    return Stream
+
+end
+
+
+
+local function transformInt(x) return (x % 2 == 0) and (x / 2) or (-(x + 1) / 2) end
+
+local function rbxF32(x) x = bit32.rrotate(x, 1); return string.unpack(">f", string.pack(">I4", x)) end
+
+
+
+local basicTypes = {}
+
+function basicTypes.String(buffer) return buffer:read(buffer:readNumber("<I4")) end
+
+function basicTypes.Int32(buffer) return transformInt(buffer:readNumber(">I4")) end
+
+function basicTypes.Int64(buffer) return transformInt(buffer:readNumber(">I8")) end
+
+function basicTypes.Float32(buffer) return rbxF32(buffer:readNumber(">I4")) end
+
+function basicTypes.Float64(buffer) return buffer:readNumber("<d") end
+
+
+
+function basicTypes.InterleaveArrayWithSize(buffer, count, sizeof)
+
+    if count < 0 then return Buffer("", false) end
+
+    local stream = buffer:read(count * sizeof); local out = table.create(count)
+
+    for i = 1, count do
+
+        local chunk = table.create(sizeof)
+
+        for s = 0, sizeof - 1 do
+
+            local bitPos = i + (count * s); chunk[s+1] = string.sub(stream, bitPos, bitPos)
+
+        end
+
+        out[i] = table.concat(chunk)
+
+    end
+
+    return Buffer(table.concat(out), false)
+
+end
+
+
+
+function basicTypes.unsignedIntArray(buffer, count)
+
+    if count < 1 then return {} end
+
+    local o = table.create(count); local strings = basicTypes.InterleaveArrayWithSize(buffer, count, 4)
+
+    for i = 1, count do o[i] = strings:readNumber("<I4") end
+
+    return o
+
+end
+
+
+
+function basicTypes.Int32Array(buffer, count)
+
+    if count < 1 then return {} end
+
+    local o = table.create(count); local strings = basicTypes.InterleaveArrayWithSize(buffer, count, 4)
+
+    for i = 1, count do o[i] = basicTypes.Int32(strings) end
+
+    return o
+
+end
+
+
+
+function basicTypes.Int64Array(buffer, count)
+
+    if count < 1 then return {} end
+
+    local o = table.create(count); local strings = basicTypes.InterleaveArrayWithSize(buffer, count, 8)
+
+    for i = 1, count do o[i] = basicTypes.Int64(strings) end
+
+    return o
+
+end
+
+
+
+function basicTypes.RbxF32Array(buffer, count)
+
+    if count < 1 then return {} end
+
+    local o = table.create(count); local strings = basicTypes.InterleaveArrayWithSize(buffer, count, 4)
+
+    for i = 1, count do o[i] = basicTypes.Float32(strings) end
+
+    return o
+
+end
+
+
+
+function basicTypes.RefArray(buffer, count)
+
+    if count < 1 then return {} end
+
+    local o = table.create(count); local refs = basicTypes.Int32Array(buffer, count); local last = 0
+
+    for i = 1, count do local ref = last + refs[i]; o[i] = ref; last = ref end
+
+    return o
+
+end
+
+
+
+local function lz4(lz4data)
+
+    local inputStream = Buffer(lz4data)
+
+    local compressedLen = string.unpack("<I4", inputStream:read(4))
+
+    local decompressedLen = string.unpack("<I4", inputStream:read(4))
+
+    local reserved = string.unpack("<I4", inputStream:read(4))
+
+    if reserved ~= 0 then error("not lz4") end
+
+    if compressedLen == 0 then return inputStream:read(decompressedLen) end
+
+    local outputStream = Buffer("")
+
+    repeat
+
+        local token = string.byte(inputStream:read())
+
+        local litLen = bit32.rshift(token, 4)
+
+        local matLen = bit32.band(token, 15) + 4
+
+        if litLen >= 15 then
+
+            repeat local nextByte = string.byte(inputStream:read()); litLen = litLen + nextByte until nextByte ~= 0xFF
+
+        end
+
+        local literal = inputStream:read(litLen); outputStream:append(literal); outputStream:toEnd()
+
+        if outputStream.Length < decompressedLen then
+
+            local offset = string.unpack("<I2", inputStream:read(2))
+
+            if matLen >= 19 then
+
+                repeat local nextByte = string.byte(inputStream:read()); matLen = matLen + nextByte until nextByte ~= 0xFF
+
+            end
+
+            outputStream:seek(-offset)
+
+            local pos = outputStream.Offset; local match = outputStream:read(matLen)
+
+            local unreadBytes = outputStream.LastUnreadBytes or 0
+
+            local extra
+
+            if unreadBytes then
+
+                repeat
+
+                    outputStream.Offset = pos; extra = outputStream:read(unreadBytes)
+
+                    unreadBytes = outputStream.LastUnreadBytes or 0; match = match .. extra
+
+                until unreadBytes <= 0
+
+            end
+
+            outputStream:append(match); outputStream:toEnd()
+
+        end
+
+    until outputStream.Length >= decompressedLen
+
+    return outputStream.Source
+
+end
+
+
+
+local function b64encode(str)
+
+    local chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
+
+    local out = {}
+
+    for i = 1, #str, 3 do
+
+        local b0, b1, b2 = string.byte(str, i, i+2)
+
+        local b = bit32.lshift(b0, 16) + bit32.lshift(b1 or 0, 8) + (b2 or 0)
+
+        table.insert(out, chars:sub(bit32.extract(b, 18, 6)+1, bit32.extract(b, 18, 6)+1))
+
+        table.insert(out, chars:sub(bit32.extract(b, 12, 6)+1, bit32.extract(b, 12, 6)+1))
+
+        table.insert(out, b1 and chars:sub(bit32.extract(b, 6, 6)+1, bit32.extract(b, 6, 6)+1) or "=")
+
+        table.insert(out, b2 and chars:sub(bit32.band(b, 63)+1, bit32.band(b, 63)+1) or "=")
+
+    end
+
+    return table.concat(out)
+
+end
+
+
+
+local function zstd(stream)
+
+    local zbase64 = b64encode(stream)
+
+    local json = '{"m":null,"t":"buffer","zbase64":"' .. zbase64 .. '"}'
+
+    local x = HttpService:JSONDecode(json)
+
+    return buffer.tostring(x)
+
+end
+
+
+
+local function parseRBXMForSources(data)
+
     local sources = {}
-    if not raw or #raw < 30 then return sources end
-    for src in raw:gmatch("([^\0\r\n][^\0]+[\r\n]+[^\0]+)") do
-        if src:find("function") or src:find("local ") or src:find("return") or src:find("require") then
-            local nameMatch = src:match("([%a_][%w_]*)%s*=%s*function") or src:match("local%s+([%a_][%w_]*)") or "Script"
-            sources[nameMatch] = src
+
+    local rbxmBuffer = Buffer(data, false)
+
+    if rbxmBuffer:read(8) ~= "<roblox!" or rbxmBuffer:read(6) ~= string.char(137,255,13,10,26,10) then return sources, "Invalid header" end
+
+    if rbxmBuffer:read(2) ~= (string.char(0)..string.char(0)) then return sources, "Invalid version" end
+
+    local classCount = rbxmBuffer:readNumber("<i4")
+
+    local instCount = rbxmBuffer:readNumber("<i4")
+
+    local classRefs, virtualInstances, strings, chunkInfo = {}, {}, {}, {}
+
+    local _EC = "END"..string.char(0)
+
+    local valid = {[_EC]=true, ["INST"]=true, ["META"]=true, ["PRNT"]=true, ["PROP"]=true, ["SIGN"]=true, ["SSTR"]=true}
+
+    for k in pairs(valid) do chunkInfo[k] = {} end
+
+    if rbxmBuffer:read(8) ~= string.char(0,0,0,0,0,0,0,0) then return sources, "Invalid header" end
+
+
+
+    local index, last_chunk = 0, nil
+
+    repeat
+
+        index = index + 1
+
+        local chunk = {InternalID = index, Header = rbxmBuffer:read(4)}
+
+        if not valid[chunk.Header] then return sources, "Invalid chunk" end
+
+        local lz4Header = rbxmBuffer:read(16, false)
+
+        local compressed = string.unpack("<I4", string.sub(lz4Header, 1, 4))
+
+        local decompressed = string.unpack("<I4", string.sub(lz4Header, 5, 8))
+
+        local reserved = string.sub(lz4Header, 9, 12)
+
+        local zstd_check = string.sub(lz4Header, 13, 16)
+
+        local dataChunk
+
+        if compressed == 0 then
+
+            dataChunk = rbxmBuffer:read(decompressed + 12)
+
+        else
+
+            if zstd_check == string.char(40,181,47,253) then rbxmBuffer:seek(12); dataChunk = zstd(rbxmBuffer:read(compressed))
+
+            else dataChunk = lz4(rbxmBuffer:read(compressed + 12)) end
+
+        end
+
+        chunk.Data = Buffer(dataChunk, false); table.insert(chunkInfo[chunk.Header], chunk); last_chunk = chunk
+
+    until last_chunk and last_chunk.Header == _EC
+
+
+
+    for _, chunk in ipairs(chunkInfo["SSTR"] or {}) do
+
+        local buffer = chunk.Data
+
+        if buffer:readNumber("<I4") == 0 then
+
+            for i = 1, buffer:readNumber("<I4") do buffer:read(16); strings[i] = basicTypes.String(buffer) end
+
+        end
+
+    end
+
+
+
+    for _, chunk in ipairs(chunkInfo["INST"] or {}) do
+
+        local buffer = chunk.Data
+
+        local classID = buffer:readNumber("<I4"); local className = basicTypes.String(buffer)
+
+        if buffer:read() == "\1" then return sources, "Contains services" end
+
+        local count = buffer:readNumber("<I4"); local refs = basicTypes.RefArray(buffer, count)
+
+        classRefs[classID] = { Name = className, Sizeof = count, Refs = refs }
+
+        for _, ref in ipairs(refs) do virtualInstances[ref] = { ClassId = classID, ClassName = className, Ref = ref, Properties = {}, Children = {} } end
+
+    end
+
+
+
+    for _, chunk in ipairs(chunkInfo["PROP"] or {}) do
+
+        local buffer = chunk.Data
+
+        local classID = buffer:readNumber("<I4"); local classref = classRefs[classID]
+
+        if not classref then return sources, "Missing classref" end
+
+        local refs = classref.Refs; local sizeof = classref.Sizeof; local name = basicTypes.String(buffer)
+
+        if string.byte(buffer:read(1, false)) == 0x1E then buffer:seek(1) end
+
+        local typeID = string.byte(buffer:read()); local props = {}
+
+        if typeID == 0x01 or typeID == 0x1D then
+
+            for i = 1, sizeof do props[i] = basicTypes.String(buffer) end
+
+        elseif typeID == 0x02 then
+
+            for i = 1, sizeof do props[i] = buffer:read() ~= string.char(0) end
+
+        elseif typeID == 0x03 then props = basicTypes.Int32Array(buffer, sizeof)
+
+        elseif typeID == 0x04 then props = basicTypes.RbxF32Array(buffer, sizeof)
+
+        elseif typeID == 0x05 then
+
+            for i = 1, sizeof do props[i] = basicTypes.Float64(buffer) end
+
+        else
+
+            for i = 1, sizeof do
+
+                if typeID == 0x13 then props = basicTypes.RefArray(buffer, sizeof); break else buffer:read(4) end
+
+            end
+
+        end
+
+        if name == "Source" or name == "ContentText" then
+
+            for i, v in ipairs(refs) do
+
+                if virtualInstances[v] and props[i] then virtualInstances[v].Properties[name] = props[i] end
+
+            end
+
+        end
+
+    end
+
+
+
+    local function buildSourceMap(node, path)
+
+        local src = node.Properties["Source"] or node.Properties["ContentText"]
+
+        if src and type(src) == "string" and #src > 0 then sources[path] = src end
+
+        for _, child in ipairs(node.Children or {}) do buildSourceMap(child, path .. "." .. child.ClassName .. ":" .. (child.Properties["Name"] or "unnamed")) end
+
+    end
+
+
+
+    for _, chunk in ipairs(chunkInfo["PRNT"] or {}) do
+
+        local buffer = chunk.Data
+
+        if buffer:read() ~= string.char(0) then return sources, "Invalid PRNT" end
+
+        local count = buffer:readNumber("<I4")
+
+        local child_refs = basicTypes.RefArray(buffer, count); local parent_refs = basicTypes.RefArray(buffer, count)
+
+        for i = 1, count do
+
+            local child = virtualInstances[child_refs[i]]; local parent = virtualInstances[parent_refs[i]]
+
+            if child and parent then table.insert(parent.Children, child) end
+
+        end
+
+    end
+
+
+
+    local roots = {}
+
+    for _, inst in pairs(virtualInstances) do
+
+        local hasParent = false
+
+        for _, other in pairs(virtualInstances) do
+
+            for _, child in ipairs(other.Children or {}) do if child.Ref == inst.Ref then hasParent = true; break end end
+
+            if hasParent then break end
+
+        end
+
+        if not hasParent then table.insert(roots, inst) end
+
+    end
+
+    for _, root in ipairs(roots) do buildSourceMap(root, root.ClassName .. ":" .. (root.Properties["Name"] or "root")) end
+
+
+
+    return sources, nil
+
+
+local function parseAllSources(data)
+    local sources = {}
+    if not data or #data < 20 then return sources end
+    
+    -- 1. If Binary format (<roblox!), use the lossless LZ4 parser
+    if data:sub(1, 8) == "<roblox!" then
+        local ok, res, err = pcall(parseRBXMForSources, data)
+        if ok and res and type(res) == "table" then
+            for k, v in pairs(res) do
+                sources[k] = v
+                local cleanName = k:match(":([%w_]+)$") or k:match("%.([%w_]+)$") or k
+                sources[cleanName] = v
+            end
         end
     end
-    for name, code in raw:gmatch('<Item class="[%w]+" referent="[^"]+">%s*<Properties>%s*<string name="Name">([^<]+)</string>.-<ProtectedString name="Source"><%!%[CDATA%[(.-)%]%]></ProtectedString>') do
+
+    -- 2. If XML format or fallback, extract CDATA ProtectedString
+    for class, name, code in data:gmatch('<Item class="([%w_]+)"[^>]*>%s*<Properties>%s*<string name="Name">([^<]+)</string>.-<ProtectedString name="Source"><%!%[CDATA%[(.-)%]%]></ProtectedString>') do
+        sources[class .. ":" .. name] = code
         sources[name] = code
     end
+    for name, code in data:gmatch('<string name="Name">([^<]+)</string>.-<ProtectedString name="Source"><%!%[CDATA%[(.-)%]%]></ProtectedString>') do
+        sources[name] = code
+    end
+
     return sources
+end
+
+-- =====================================================
+-- STUDIO LITE SCRIPT UI INJECTOR & ANTI-READONLY LOGIC
+-- =====================================================
+local SL_CACHE = {}
+
+local function injectStudioLiteUI(scr, sourceMap)
+    if not scr or not scr:IsA("LuaSourceContainer") then return end
+    
+    local path = scr.ClassName .. ":" .. scr.Name
+    local realSource = sourceMap and (sourceMap[path] or sourceMap[scr.Name])
+    
+    if not realSource and sourceMap then
+        for k, v in pairs(sourceMap) do
+            if k:sub(-#scr.Name) == scr.Name or k:find(scr.Name, 1, true) then
+                realSource = v
+                break
+            end
+        end
+    end
+    
+    if not realSource then
+        pcall(function() realSource = scr.Source end)
+    end
+    
+    if realSource and #realSource > 0 then
+        realSource = realSource:gsub("%z*$", "")
+    else
+        realSource = "-- [BLUExCrown] Script source empty or unreadable."
+    end
+
+    -- Store into memory registries
+    storeScriptSource(scr, realSource)
+    storeScriptSource(scr.Name, realSource)
+    storeScriptSource(scr.ClassName .. scr.Name, realSource)
+    pcall(function() scr.Source = realSource end)
+
+    -- CRITICAL ANTI-READONLY: Destroy any SL_1ReadOnly so Studio Lite NEVER enforces Read-Only!
+    local ro = scr:FindFirstChild("SL_1ReadOnly")
+    if ro then
+        pcall(function() ro:Destroy() end)
+    end
+
+    -- Setup Studio Lite internal text box
+    local existingTB = scr:FindFirstChild("SL_CodeTextBox")
+    if existingTB then
+        existingTB.Text = realSource
+        return
+    end
+
+    if not serverFuncs then return end
+    local map = {
+        Script = "InsertScriptScript",
+        LocalScript = "InsertLocalScriptLocalScript",
+        ModuleScript = "InsertModuleScriptModuleScript"
+    }
+    local assetName = map[scr.ClassName]
+    if not assetName then return end
+
+    if not SL_CACHE[assetName] then
+        pcall(function()
+            serverFuncs:InvokeServer("LoadAssetToPlayerGui", assetName)
+            local guiF = LP:WaitForChild("PlayerGui"):WaitForChild(assetName, 3)
+            if guiF then
+                SL_CACHE[assetName] = {}
+                for _, c in ipairs(guiF:GetChildren()) do
+                    table.insert(SL_CACHE[assetName], c:Clone())
+                end
+                serverFuncs:InvokeServer("ClearAssetFromPlayerGui", assetName)
+            end
+        end)
+    end
+
+    if not SL_CACHE[assetName] then return end
+
+    pcall(function()
+        for _, c in ipairs(SL_CACHE[assetName]) do
+            -- NEVER attach SL_1ReadOnly so the script stays 100% editable!
+            if c.Name ~= "SL_1ReadOnly" and not scr:FindFirstChild(c.Name) then
+                c:Clone().Parent = scr
+            end
+        end
+        local tb = scr:FindFirstChild("SL_CodeTextBox")
+        if tb then
+            tb.Text = realSource
+        end
+    end)
+end
+
+local function injectAllScripts(root, sourceMap)
+    if not root then return 0 end
+    local list = {}
+    if root:IsA("LuaSourceContainer") then table.insert(list, root) end
+    for _, d in ipairs(root:GetDescendants()) do
+        if d:IsA("LuaSourceContainer") then table.insert(list, d) end
+    end
+    local count = 0
+    for _, s in ipairs(list) do
+        pcall(injectStudioLiteUI, s, sourceMap)
+        count = count + 1
+        task.wait(0.01)
+    end
+    return count
+end
+
+-- =====================================================
+-- SCRIPT RECREATOR LOGIC ("HOOK BOT RECREATE")
+-- Completely replaces stubborn/locked scripts with clean native instances!
+-- =====================================================
+local function recreateScriptAsNative(oldScript, sourceCode)
+    if not oldScript or not oldScript:IsA("LuaSourceContainer") then return nil end
+    local parent = oldScript.Parent
+    local name = oldScript.Name
+    local className = oldScript.ClassName
+
+    local src = sourceCode or lookupScriptSource(oldScript) or "-- Recreated Script"
+
+    local newScript = Instance.new(className)
+    newScript.Name = name
+
+    -- Clone non-script children (skip SL_1ReadOnly)
+    for _, ch in ipairs(oldScript:GetChildren()) do
+        if not ch:IsA("LuaSourceContainer") and ch.Name ~= "SL_1ReadOnly" then
+            pcall(function() ch:Clone().Parent = newScript end)
+        end
+    end
+
+    -- Clone attributes
+    for attr, val in pairs(oldScript:GetAttributes()) do
+        pcall(function() newScript:SetAttribute(attr, val) end)
+    end
+
+    -- Assign source & register
+    pcall(function() newScript.Source = src end)
+    storeScriptSource(newScript, src)
+    storeScriptSource(name, src)
+    storeScriptSource(className .. name, src)
+
+    -- Inject Studio Lite template
+    injectStudioLiteUI(newScript, {[className .. ":" .. name] = src, [name] = src})
+
+    -- Replace in hierarchy
+    newScript.Parent = parent
+    pcall(function() oldScript:Destroy() end)
+
+    return newScript
 end
 
 local function smartInsertRbxm(filePath, fileName)
     local insertOk, statusMsg = false, ""
     local data = safeReadFile(filePath)
+    local parsedSources = {}
 
     if data and #data > 0 then
-        task.spawn(function()
-            local sources = parseRBXMSources(data)
-            for k, v in pairs(sources) do
-                storeScriptSource(k, v)
-            end
-            local baseName = fileName:gsub("%.rbxm.*", "")
-            for _, v in pairs(sources) do
-                storeScriptSource(baseName, v)
-                break
-            end
-        end)
+        parsedSources = parseAllSources(data)
+        for k, v in pairs(parsedSources) do
+            storeScriptSource(k, v)
+        end
+        local baseName = fileName:gsub("%.rbxm.*", "")
+        for _, v in pairs(parsedSources) do
+            storeScriptSource(baseName, v)
+            break
+        end
     end
 
     local function setupObjects(objs)
@@ -1280,15 +2047,8 @@ local function smartInsertRbxm(filePath, fileName)
             applyStudioLiteProps(o)
             loadAssetsToSLServer(o)
 
-            for _, s in ipairs(o:GetDescendants()) do
-                if s:IsA("LuaSourceContainer") then
-                    pcall(function()
-                        if s.Source and #s.Source > 0 then
-                            storeScriptSource(s, s.Source)
-                        end
-                    end)
-                end
-            end
+            -- Inject full source & unlock Studio Lite editing on all scripts!
+            injectAllScripts(o, parsedSources)
 
             if o:IsA("Model") and LP.Character then
                 local hrp = LP.Character:FindFirstChild("HumanoidRootPart")
@@ -1618,4 +2378,4 @@ TbInsertIdBtn.Activated:Connect(function()
     end
 end)
 
-print("[BLUExCrown] ENGINE v5.6 PERFECT LOADED")
+print("[BLUExCrown] ENGINE v5.7 ULTIMATE LOADED")
