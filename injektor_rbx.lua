@@ -1,5 +1,5 @@
 -- =======================================================
--- MCHLERN ENGINE TOOLS ROBLOX STUDIO LITE (v6.5 RBXL BINARY+XML FULL EDITION)
+-- MCHLERN ENGINE TOOLS ROBLOX STUDIO LITE (v6.6 PURE LUAU MASTER EDITION)
 -- Fix 1: Menu Card Hitbox 100% Responsif (Tombol Toolbox & RBXM PASTI Kebuka)
 -- Fix 2: Togle Anti-Geser (Kunci permanen di sisi layar, aman dari swipe kamera)
 -- Fix 3: In-Game Code Editor (Bisa ketik, edit, save & execute script di HP)
@@ -2867,8 +2867,7 @@ local function deserializeRbxBinary(fileData)
             pos = pos + compLen
         end
 
-        if not chunk or #chunk == 0 then goto next_chunk end
-
+        if chunk and #chunk > 0 then
         local cp = 1  -- chunk position
 
         -- helper: read bytes from chunk
@@ -2923,10 +2922,9 @@ local function deserializeRbxBinary(fileData)
             local typeId   = cbyte()
 
             local cls = classMap[classId]
-            if not cls then goto next_chunk end
+            if cls and cls.refs and #cls.refs > 0 then
             local refs = cls.refs
             local cnt  = #refs
-            if cnt == 0 then goto next_chunk end
 
             -- Read values based on typeId
             local function setAll(vals)
@@ -3108,6 +3106,7 @@ local function deserializeRbxBinary(fileData)
                 setAll(vals)
             end
             -- Unknown types: gracefully skip (don't break parsing)
+            end
 
         -- ── PRNT ──────────────────────────────────────────
         elseif tag == "PRNT" then
@@ -3127,7 +3126,7 @@ local function deserializeRbxBinary(fileData)
             end
         end
 
-        ::next_chunk::
+                end
     end
 
     return result
@@ -3619,4 +3618,4 @@ RbxlScanBtn.Activated:Connect(renderRbxlCards)
 -- END PAGE RBXL
 -- =====================================================
 
-print("[BLUExCrown] ENGINE MCHLERN ENGINE v6.5 RBXL FULL LOADED")
+print("[BLUExCrown] ENGINE MCHLERN ENGINE v6.6 PURE LUAU MASTER LOADED")
