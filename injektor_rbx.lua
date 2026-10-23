@@ -5,15 +5,7 @@
 -- Fix 3: In-Game Code Editor (edit, save & execute)
 -- Fix 4: Studio Lite Toolbar [EDIT CODE], [SAVE], [RUN], [COPY]
 -- Fix 5: Dual Layer Source Recovery
--- v6.9:
---  * stripRichText tidak lagi merusak operator < > di kode Lua
---  * recreateScriptAsNative & injectStudioLiteUI di-forward-declare
---    (tombol RECREATE di editor tidak error lagi)
---  * Insert RBXL: sukses hanya jika objek benar-benar terpasang,
---    semua script (termasuk nested) di-recreate, pcall di tombol
---  * DEBUG LOG RBXL: label status + console + file rbxl_debug.txt
---    + otomatis kebuka di editor saat gagal
---  * Section RBXL dibungkus do...end (hindari limit 200 local)
+-- Fix 6: RBXL Hierarki Service Mapping (Masuk ke SSS, ReplicatedStorage, dll dengan benar)
 -- Toggle Image Asset ID: 102337382069600
 -- =======================================================
 
@@ -2217,7 +2209,7 @@ end)
 
 -- =====================================================================
 -- =====================================================================
---  PAGE RBXL: INSERT RBXL PLACE FILE (+ DEBUG LOG)
+--  PAGE RBXL: INSERT RBXL PLACE FILE (+ DEBUG LOG & HIERARCHY MAPPING)
 --  Dibungkus do ... end supaya tidak menambah jumlah local di chunk
 --  utama (limit Luau = 200 local).
 -- =====================================================================
@@ -2770,6 +2762,38 @@ local function deserializeRbxBinary(fileData)
     return result
 end
 
+-- =====================================================
+-- STUDIO LITE SERVICE MAP (FIX: HIERARKI SERVICE RBXL)
+-- =====================================================
+local SVC_MAP = {
+    ["Workspace"]           = workspace,
+    ["Lighting"]            = game:GetService("Lighting"),
+    ["ReplicatedStorage"]   = game:GetService("ReplicatedStorage"),
+    ["ReplicatedFirst"]     = game:GetService("ReplicatedFirst"),
+    ["ServerScriptService"] = game:GetService("ServerScriptService"),
+    ["ServerStorage"]       = game:GetService("ServerStorage"),
+    ["StarterGui"]          = game:GetService("StarterGui"),
+    ["StarterPack"]         = game:GetService("StarterPack"),
+    ["StarterPlayer"]       = game:GetService("StarterPlayer"),
+    ["SoundService"]        = game:GetService("SoundService"),
+    ["Chat"]                = game:GetService("Chat"),
+    ["Teams"]               = game:GetService("Teams"),
+}
+
+local function getTargetService(instName, className)
+    if SVC_MAP[instName] then
+        return SVC_MAP[instName]
+    end
+    if className == "Workspace" then return workspace end
+    if className == "ReplicatedStorage" then return game:GetService("ReplicatedStorage") end
+    if className == "ServerScriptService" then return game:GetService("ServerScriptService") end
+    if className == "ServerStorage" then return game:GetService("ServerStorage") end
+    if className == "StarterGui" then return game:GetService("StarterGui") end
+    if className == "StarterPlayer" then return game:GetService("StarterPlayer") end
+    if className == "Lighting" then return game:GetService("Lighting") end
+    return nil
+end
+
 local function applyDeserializedTree(parsed, targetFolder, onProgress)
     local instMap = {}
     local total = 0
@@ -2832,7 +2856,22 @@ local function applyDeserializedTree(parsed, targetFolder, onProgress)
             if pRef ~= nil and pRef ~= -1 and instMap[pRef] then
                 pcall(function() inst.Parent = instMap[pRef] end)
             else
-                pcall(function() inst.Parent = targetFolder end)
+                local realService = getTargetService(inst.Name, inst.ClassName)
+                if realService and realService ~= game then
+                    for _, child in ipairs(inst:GetChildren()) do
+                        pcall(function() child.Parent = realService end)
+                    end
+                    pcall(function() inst:Destroy() end)
+                else
+                    pcall(function() inst.Parent = targetFolder end)
+                end
+            end
+
+            if inst:IsA("LuaSourceContainer") then
+                pcall(function()
+                    local src = _G.BLUE_RAW_SOURCES[inst.Name] or _G.LANGZ_RAW_SOURCES[inst.Name] or inst.Source
+                    recreateScriptAsNative(inst, src)
+                end)
             end
         end
         done = done + 1
@@ -2915,7 +2954,13 @@ local function parseRbxlxXml(xmlData, targetFolder)
                 end
             end
 
-            pcall(function() inst.Parent = targetFolder end)
+            local realService = getTargetService(inst.Name, inst.ClassName)
+            if realService and realService ~= game then
+                pcall(function() inst.Parent = realService end)
+            else
+                pcall(function() inst.Parent = targetFolder end)
+            end
+
             created = created + 1
             if created % 200 == 0 then task.wait() end
         end
@@ -2924,27 +2969,7 @@ local function parseRbxlxXml(xmlData, targetFolder)
 end
 
 -- =====================================================
--- STUDIO LITE SERVICE MAP
--- =====================================================
-local SVC_MAP = {
-    ["Workspace"]           = workspace,
-    ["Lighting"]            = game:GetService("Lighting"),
-    ["ReplicatedStorage"]   = game:GetService("ReplicatedStorage"),
-    ["ReplicatedFirst"]     = game:GetService("ReplicatedFirst"),
-    ["ServerScriptService"] = game:GetService("ServerScriptService"),
-    ["ServerStorage"]       = game:GetService("ServerStorage"),
-    ["StarterGui"]          = game:GetService("StarterGui"),
-    ["StarterPack"]         = game:GetService("StarterPack"),
-    ["StarterPlayer"]       = game:GetService("StarterPlayer"),
-    ["SoundService"]        = game:GetService("SoundService"),
-    ["Chat"]                = game:GetService("Chat"),
-    ["Teams"]               = game:GetService("Teams"),
-}
-
--- =====================================================
 -- DEBUG LOGGER RBXL
--- Tampil di: label status, console (print), file rbxl_debug.txt,
--- dan otomatis dibuka di editor saat insert gagal.
 -- =====================================================
 local RBXL_LOG = {}
 
@@ -2962,7 +2987,6 @@ local function hex(s, n)
     return table.concat(t, " ")
 end
 
--- Bedah struktur binary: tag chunk + jenis kompresi (LZ4 / ZSTD / RAW)
 local function describeBinary(data)
     local pos, n = 33, 0
     local hasZstd = false
@@ -2982,7 +3006,7 @@ local function describeBinary(data)
         DBG("CHUNK", string.format("#%d %s comp=%d raw=%d %s", n, safeTag, compLen, rawLen, kind))
         if tag == "END\0" or tag == "END " then break end
         if compLen > #data or rawLen > 128 * 1024 * 1024 then
-            DBG("CHUNK-ERR", "ukuran chunk tidak masuk akal -> header salah / file rusak")
+            DBG("CHUNK-ERR", "ukuran chunk tidak masuk akal")
             break
         end
         pos = pos + 16 + (compLen > 0 and compLen or rawLen)
@@ -3000,14 +3024,14 @@ local function insertRbxlObjects(objects, sourceMap)
             ch.Parent = target
             applyStudioLiteProps(ch)
             loadAssetsToSLServer(ch)
-            -- recreate semua script (termasuk nested) jadi native
             local list = {}
             if ch:IsA("LuaSourceContainer") then table.insert(list, ch) end
             for _, d in ipairs(ch:GetDescendants()) do
                 if d:IsA("LuaSourceContainer") then table.insert(list, d) end
             end
             for i, scr in ipairs(list) do
-                pcall(recreateScriptAsNative, scr, sourceMap[scr.Name])
+                local sCode = sourceMap[scr.Name] or lookupScriptSource(scr)
+                pcall(recreateScriptAsNative, scr, sCode)
                 if i % 20 == 0 then task.wait() end
             end
         end)
@@ -3020,11 +3044,9 @@ local function insertRbxlObjects(objects, sourceMap)
     end
 
     for i, obj in ipairs(objects) do
-        local okI, childN = pcall(function() return #obj:GetChildren() end)
-        DBG("OBJ", string.format("#%d %s '%s' anak=%s", i, obj.ClassName, obj.Name, tostring(okI and childN or "?")))
-        local target = SVC_MAP[obj.ClassName]
+        local target = getTargetService(obj.Name, obj.ClassName)
         if target then
-            DBG("OBJ", "-> unpack ke service " .. obj.ClassName)
+            DBG("OBJ", "-> Unpack langsung ke Service: " .. obj.Name)
             for _, ch in ipairs(obj:GetChildren()) do
                 place(ch, target)
                 task.wait()
@@ -3045,14 +3067,11 @@ local function smartInsertRbxlFull(filePath, fileName)
 
     DBG("INFO", "file=" .. tostring(fileName))
     DBG("INFO", "path=" .. tostring(filePath))
-    DBG("ENV", string.format("customAsset=%s writefile=%s delfile=%s readfile=%s lz4=%s string.unpack=%s",
-        tostring(customAsset ~= nil), tostring(writefile ~= nil), tostring(delfile ~= nil),
-        tostring(readfile ~= nil), tostring(lz4Decompress ~= nil), tostring(string.unpack ~= nil)))
 
     updateRbxlProgress(10, "[1/5] BACA FILE...")
     local rawData = safeReadFile(filePath)
     if not rawData or #rawData < 16 then
-        DBG("READ-ERR", "readfile gagal / file kosong (path salah?)")
+        DBG("READ-ERR", "readfile gagal / file kosong")
         updateRbxlProgress(0, "[ERR] gagal baca file")
         return false, "Gagal baca file"
     end
@@ -3062,118 +3081,67 @@ local function smartInsertRbxlFull(filePath, fileName)
     if head == "<roblox!" then fmt = "BINARY"
     elseif rawData:sub(1, 5) == "<?xml" or head:sub(1, 8) == "<roblox " then fmt = "XML" end
     DBG("READ", string.format("ukuran=%d byte (%.1f MB) format=%s", #rawData, #rawData / 1048576, fmt))
-    DBG("READ", "16 byte awal: " .. hex(rawData, 16))
 
     local hasZstd = false
     if fmt == "BINARY" then
-        local okD, errD = pcall(function() hasZstd = describeBinary(rawData) end)
-        if not okD then DBG("CHUNK-ERR", errD) end
-        if hasZstd then
-            DBG("WARN", "ADA CHUNK ZSTD -> parser LZ4 manual TIDAK bisa baca. Pakai GetObjects, atau simpan ulang sbg .rbxlx")
-        end
-    elseif fmt == "UNKNOWN" then
-        DBG("WARN", "header bukan roblox! / xml. File mungkin rusak / bukan place.")
+        pcall(function() hasZstd = describeBinary(rawData) end)
     end
 
     local sourceMap = {}
-    local okS, errS = pcall(function() sourceMap = parseRBXMSources(rawData) end)
-    local sCount = 0
-    for _ in pairs(sourceMap) do sCount = sCount + 1 end
-    DBG("SRC", okS and ("source script terbaca: " .. sCount) or ("parseRBXMSources ERR: " .. tostring(errS)))
+    pcall(function() sourceMap = parseRBXMSources(rawData) end)
 
     local function runGetObjects(tag, url)
         DBG(tag, "GetObjects(" .. tostring(url) .. ")")
         local okG, objs = pcall(function() return game:GetObjects(url) end)
-        if not okG then
-            DBG(tag .. "-ERR", "GetObjects error: " .. tostring(objs))
-            return false
-        end
-        if not objs or #objs == 0 then
-            DBG(tag .. "-ERR", "GetObjects balik kosong (0 objek)")
-            return false
-        end
-        local names = {}
-        for i = 1, math.min(#objs, 8) do names[#names + 1] = objs[i].ClassName end
-        DBG(tag, "GetObjects dapat " .. #objs .. " objek: " .. table.concat(names, ", "))
+        if not okG or not objs or #objs == 0 then return false end
         local n = insertRbxlObjects(objs, sourceMap)
         if n > 0 then
             totalInserted, insertOk, statusMsg = n, true, tag .. " OK (" .. n .. " objek)"
             return true
         end
-        DBG(tag .. "-ERR", "objek ada tapi 0 yang berhasil dipasang -> lanjut method berikutnya")
         return false
     end
 
-    -- METHOD 1: customAsset langsung
-    updateRbxlProgress(30, "[2/5] M1 customAsset...")
     if customAsset then
         local okA, aid = pcall(customAsset, filePath)
-        DBG("M1", okA and ("customAsset -> " .. tostring(aid)) or ("customAsset ERR: " .. tostring(aid)))
         if okA and aid then runGetObjects("M1", aid) end
-    else
-        DBG("M1", "SKIP: getcustomasset tidak tersedia")
     end
 
-    -- METHOD 2: salin ke file temp lalu customAsset
     if not insertOk and writefile and customAsset then
-        updateRbxlProgress(45, "[3/5] M2 temp bridge...")
         local ext = (fmt == "XML") and ".rbxmx" or ".rbxm"
         local tmp = "tmp_place_" .. math.floor(os.clock() * 1000) .. ext
-        local okW, errW = pcall(writefile, tmp, rawData)
-        DBG("M2", okW and ("writefile " .. tmp .. " OK") or ("writefile ERR: " .. tostring(errW)))
+        local okW = pcall(writefile, tmp, rawData)
         if okW then
             local okA, aid = pcall(customAsset, tmp)
-            DBG("M2", okA and ("customAsset -> " .. tostring(aid)) or ("customAsset ERR: " .. tostring(aid)))
             if okA and aid then runGetObjects("M2", aid) end
             if delfile then pcall(delfile, tmp) end
         end
-    elseif not insertOk then
-        DBG("M2", "SKIP: writefile/customAsset tidak ada")
     end
 
-    -- METHOD 3: rbxasset://
     if not insertOk then
-        updateRbxlProgress(60, "[4/5] M3 rbxasset...")
         runGetObjects("M3", "rbxasset://" .. filePath)
     end
 
-    -- METHOD 4: XML DOM
     if not insertOk and fmt == "XML" then
-        updateRbxlProgress(75, "[5/5] M4 XML...")
         local okX, cnt = pcall(parseRbxlxXml, rawData, workspace)
-        DBG("M4", okX and ("XML dibuat: " .. tostring(cnt)) or ("XML ERR: " .. tostring(cnt)))
         if okX and cnt and cnt > 0 then
             totalInserted, insertOk, statusMsg = cnt, true, "M4 XML OK (" .. cnt .. " objek)"
         end
     end
 
-    -- METHOD 5: binary manual (LZ4 saja, ZSTD dilewati)
-    if not insertOk and fmt == "BINARY" then
-        if hasZstd then
-            DBG("M5", "SKIP: file pakai ZSTD, parser manual tidak mendukung")
-        else
-            updateRbxlProgress(85, "[5/5] M5 binary...")
-            DBG("M5", "mulai deserialize (kalau berhenti di sini = freeze di parser)")
-            local okB, parsed = pcall(deserializeRbxBinary, rawData)
-            if not okB then
-                DBG("M5-ERR", tostring(parsed))
-            else
-                local n = 0
-                for _ in pairs(parsed.instances) do n = n + 1 end
-                DBG("M5", "instance terbaca: " .. n)
-                for _, e in ipairs(parsed.errors or {}) do DBG("M5-ERR", e) end
-                if n > 0 then
-                    local okT, _, cnt = pcall(applyDeserializedTree, parsed, workspace)
-                    DBG("M5", okT and ("tree dibuat: " .. tostring(cnt)) or ("tree ERR: " .. tostring(cnt)))
-                    if okT and cnt and cnt > 0 then
-                        totalInserted, insertOk, statusMsg = cnt, true, "M5 Binary OK (" .. cnt .. " objek)"
-                    end
+    if not insertOk and fmt == "BINARY" and not hasZstd then
+        local okB, parsed = pcall(deserializeRbxBinary, rawData)
+        if okB and parsed then
+            local n = 0
+            for _ in pairs(parsed.instances) do n = n + 1 end
+            if n > 0 then
+                local okT, _, cnt = pcall(applyDeserializedTree, parsed, workspace)
+                if okT and cnt and cnt > 0 then
+                    totalInserted, insertOk, statusMsg = cnt, true, "M5 Binary OK (" .. cnt .. " objek)"
                 end
             end
         end
     end
-
-    DBG("DONE", string.format("insertOk=%s total=%d waktu=%.1fs", tostring(insertOk), totalInserted, os.clock() - t0))
 
     if insertOk and totalInserted > 0 then
         updateRbxlProgress(100, "[OK] " .. totalInserted .. " objek masuk")
@@ -3186,9 +3154,6 @@ local function smartInsertRbxlFull(filePath, fileName)
     return false, "Semua method gagal"
 end
 
--- =====================================================
--- SCAN & RENDER KARTU RBXL
--- =====================================================
 local function renderRbxlCards()
     for _, c in ipairs(RbxlScroll:GetChildren()) do
         if c:IsA("Frame") or c:IsA("TextButton") then c:Destroy() end
@@ -3315,10 +3280,7 @@ local function renderRbxlCards()
             task.spawn(function()
                 task.wait(0.2)
                 local okCall, ok4, msg = pcall(smartInsertRbxlFull, capturedFile.path, capturedFile.name)
-                if not okCall then
-                    DBG("FATAL", ok4)
-                    ok4 = false
-                end
+                if not okCall then ok4 = false end
                 if not ok4 then
                     local logText = table.concat(RBXL_LOG, "\n")
                     if clipFn then pcall(clipFn, logText) end
@@ -3345,4 +3307,4 @@ RbxlScanBtn.Activated:Connect(renderRbxlCards)
 
 end -- do (RBXL section)
 
-print("[BLUExCrown] ENGINE MCHLERN ENGINE v6.9 FIXED LOADED")
+print("[BLUExCrown] ENGINE MCHLERN ENGINE v6.9 FIXED & MAPPED LOADED")
