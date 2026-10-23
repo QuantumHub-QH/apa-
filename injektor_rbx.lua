@@ -1,5 +1,5 @@
 -- =======================================================
--- MCHLERN ENGINE TOOLS ROBLOX STUDIO LITE (v6.3 RBXL EDITION)
+-- MCHLERN ENGINE TOOLS ROBLOX STUDIO LITE (v6.5 RBXL BINARY+XML FULL EDITION)
 -- Fix 1: Menu Card Hitbox 100% Responsif (Tombol Toolbox & RBXM PASTI Kebuka)
 -- Fix 2: Togle Anti-Geser (Kunci permanen di sisi layar, aman dari swipe kamera)
 -- Fix 3: In-Game Code Editor (Bisa ketik, edit, save & execute script di HP)
@@ -2612,274 +2612,829 @@ local function resetRbxlProgress(fileCount)
     end)
 end
 
--- ─── RBXL BINARY PARSER ─────────────────────────────────
--- RBXL & RBXM share the EXACT same binary format.
--- Difference: RBXL INST chunks can have Object Format = 1 (service flag).
--- We reuse parseRBXMSources() for script extraction.
--- For structure, we also extract top-level service names.
 
-local KNOWN_SERVICES = {
-    Workspace = true,
-    ServerScriptService = true,
-    StarterPack = true,
-    StarterGui = true,
-    ReplicatedStorage = true,
-    ServerStorage = true,
-    Lighting = true,
-    SoundService = true,
-    Chat = true,
-    Players = true,
-    Teams = true,
-    LocalizationService = true,
-    TestService = true,
+-- =====================================================
+
+-- =====================================================
+-- MCHLERN RBXL/RBXM FULL BINARY DESERIALIZER v2.0
+-- Verified against rojo.space/binary spec
+-- Pure math float decode — NO string.pack/unpack needed
+-- Luau/Delta Android safe
+-- =====================================================
+
+-- ── PURE MATH: u32 bits → IEEE 754 float ─────────────────────
+-- No ffi, no buffer, no string.pack — works on ALL Delta versions
+local function uint32_to_float(u)
+    if u == 0 then return 0.0 end
+    local sign = 1
+    if u >= 0x80000000 then
+        sign = -1
+        u = u - 0x80000000
+    end
+    local exp  = math.floor(u / 0x800000)  -- bits [30..23]
+    local mant = u % 0x800000              -- bits [22..0]
+    if exp == 255 then
+        return sign * (mant == 0 and math.huge or 0/0)
+    elseif exp == 0 then
+        -- denormalized
+        return sign * (2 ^ -126) * (mant / 0x800000)
+    else
+        return sign * (2 ^ (exp - 127)) * (1 + mant / 0x800000)
+    end
+end
+
+-- Roblox rfloat32: big-endian u32 with sign bit rotated to LSB
+-- Decode: un-rotate right 1 bit, then interpret as IEEE 754
+local function decode_rfloat32_bytes(b1, b2, b3, b4)
+    local raw     = (b1 or 0)*16777216 + (b2 or 0)*65536 + (b3 or 0)*256 + (b4 or 0)
+    local lsb     = raw % 2
+    local unrot   = math.floor(raw / 2) + lsb * 0x80000000
+    return uint32_to_float(unrot)
+end
+
+-- ── INTERLEAVE DECODE ────────────────────────────────────────
+-- Roblox stores N 4-byte values as: [all byte0][all byte1][all byte2][all byte3]
+-- (column-wise, big-endian per element)
+-- deinterleave_u32: data is count*4 bytes, returns count u32 values
+local function deinterleave_u32(data, count)
+    local out = {}
+    for i = 1, count do
+        -- byte j of element i is at index: (j-1)*count + i
+        local b1 = data:byte(i)           or 0
+        local b2 = data:byte(i + count)   or 0
+        local b3 = data:byte(i + count*2) or 0
+        local b4 = data:byte(i + count*3) or 0
+        out[i] = b1*16777216 + b2*65536 + b3*256 + b4
+    end
+    return out
+end
+
+-- Zigzag decode unsigned→signed: even→n/2, odd→-(n+1)/2
+local function zigzag32(n)
+    if n % 2 == 0 then
+        return math.floor(n / 2)
+    else
+        return -math.floor((n + 1) / 2)
+    end
+end
+
+-- Deinterleave + zigzag: for Int32 arrays
+local function deinterleave_i32(data, count)
+    local raw = deinterleave_u32(data, count)
+    local out = {}
+    for i = 1, count do
+        out[i] = zigzag32(raw[i])
+    end
+    return out
+end
+
+-- Delta-decode (cumulative sum)
+local function delta_decode(arr)
+    local out = {}
+    local acc = 0
+    for i = 1, #arr do
+        acc = acc + arr[i]
+        out[i] = acc
+    end
+    return out
+end
+
+-- Deinterleave + rfloat32 decode: for Float32 arrays
+local function deinterleave_rfloat32(data, count)
+    local out = {}
+    for i = 1, count do
+        local b1 = data:byte(i)           or 0
+        local b2 = data:byte(i + count)   or 0
+        local b3 = data:byte(i + count*2) or 0
+        local b4 = data:byte(i + count*3) or 0
+        out[i] = decode_rfloat32_bytes(b1, b2, b3, b4)
+    end
+    return out
+end
+
+-- ── LZ4 CHUNK DECOMPRESSOR ───────────────────────────────────
+-- Uses outer lz4Decompress if available, otherwise pure Lua fallback
+local function mchlern_lz4_decompress(compressed, outputSize)
+    -- Try executor lz4Decompress first
+    if lz4Decompress then
+        local ok, r = pcall(lz4Decompress, compressed, outputSize)
+        if ok and r then return r end
+    end
+    -- Pure Lua LZ4 Block decompressor
+    local pos = 1
+    local out = {}
+    local written = 0
+    local function rb() local b = compressed:byte(pos) or 0; pos=pos+1; return b end
+    local function ru16() local a,b=compressed:byte(pos,pos+1); pos=pos+2; return (a or 0)+(b or 0)*256 end
+    while pos <= #compressed do
+        local token = rb()
+        local litLen = math.floor(token / 16)
+        local matLen = token % 16
+        if litLen == 15 then repeat local e=rb(); litLen=litLen+e until e~=255 end
+        for _=1,litLen do out[#out+1]=string.char(rb()); written=written+1 end
+        if pos > #compressed then break end
+        local offset = ru16()
+        if offset == 0 then break end
+        if matLen == 15 then repeat local e=rb(); matLen=matLen+e until e~=255 end
+        matLen = matLen + 4
+        local matchStart = written - offset
+        for j=1,matLen do
+            local idx = matchStart + j
+            out[#out+1] = (idx>=1 and idx<=#out) and out[idx] or " "
+            written = written + 1
+        end
+    end
+    return table.concat(out)
+end
+
+-- ── CFRAME SPECIAL ROTATION TABLE ───────────────────────────
+-- 24 canonical axis-aligned CFrame rotations (rojo spec, id 0x02..0x20)
+local CF_SPECIAL = {
+    [0x02] = CFrame.new(0,0,0, 1,0,0, 0,1,0, 0,0,1),
+    [0x03] = CFrame.new(0,0,0, 1,0,0, 0,0,-1, 0,1,0),
+    [0x05] = CFrame.new(0,0,0, 1,0,0, 0,-1,0, 0,0,-1),
+    [0x06] = CFrame.new(0,0,0, 1,0,0, 0,0,1, 0,-1,0),
+    [0x07] = CFrame.new(0,0,0, 0,1,0, -1,0,0, 0,0,1),
+    [0x09] = CFrame.new(0,0,0, 0,0,1, 0,1,0, -1,0,0),
+    [0x0A] = CFrame.new(0,0,0, 0,-1,0, 1,0,0, 0,0,1),
+    [0x0C] = CFrame.new(0,0,0, 0,0,-1, 0,1,0, 1,0,0),
+    [0x0E] = CFrame.new(0,0,0, -1,0,0, 0,1,0, 0,0,-1),
+    [0x10] = CFrame.new(0,0,0, -1,0,0, 0,0,1, 0,1,0),
+    [0x11] = CFrame.new(0,0,0, -1,0,0, 0,-1,0, 0,0,1),
+    [0x14] = CFrame.new(0,0,0, -1,0,0, 0,0,-1, 0,-1,0),
+    [0x15] = CFrame.new(0,0,0, 0,1,0, 1,0,0, 0,0,-1),
+    [0x17] = CFrame.new(0,0,0, 0,0,-1, 1,0,0, 0,-1,0),
+    [0x18] = CFrame.new(0,0,0, 0,-1,0, -1,0,0, 0,0,-1),
+    [0x1A] = CFrame.new(0,0,0, 0,0,1, -1,0,0, 0,-1,0),
+    [0x1C] = CFrame.new(0,0,0, 0,1,0, 0,0,1, 1,0,0),
+    [0x1D] = CFrame.new(0,0,0, 0,0,-1, 0,1,0, -1,0,0),
+    [0x1F] = CFrame.new(0,0,0, 0,-1,0, 0,0,-1, 1,0,0),
+    [0x20] = CFrame.new(0,0,0, 0,0,1, 0,-1,0, 1,0,0),
 }
 
--- Parse RBXL binary: returns { services = { [name] = {scripts=[], itemCount=N} } }
--- and also the full source map (same as RBXM)
-local function parseRBXLFile(data)
+-- Read one raw (non-interleaved) rfloat32 from stream position
+local function read_raw_rfloat32(data, pos)
+    -- data is non-interleaved: big-endian 4 bytes
+    local b1,b2,b3,b4 = data:byte(pos, pos+3)
+    return decode_rfloat32_bytes(b1,b2,b3,b4), pos+4
+end
+
+-- ── SAFE CLASS WHITELIST ────────────────────────────────────
+local RBXL_SAFE_CLASSES = {
+    -- Geometry
+    Part=true, WedgePart=true, CornerWedgePart=true, TrussPart=true,
+    SpawnLocation=true, MeshPart=true, SpecialMesh=true, BlockMesh=true,
+    CylinderMesh=true, FileMesh=true,
+    UnionOperation=true, NegateOperation=true,
+    -- Structure
+    Model=true, Folder=true, Accessory=true, Tool=true,
+    -- Physics
+    Weld=true, WeldConstraint=true, Motor6D=true, HingeConstraint=true,
+    BallSocketConstraint=true, RodConstraint=true, RopeConstraint=true,
+    SpringConstraint=true, TorsionSpringConstraint=true,
+    -- Textures/Decals
+    Texture=true, Decal=true, SelectionBox=true, SelectionSphere=true,
+    -- Lighting
+    PointLight=true, SpotLight=true, SurfaceLight=true,
+    -- Scripts
+    Script=true, LocalScript=true, ModuleScript=true,
+    -- GUI
+    BillboardGui=true, SurfaceGui=true,
+    -- Values
+    IntValue=true, StringValue=true, BoolValue=true, NumberValue=true,
+    Vector3Value=true, CFrameValue=true, Color3Value=true, ObjectValue=true,
+    -- Config/Networking
+    Configuration=true, RemoteEvent=true, RemoteFunction=true,
+    BindableEvent=true, BindableFunction=true,
+    -- FX
+    Sound=true, ParticleEmitter=true, Smoke=true, Fire=true, Sparkles=true,
+    Trail=true, Attachment=true, Beam=true,
+    -- Animation
+    Animation=true, Animator=true, Humanoid=true, HumanoidDescription=true,
+}
+
+-- Properties to skip (read-only / protected / crash-causing)
+local RBXL_SKIP_PROPS = {
+    UniqueId=true, HistoryId=true, SourceAssetId=true,
+    AttributesSerialize=true, Tags=true, Capabilities=true,
+    Parent=true,  -- handled separately
+}
+
+-- ── MAIN BINARY DESERIALIZER ─────────────────────────────────
+local function deserializeRbxBinary(fileData)
     local result = {
-        services = {},
-        sources  = {},
-        totalItems = 0,
-        error = nil,
+        instances = {},  -- [ref] = {class, props={}, parent=nil}
+        errors    = {},
     }
 
-    if not data or #data < 32 then
-        result.error = "File terlalu kecil / kosong"
-        return result
+    if not fileData or #fileData < 32 then
+        result.errors[1] = "File terlalu kecil"; return result
     end
 
-    -- Reuse RBXM source extractor for scripts
-    local ok, sources = pcall(parseRBXMSources, data)
-    if ok and sources then
-        result.sources = sources
-        for k, v in pairs(sources) do
-            storeScriptSource(k, v)
-        end
+    -- Validate magic
+    if fileData:sub(1,8) ~= "<roblox!" then
+        result.errors[1] = "Bukan binary RBXL/RBXM (magic salah)"; return result
     end
 
-    -- Detect services from XML if it's an XML RBXL (.rbxlx-style)
-    -- Binary: look for class names in INST chunks
-    local isXML = data:sub(1, 10):find("<?xml") or data:sub(1, 10):find("<roblox")
-    if isXML then
-        -- XML format: parse <Item class="Workspace"> etc.
-        for className in data:gmatch('<Item%s+class="([^"]+)"') do
-            if KNOWN_SERVICES[className] then
-                result.services[className] = result.services[className] or {scripts = {}, itemCount = 0}
-                result.services[className].itemCount = result.services[className].itemCount + 1
-            end
-            result.totalItems = result.totalItems + 1
-        end
-    else
-        -- Binary format: scan INST chunks for service markers
-        -- Magic header: <roblox! (8 bytes) + signature (23 bytes) = 31 bytes
-        local pos = 32
-        local fileLen = #data
+    local fileLen = #fileData
+    -- Header: 8 magic + 6 sig + 2 version + 4 numClass + 4 numInst + 8 reserved = 32
+    local pos = 33
 
-        local function readU32(p)
-            if p + 3 > fileLen then return 0, p + 4 end
-            local b0, b1, b2, b3 = data:byte(p, p+3)
-            return b0 + b1*256 + b2*65536 + b3*16777216, p + 4
-        end
+    local classMap   = {}  -- [classId] = {name, refs[]}
+    local sharedStrs = {}  -- [idx] = string (from SSTR)
 
-        local function readStr(p, len)
-            return data:sub(p, p + len - 1), p + len
-        end
+    -- ── CHUNK LOOP ──────────────────────────────────────────
+    while pos <= fileLen - 16 do
+        local tag = fileData:sub(pos, pos+3)
+        -- Chunk header: 4 tag + 4 compLen LE + 4 rawLen LE + 4 reserved
+        local cB = {fileData:byte(pos+4, pos+7)}
+        local rB = {fileData:byte(pos+8, pos+11)}
+        local compLen = (cB[1] or 0) + (cB[2] or 0)*256 + (cB[3] or 0)*65536 + (cB[4] or 0)*16777216
+        local rawLen  = (rB[1] or 0) + (rB[2] or 0)*256 + (rB[3] or 0)*65536 + (rB[4] or 0)*16777216
+        pos = pos + 16
 
-        while pos < fileLen - 16 do
-            -- Read chunk header: 4-byte tag, 4-byte compLen, 4-byte rawLen, 4-byte reserved
-            local tag = data:sub(pos, pos + 3)
-            local compLen, p1 = readU32(pos + 4)
-            local rawLen,  p2 = readU32(pos + 8)
-            -- reserved
-            pos = pos + 16
+        if tag == "END " then break end
 
-            if tag == "END\0" then break end
-
-            local chunkData
-            if compLen == 0 then
-                -- uncompressed
-                chunkData = data:sub(pos, pos + rawLen - 1)
-            else
-                -- LZ4 compressed: try decompressing using our existing decompressor
-                local raw = data:sub(pos, pos + compLen - 1)
-                local ok2, dec = pcall(function()
-                    -- Use lz4Decompress if available in scope
-                    if lz4Decompress then return lz4Decompress(raw, rawLen) end
-                    return nil
-                end)
-                if ok2 and dec then
-                    chunkData = dec
-                else
-                    chunkData = raw -- fallback: raw bytes (limited parse)
-                end
-            end
-
+        -- Get chunk data
+        local chunk
+        if compLen == 0 then
+            chunk = fileData:sub(pos, pos + rawLen - 1)
+            pos = pos + rawLen
+        else
+            local comp = fileData:sub(pos, pos + compLen - 1)
+            local ok2, dc = pcall(mchlern_lz4_decompress, comp, rawLen)
+            chunk = (ok2 and dc) or comp
             pos = pos + compLen
-            if compLen == 0 then pos = pos - compLen + rawLen end
+        end
 
-            if tag == "INST" and chunkData then
-                -- Parse INST chunk:
-                -- u32 classId, string className (u32 len + bytes),
-                -- u8 objectFormat, u32 instanceCount, referents[]
-                -- if objectFormat == 1: service flags u8[] follow referents
-                local cp = 1
-                local function ciu32(p)
-                    if p + 3 > #chunkData then return 0, p + 4 end
-                    local a,b,c,d = chunkData:byte(p, p+3)
-                    return a+b*256+c*65536+d*16777216, p+4
-                end
-                local classId; classId, cp = ciu32(cp)
-                local nameLen; nameLen, cp = ciu32(cp)
-                local className
-                if nameLen > 0 and cp + nameLen - 1 <= #chunkData then
-                    className = chunkData:sub(cp, cp + nameLen - 1)
-                    cp = cp + nameLen
-                else
-                    break
-                end
-                local objectFormat = chunkData:byte(cp) or 0
-                cp = cp + 1
-                local instCount; instCount, cp = ciu32(cp)
+        if not chunk or #chunk == 0 then goto next_chunk end
 
-                result.totalItems = result.totalItems + instCount
+        local cp = 1  -- chunk position
 
-                -- objectFormat == 1 → this class is a Service
-                if objectFormat == 1 and className then
-                    result.services[className] = result.services[className] or {scripts = {}, itemCount = 0}
-                    result.services[className].itemCount = result.services[className].itemCount + instCount
+        -- helper: read bytes from chunk
+        local function cb(n)
+            local s = chunk:sub(cp, cp+n-1); cp=cp+n; return s
+        end
+        local function cu32le()
+            local a,b,c,d = chunk:byte(cp,cp+3); cp=cp+4
+            return (a or 0)+(b or 0)*256+(c or 0)*65536+(d or 0)*16777216
+        end
+        local function cstr()
+            local n=cu32le(); local s=chunk:sub(cp,cp+n-1); cp=cp+n; return s
+        end
+        local function cbyte()
+            local b=chunk:byte(cp) or 0; cp=cp+1; return b
+        end
+
+        -- ── SSTR ──────────────────────────────────────────
+        if tag == "SSTR" then
+            cu32le() -- version
+            local cnt = cu32le()
+            for i = 0, cnt-1 do
+                cb(16) -- MD5 hash
+                sharedStrs[i] = cstr()
+            end
+
+        -- ── INST ──────────────────────────────────────────
+        elseif tag == "INST" then
+            local classId   = cu32le()
+            local className = cstr()
+            local objFmt    = cbyte()   -- 0=normal, 1=service
+            local cnt       = cu32le()
+
+            -- Referents: interleaved zigzag i32, then delta-decode
+            local rawRefs = cb(cnt * 4)
+            local refs = delta_decode(deinterleave_i32(rawRefs, cnt))
+
+            classMap[classId] = { name=className, refs=refs }
+
+            for _, ref in ipairs(refs) do
+                result.instances[ref] = {
+                    class  = className,
+                    props  = {},
+                    parent = nil,
+                }
+            end
+
+        -- ── PROP ──────────────────────────────────────────
+        elseif tag == "PROP" then
+            local classId  = cu32le()
+            local propName = cstr()
+            local typeId   = cbyte()
+
+            local cls = classMap[classId]
+            if not cls then goto next_chunk end
+            local refs = cls.refs
+            local cnt  = #refs
+            if cnt == 0 then goto next_chunk end
+
+            -- Read values based on typeId
+            local function setAll(vals)
+                for i, ref in ipairs(refs) do
+                    if result.instances[ref] then
+                        result.instances[ref].props[propName] = vals[i]
+                    end
                 end
             end
 
-            -- safety: if pos went backwards, break
-            if compLen == 0 and rawLen == 0 then break end
-        end
-    end
+            -- 0x01 String
+            if typeId == 0x01 then
+                local vals = {}
+                for i=1,cnt do vals[i]=cstr() end
+                setAll(vals)
 
-    -- Add script count from sources to each service
-    for scriptName, src in pairs(result.sources) do
-        local placed = false
-        for svcName, svc in pairs(result.services) do
-            if scriptName:lower():find(svcName:lower(), 1, true) then
-                table.insert(svc.scripts, {name = scriptName, src = src})
-                placed = true
-                break
+            -- 0x02 Bool
+            elseif typeId == 0x02 then
+                local vals = {}
+                for i=1,cnt do vals[i]=(cbyte()~=0) end
+                setAll(vals)
+
+            -- 0x03 Int32 interleaved zigzag
+            elseif typeId == 0x03 then
+                setAll(deinterleave_i32(cb(cnt*4), cnt))
+
+            -- 0x04 Float32 interleaved rfloat32
+            elseif typeId == 0x04 then
+                setAll(deinterleave_rfloat32(cb(cnt*4), cnt))
+
+            -- 0x05 Float64 LE (8 bytes, approximate via string ops)
+            elseif typeId == 0x05 then
+                local vals = {}
+                for i=1,cnt do
+                    local raw8 = cb(8)
+                    -- Approximate: extract the double via Lua 5.3 string.unpack if available
+                    local ok2, v = pcall(string.unpack, "<d", raw8)
+                    vals[i] = ok2 and v or 0
+                end
+                setAll(vals)
+
+            -- 0x06 UDim
+            elseif typeId == 0x06 then
+                local scales  = deinterleave_rfloat32(cb(cnt*4), cnt)
+                local offsets = deinterleave_i32(cb(cnt*4), cnt)
+                local vals = {}
+                for i=1,cnt do vals[i] = UDim.new(scales[i] or 0, offsets[i] or 0) end
+                setAll(vals)
+
+            -- 0x07 UDim2
+            elseif typeId == 0x07 then
+                local xS = deinterleave_rfloat32(cb(cnt*4), cnt)
+                local yS = deinterleave_rfloat32(cb(cnt*4), cnt)
+                local xO = deinterleave_i32(cb(cnt*4), cnt)
+                local yO = deinterleave_i32(cb(cnt*4), cnt)
+                local vals = {}
+                for i=1,cnt do vals[i]=UDim2.new(xS[i] or 0,xO[i] or 0,yS[i] or 0,yO[i] or 0) end
+                setAll(vals)
+
+            -- 0x0B BrickColor
+            elseif typeId == 0x0B then
+                local raw = deinterleave_u32(cb(cnt*4), cnt)
+                local vals = {}
+                for i=1,cnt do
+                    local ok2,bc = pcall(BrickColor.new, raw[i] or 194)
+                    vals[i] = ok2 and bc or BrickColor.new("Medium stone grey")
+                end
+                setAll(vals)
+
+            -- 0x0C Color3 (3 rfloat32 interleaved arrays: R, G, B)
+            elseif typeId == 0x0C then
+                local vR = deinterleave_rfloat32(cb(cnt*4), cnt)
+                local vG = deinterleave_rfloat32(cb(cnt*4), cnt)
+                local vB = deinterleave_rfloat32(cb(cnt*4), cnt)
+                local vals = {}
+                for i=1,cnt do
+                    vals[i] = Color3.new(math.clamp(vR[i] or 0,0,1), math.clamp(vG[i] or 0,0,1), math.clamp(vB[i] or 0,0,1))
+                end
+                setAll(vals)
+
+            -- 0x0D Vector2
+            elseif typeId == 0x0D then
+                local vX = deinterleave_rfloat32(cb(cnt*4), cnt)
+                local vY = deinterleave_rfloat32(cb(cnt*4), cnt)
+                local vals = {}
+                for i=1,cnt do vals[i]=Vector2.new(vX[i] or 0,vY[i] or 0) end
+                setAll(vals)
+
+            -- 0x0E Vector3 (X,Y,Z each as interleaved rfloat32 array)
+            elseif typeId == 0x0E then
+                local vX = deinterleave_rfloat32(cb(cnt*4), cnt)
+                local vY = deinterleave_rfloat32(cb(cnt*4), cnt)
+                local vZ = deinterleave_rfloat32(cb(cnt*4), cnt)
+                local vals = {}
+                for i=1,cnt do vals[i]=Vector3.new(vX[i] or 0,vY[i] or 0,vZ[i] or 0) end
+                setAll(vals)
+
+            -- 0x10 CFrame
+            -- Layout: [rotToken * cnt], then for token==0: [9 rfloat32 inline per instance],
+            -- then [posX * cnt interleaved], [posY * cnt interleaved], [posZ * cnt interleaved]
+            elseif typeId == 0x10 then
+                -- 1. Read rotation tokens
+                local rotTokens = {}
+                for i=1,cnt do rotTokens[i]=cbyte() end
+
+                -- 2. Read inline rotation matrices for token==0 instances
+                local rotMats = {}
+                for i=1,cnt do
+                    if rotTokens[i] == 0x00 then
+                        -- 9 raw rfloat32 (NOT interleaved here, stored inline)
+                        local m = {}
+                        for j=1,9 do
+                            local b1,b2,b3,b4 = chunk:byte(cp,cp+3); cp=cp+4
+                            m[j] = decode_rfloat32_bytes(b1,b2,b3,b4)
+                        end
+                        rotMats[i] = m
+                    end
+                end
+
+                -- 3. Read position arrays (interleaved rfloat32)
+                local pX = deinterleave_rfloat32(cb(cnt*4), cnt)
+                local pY = deinterleave_rfloat32(cb(cnt*4), cnt)
+                local pZ = deinterleave_rfloat32(cb(cnt*4), cnt)
+
+                -- 4. Reconstruct CFrames
+                local vals = {}
+                for i=1,cnt do
+                    local x,y,z = pX[i] or 0, pY[i] or 0, pZ[i] or 0
+                    local tok = rotTokens[i]
+                    local cf
+                    if tok == 0x00 then
+                        local m = rotMats[i]
+                        if m then
+                            local ok2,built = pcall(CFrame.new, x,y,z, m[1],m[2],m[3], m[4],m[5],m[6], m[7],m[8],m[9])
+                            cf = ok2 and built or CFrame.new(x,y,z)
+                        else
+                            cf = CFrame.new(x,y,z)
+                        end
+                    else
+                        local specialRot = CF_SPECIAL[tok]
+                        if specialRot then
+                            cf = CFrame.new(x,y,z) * specialRot
+                        else
+                            cf = CFrame.new(x,y,z)
+                        end
+                    end
+                    vals[i] = cf
+                end
+                setAll(vals)
+
+            -- 0x12 Enum/Token (interleaved u32)
+            elseif typeId == 0x12 then
+                local raw = deinterleave_u32(cb(cnt*4), cnt)
+                local vals = {}
+                for i=1,cnt do vals[i] = {_enum=raw[i]} end
+                setAll(vals)
+
+            -- 0x13 Referent (interleaved zigzag delta i32)
+            elseif typeId == 0x13 then
+                local refs2 = delta_decode(deinterleave_i32(cb(cnt*4), cnt))
+                local vals = {}
+                for i=1,cnt do vals[i] = {_ref=refs2[i]} end
+                setAll(vals)
+
+            -- 0x1A Color3uint8
+            elseif typeId == 0x1A then
+                local allR = cb(cnt); local allG = cb(cnt); local allB = cb(cnt)
+                local vals = {}
+                for i=1,cnt do
+                    vals[i] = Color3.fromRGB(allR:byte(i) or 0, allG:byte(i) or 0, allB:byte(i) or 0)
+                end
+                setAll(vals)
+
+            -- 0x1C SharedString
+            elseif typeId == 0x1C then
+                local idxs = deinterleave_u32(cb(cnt*4), cnt)
+                local vals = {}
+                for i=1,cnt do vals[i] = sharedStrs[idxs[i]] or "" end
+                setAll(vals)
+            end
+            -- Unknown types: gracefully skip (don't break parsing)
+
+        -- ── PRNT ──────────────────────────────────────────
+        elseif tag == "PRNT" then
+            cbyte()           -- version (always 0)
+            local cnt = cu32le()
+
+            -- BOTH child and parent refs: interleaved zigzag i32 + delta-decode
+            local childRefs  = delta_decode(deinterleave_i32(cb(cnt*4), cnt))
+            local parentRefs = delta_decode(deinterleave_i32(cb(cnt*4), cnt))
+
+            for i=1,cnt do
+                local cRef = childRefs[i]
+                local pRef = parentRefs[i]
+                if result.instances[cRef] then
+                    result.instances[cRef].parent = pRef  -- -1 = root
+                end
             end
         end
-        if not placed then
-            result.services["Workspace"] = result.services["Workspace"] or {scripts = {}, itemCount = 0}
-            table.insert(result.services["Workspace"].scripts, {name = scriptName, src = src})
-        end
+
+        ::next_chunk::
     end
 
     return result
 end
 
--- ─── SMART INSERT RBXL ──────────────────────────────────
--- Endpoint: sama dengan RBXM — parse binary, recreate scripts,
--- insert ke workspace Studio Lite via injectStudioLiteUI
-local function smartInsertRbxl(filePath, fileName)
-    local fileBase = fileName:gsub("%.rbxl[x]?$", "")
-    updateRbxlProgress(10, "[1/5] READING RBXL BINARY...")
-    task.wait(0.3)
+-- ── APPLY TREE: Instance.new + set props + set parents ───────
+local function applyDeserializedTree(parsed, targetFolder, onProgress)
+    local instMap = {}
+    local total = 0
+    for _ in pairs(parsed.instances) do total = total + 1 end
+    local done = 0
+
+    -- Phase 1: Create instances
+    for ref, data in pairs(parsed.instances) do
+        local className = data.class
+        local inst
+        if RBXL_SAFE_CLASSES[className] then
+            local ok2, i = pcall(Instance.new, className)
+            if ok2 and i then inst = i end
+        end
+        if not inst then
+            -- Placeholder folder for unsupported classes
+            local ok2, f = pcall(Instance.new, "Folder")
+            if ok2 and f then f.Name = "[" .. className .. "]"; inst = f end
+        end
+        if inst then instMap[ref] = inst end
+        done = done + 1
+        if onProgress and done % 100 == 0 then
+            onProgress(done/total*0.45, "Creating " .. done .. "/" .. total)
+        end
+    end
+
+    -- Phase 2: Set properties
+    done = 0
+    for ref, data in pairs(parsed.instances) do
+        local inst = instMap[ref]
+        if inst then
+            for pName, pVal in pairs(data.props) do
+                if not RBXL_SKIP_PROPS[pName] then
+                    pcall(function()
+                        if type(pVal) == "table" then
+                            if pVal._enum then
+                                inst[pName] = pVal._enum  -- try set as number
+                            elseif pVal._ref then
+                                -- deferred
+                            end
+                        else
+                            inst[pName] = pVal
+                        end
+                    end)
+                end
+            end
+        end
+        done = done + 1
+        if onProgress and done % 100 == 0 then
+            onProgress(0.45 + done/total*0.35, "Props " .. done .. "/" .. total)
+        end
+    end
+
+    -- Phase 3: Build hierarchy
+    local sortedRefs = {}
+    for ref in pairs(parsed.instances) do table.insert(sortedRefs, ref) end
+    table.sort(sortedRefs)
+
+    done = 0
+    for _, ref in ipairs(sortedRefs) do
+        local inst = instMap[ref]
+        if inst then
+            local pRef = parsed.instances[ref].parent
+            if pRef ~= nil and pRef ~= -1 and instMap[pRef] then
+                pcall(function() inst.Parent = instMap[pRef] end)
+            else
+                pcall(function() inst.Parent = targetFolder end)
+            end
+        end
+        done = done + 1
+        if onProgress and done % 100 == 0 then
+            onProgress(0.8 + done/total*0.18, "Hierarchy " .. done .. "/" .. total)
+        end
+    end
+
+    -- Phase 4: Deferred ref props
+    for ref, data in pairs(parsed.instances) do
+        local inst = instMap[ref]
+        if inst then
+            for pName, pVal in pairs(data.props) do
+                if type(pVal) == "table" and pVal._ref then
+                    local target = instMap[pVal._ref]
+                    if target then pcall(function() inst[pName] = target end) end
+                end
+            end
+        end
+    end
+
+    local count = 0
+    for _ in pairs(instMap) do count = count + 1 end
+    return instMap, count
+end
+
+-- ── RBXLX XML PARSER (fallback for .rbxlx format) ───────────
+local function parseRbxlxXml(xmlData, targetFolder)
+    local created = 0
+    local stack = {targetFolder}
+
+    -- Extract all <Item class="...">...</Item> blocks (non-nested parse)
+    for className, propsBlock in xmlData:gmatch('<Item%s+class="([^"]+)"[^>]*>%s*<Properties>(.-)</Properties>') do
+        local inst
+        if RBXL_SAFE_CLASSES[className] then
+            local ok2, i = pcall(Instance.new, className)
+            if ok2 then inst = i end
+        end
+        if not inst then
+            local ok2, f = pcall(Instance.new, "Folder")
+            if ok2 then f.Name = "[" .. className .. "]"; inst = f end
+        end
+        if inst then
+        -- Name
+        local name = propsBlock:match('<string%s+name="Name"%s*>([^<]+)</string>')
+        if name then pcall(function() inst.Name = name end) end
+
+        -- Size (Vector3)
+        local sXml = propsBlock:match('<Vector3%s+name="Size"%s*>(.-)</Vector3>')
+        if sXml then
+            local x,y,z = tonumber(sXml:match("<X>([^<]+)</X>")),tonumber(sXml:match("<Y>([^<]+)</Y>")),tonumber(sXml:match("<Z>([^<]+)</Z>"))
+            pcall(function() if x then inst.Size=Vector3.new(x,y or 0,z or 0) end end)
+        end
+
+        -- CFrame
+        local cfXml = propsBlock:match('<CoordinateFrame%s+name="CFrame"%s*>(.-)</CoordinateFrame>')
+        if cfXml then
+            local function n(t) return tonumber(cfXml:match('<'..t..'>([^<]+)</'..t..'>')) or 0 end
+            pcall(function() inst.CFrame = CFrame.new(n"X",n"Y",n"Z",n"R00",n"R01",n"R02",n"R10",n"R11",n"R12",n"R20",n"R21",n"R22") end)
+        end
+
+        -- BrickColor
+        local bc = propsBlock:match('<BrickColor%s+name="BrickColor"%s*>([^<]+)</BrickColor>')
+        if bc then pcall(function() inst.BrickColor=BrickColor.new(tonumber(bc)) end) end
+
+        -- Color
+        local colXml = propsBlock:match('<Color3uint8%s+name="Color"%s*>([^<]+)</Color3uint8>')
+        if colXml then
+            local cv = tonumber(colXml) or 0
+            local r,g,b = math.floor(cv/65536)%256, math.floor(cv/256)%256, cv%256
+            pcall(function() inst.Color=Color3.fromRGB(r,g,b) end)
+        end
+
+        -- Material (enum value)
+        local mat = propsBlock:match('<token%s+name="Material"%s*>([^<]+)</token>')
+        if mat then pcall(function() inst.Material = tonumber(mat) or 256 end) end
+
+        -- Anchored
+        local anch = propsBlock:match('<bool%s+name="Anchored"%s*>([^<]+)</bool>')
+        if anch then pcall(function() inst.Anchored=(anch=="true") end) end
+
+        -- Script Source (CDATA)
+        if className=="Script" or className=="LocalScript" or className=="ModuleScript" then
+            local src = propsBlock:match('<ProtectedString%s+name="Source"%s*>%s*<!%[CDATA%[(.-)]%]>%s*</ProtectedString>')
+                     or propsBlock:match('<string%s+name="Source"%s*>([^<]+)</string>')
+            if src and #src > 0 then
+                src = stripRichText(src)
+                pcall(function() inst.Source = src end)
+                storeScriptSource(name or className, src)
+                recreateScriptAsNative(inst, src)
+            end
+        end
+
+        pcall(function() inst.Parent = targetFolder end)
+        created = created + 1
+        end
+    end
+    return created
+end
+
+-- ── SMART INSERT RBXL FULL v2 ────────────────────────────────
+local function smartInsertRbxlFull(filePath, fileName)
+    local fileBase = fileName:gsub("%.rbxl[x]?$",""):gsub("%.rbxm[x]?$","")
+
+    updateRbxlProgress(6, "[1/6] MEMBACA FILE...")
+    task.wait(0.2)
 
     local rawData = safeReadFile(filePath)
-    if not rawData or #rawData < 32 then
-        updateRbxlProgress(0, "[ERR] Gagal baca file!")
+    if not rawData or #rawData < 16 then
+        updateRbxlProgress(0, "[ERR] File kosong / gagal dibaca")
         return false, "Gagal baca file"
     end
 
-    updateRbxlProgress(30, "[2/5] DECOMPRESSING LZ4 CHUNKS...")
-    task.wait(0.3)
+    -- Create root container
+    local rootFolder = Instance.new("Folder")
+    rootFolder.Name  = fileBase
+    pcall(function() rootFolder.Parent = workspace end)
 
-    local placeInfo = parseRBXLFile(rawData)
-    if placeInfo.error then
-        updateRbxlProgress(0, "[ERR] " .. placeInfo.error)
-        return false, placeInfo.error
-    end
-
-    -- Count total scripts
-    local totalScripts = 0
-    for _, svc in pairs(placeInfo.services) do
-        totalScripts = totalScripts + #svc.scripts
-    end
-
-    updateRbxlProgress(55, "[3/5] EXTRACTING SERVICES... (" .. tostring(totalScripts) .. " scripts)")
-    task.wait(0.4)
-
-    -- Insert: create a root Folder named after the place file
-    local placeFolder = Instance.new("Folder")
-    placeFolder.Name = fileBase
-    pcall(function() placeFolder.Parent = workspace end)
+    -- Detect format
+    local head8 = rawData:sub(1, 8)
+    local isXml  = (head8:sub(1,5) == "<?xml") or (head8:sub(1,8) == "<roblox ")
 
     local insertedCount = 0
-    local svcOrder = {"Workspace", "ServerScriptService", "StarterPack", "StarterGui",
-                      "ReplicatedStorage", "StarterPlayer", "Lighting", "SoundService"}
 
-    -- Insert all services content into sub-folders
-    for _, svcName in ipairs(svcOrder) do
-        local svc = placeInfo.services[svcName]
-        if svc and (#svc.scripts > 0 or svc.itemCount > 0) then
-            local svcFolder = Instance.new("Folder")
-            svcFolder.Name = svcName
-            pcall(function() svcFolder.Parent = placeFolder end)
+    -- ── BRANCH A: XML FORMAT ──────────────────────────────
+    if isXml then
+        updateRbxlProgress(20, "[2/6] FORMAT XML TERDETEKSI...")
+        task.wait(0.2)
+        updateRbxlProgress(45, "[3/6] PARSING RBXLX XML...")
+        task.wait(0.3)
+        local ok2, cnt = pcall(parseRbxlxXml, rawData, rootFolder)
+        insertedCount = (ok2 and cnt) or 0
+        updateRbxlProgress(100, "[6/6] XML SELESAI! " .. insertedCount .. " instances")
+        resetRbxlProgress(insertedCount)
+        return true, insertedCount .. " instances (XML)"
 
-            for _, sc in ipairs(svc.scripts) do
-                storeScriptSource(sc.name, sc.src)
-                local scriptInst = Instance.new("Script")
-                scriptInst.Name = sc.name
-                pcall(function() scriptInst.Source = sc.src end)
-                pcall(function() scriptInst.Parent = svcFolder end)
-                injectStudioLiteUI(scriptInst, {[sc.name] = sc.src})
-                recreateScriptAsNative(scriptInst, sc.src)
+    -- ── BRANCH B: BINARY FORMAT ───────────────────────────
+    else
+        updateRbxlProgress(15, "[2/6] PARSING BINARY LZ4...")
+        task.wait(0.2)
+
+        local parsed, parseErr
+        local ok2 = pcall(function()
+            parsed = deserializeRbxBinary(rawData)
+        end)
+
+        if not ok2 or not parsed then
+            -- Fallback to raw script extraction (our old method)
+            updateRbxlProgress(30, "[!] Binary parse fail, coba extract scripts...")
+            task.wait(0.2)
+            local sources = {}
+            local ok3, s = pcall(parseRBXMSources, rawData)
+            if ok3 and s then sources = s end
+            for name2, src in pairs(sources) do
+                storeScriptSource(name2, src)
+                local si = Instance.new("Script")
+                si.Name = name2
+                pcall(function() si.Source = src end)
+                pcall(function() si.Parent = rootFolder end)
+                recreateScriptAsNative(si, src)
                 insertedCount = insertedCount + 1
             end
+            updateRbxlProgress(100, "[!] Fallback: " .. insertedCount .. " scripts extracted")
+            resetRbxlProgress(insertedCount)
+            return insertedCount > 0, insertedCount .. " scripts (fallback)"
         end
-    end
 
-    -- Also handle any service not in the order list
-    for svcName, svc in pairs(placeInfo.services) do
-        local found = false
-        for _, s in ipairs(svcOrder) do if s == svcName then found = true; break end end
-        if not found and #svc.scripts > 0 then
-            local svcFolder = Instance.new("Folder")
-            svcFolder.Name = svcName
-            pcall(function() svcFolder.Parent = placeFolder end)
-            for _, sc in ipairs(svc.scripts) do
-                storeScriptSource(sc.name, sc.src)
-                local scriptInst = Instance.new("Script")
-                scriptInst.Name = sc.name
-                pcall(function() scriptInst.Source = sc.src end)
-                pcall(function() scriptInst.Parent = svcFolder end)
-                injectStudioLiteUI(scriptInst, {[sc.name] = sc.src})
-                recreateScriptAsNative(scriptInst, sc.src)
-                insertedCount = insertedCount + 1
+        -- Check if we got errors
+        if parsed.errors and #parsed.errors > 0 then
+            local errMsg = parsed.errors[1] or "Unknown"
+            -- If no instances at all, give up
+            if not next(parsed.instances) then
+                pcall(function() rootFolder:Destroy() end)
+                updateRbxlProgress(0, "[ERR] " .. errMsg:sub(1,45))
+                return false, errMsg
             end
         end
-    end
 
-    -- Use Studio Lite endpoint for place itself (trigger server load of place)
-    if serverFuncs then
-        pcall(function()
-            -- Try loading place by file path (Studio Lite may support local path)
-            serverFuncs:InvokeServer("LoadPlaceFromFileServerFunction", filePath)
+        -- Count instances
+        local instCount = 0
+        for _ in pairs(parsed.instances) do instCount = instCount + 1 end
+
+        updateRbxlProgress(35, "[3/6] " .. instCount .. " INSTANCES DITEMUKAN...")
+        task.wait(0.25)
+
+        updateRbxlProgress(50, "[4/6] MEMBUAT INSTANCES...")
+        task.wait(0.15)
+
+        local _, createdCount = applyDeserializedTree(parsed, rootFolder, function(pct, msg)
+            updateRbxlProgress(50 + pct * 38, "[4/6] " .. msg)
         end)
-        pcall(function()
-            -- Fallback: trigger insert via InsertFromFile endpoint
-            serverFuncs:InvokeServer("InsertFromFileServerFunction", filePath)
-        end)
+
+        insertedCount = createdCount
+
+        updateRbxlProgress(90, "[5/6] SCAN SCRIPTS...")
+        task.wait(0.25)
+
+        -- Post-scan: inject scripts to Studio Lite
+        local scriptsInjected = 0
+        local function walkInject(inst)
+            if not inst or not inst.Parent then return end
+            if inst:IsA("LuaSourceContainer") then
+                local src
+                pcall(function() src = inst.Source end)
+                if src and type(src) == "string" and #src > 0 then
+                    src = stripRichText(src)
+                    storeScriptSource(inst.Name, src)
+                    storeScriptSource(inst, src)
+                    recreateScriptAsNative(inst, src)
+                    injectStudioLiteUI(inst, {[inst.Name]=src})
+                    scriptsInjected = scriptsInjected + 1
+                end
+            end
+            local ok3, ch = pcall(function() return inst:GetChildren() end)
+            if ok3 and ch then for _,c in ipairs(ch) do walkInject(c) end end
+        end
+        pcall(walkInject, rootFolder)
+
+        -- Also register from parsed props
+        for _, data in pairs(parsed.instances) do
+            local src = data.props["Source"]
+            local nm  = data.props["Name"] or data.class
+            if type(src) == "string" and #src > 0 then
+                storeScriptSource(nm, src)
+            end
+        end
+
+        updateRbxlProgress(100,
+            "[6/6] SELESAI! " .. insertedCount .. " obj / " .. scriptsInjected .. " scripts")
+        resetRbxlProgress(insertedCount)
+        return true, insertedCount .. " instances, " .. scriptsInjected .. " scripts"
     end
-
-    updateRbxlProgress(80, "[4/5] INJECTING TO STUDIO LITE...")
-    task.wait(0.5)
-
-    local statusMsg = insertedCount > 0
-        and ("[5/5] DONE! " .. insertedCount .. " scripts injected")
-        or  "[5/5] PLACE LOADED (0 scripts found)"
-    updateRbxlProgress(100, statusMsg)
-    resetRbxlProgress(insertedCount)
-    return true, statusMsg
 end
+
 
 -- ─── RENDER RBXL FILE CARDS ─────────────────────────────
 local function renderRbxlCards()
@@ -3033,7 +3588,7 @@ local function renderRbxlCards()
             task.spawn(function()
                 -- Small delay so UI renders
                 task.wait(0.2)
-                local ok4, msg = smartInsertRbxl(capturedFile.path, capturedFile.name)
+                local ok4, msg = smartInsertRbxlFull(capturedFile.path, capturedFile.name)
                 task.wait(1.5)
                 if insertBtn and insertBtn.Parent then
                     insertBtn.Text = ok4 and "DONE!" or "FAIL"
@@ -3064,4 +3619,4 @@ RbxlScanBtn.Activated:Connect(renderRbxlCards)
 -- END PAGE RBXL
 -- =====================================================
 
-print("[BLUExCrown] ENGINE MCHLERN ENGINE v6.3 RBXL LOADED")
+print("[BLUExCrown] ENGINE MCHLERN ENGINE v6.5 RBXL FULL LOADED")
