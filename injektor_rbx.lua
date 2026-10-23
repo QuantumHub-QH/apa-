@@ -1,6 +1,6 @@
 -- =======================================================
--- BLUExCrown ENGINE - PRO SPLIT-GRID EDITION (LANDSCAPE)
--- Inspired by Toolbox Riza Layout | Strictly Black & White
+-- BLUExCrown ENGINE v3.4 - PRO INSERT & BROWSER EDITION
+-- Dual-Action: Direct Insert + Copy ID | Multi-Layer Spawn
 -- Toggle Asset ID: 102337382069600
 -- =======================================================
 
@@ -33,10 +33,10 @@ ScreenGui.ResetOnSpawn = false
 ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 ScreenGui.Parent = ParentGui
 
--- 1. FLOATING TOGGLE BUTTON (Asset ID: 102337382069600)
+-- 1. FLOATING TOGGLE BUTTON (Custom Asset ID: 102337382069600)
 local ToggleBtn = Instance.new("ImageButton")
 ToggleBtn.Name = "ToggleBtn"
-ToggleBtn.Size = UDim2.new(0, 42, 0, 42)
+ToggleBtn.Size = UDim2.new(0, 44, 0, 44)
 ToggleBtn.Position = UDim2.new(0.02, 0, 0.45, 0)
 ToggleBtn.BackgroundColor3 = Color3.fromRGB(15, 15, 18)
 ToggleBtn.Image = "rbxassetid://102337382069600"
@@ -49,13 +49,13 @@ ToggleStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 ToggleStroke.Color = Color3.fromRGB(255, 255, 255)
 ToggleStroke.Thickness = 1.4
 
--- 2. MAIN WINDOW FRAME (PRO LANDSCAPE: 580 x 310)
+-- 2. MAIN WINDOW FRAME (DIPERBESAR: 620 x 335)
 local MainFrame = Instance.new("Frame")
 MainFrame.Name = "MainFrame"
 MainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
 MainFrame.Position = UDim2.fromScale(0.5, 0.5)
-MainFrame.Size = UDim2.new(0, 580, 0, 310)
-MainFrame.BackgroundColor3 = Color3.fromRGB(13, 13, 15)
+MainFrame.Size = UDim2.new(0, 620, 0, 335)
+MainFrame.BackgroundColor3 = Color3.fromRGB(13, 13, 16)
 MainFrame.BorderSizePixel = 0
 MainFrame.ClipsDescendants = true
 MainFrame.Parent = ScreenGui
@@ -66,58 +66,143 @@ MainStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 MainStroke.Color = Color3.fromRGB(255, 255, 255)
 MainStroke.Thickness = 1.4
 
--- Top Header
+-- Top Header dengan UICorner (Tidak keluar batas / tidak lancip)
 local TopBar = Instance.new("Frame")
-TopBar.Size = UDim2.new(1, 0, 0, 32)
-TopBar.BackgroundColor3 = Color3.fromRGB(18, 18, 22)
+TopBar.Size = UDim2.new(1, -12, 0, 32)
+TopBar.Position = UDim2.new(0, 6, 0, 6)
+TopBar.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
 TopBar.BorderSizePixel = 0
 TopBar.Parent = MainFrame
+Instance.new("UICorner", TopBar).CornerRadius = UDim.new(0, 8)
+
+local TopBarStroke = Instance.new("UIStroke", TopBar)
+TopBarStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+TopBarStroke.Color = Color3.fromRGB(255, 255, 255)
+TopBarStroke.Thickness = 1
+TopBarStroke.Transparency = 0.75
 
 local Title = Instance.new("TextLabel")
 Title.Size = UDim2.new(1, -50, 1, 0)
 Title.Position = UDim2.new(0, 12, 0, 0)
 Title.BackgroundTransparency = 1
-Title.Text = "BLUExCrown ENGINE v3.3"
+Title.Text = "BLUExCrown ENGINE v3.4"
 Title.Font = Enum.Font.GothamBold
 Title.TextSize = 11
 Title.TextColor3 = Color3.fromRGB(255, 255, 255)
 Title.TextXAlignment = Enum.TextXAlignment.Left
 Title.Parent = TopBar
 
+-- Tombol Close X Minimalis
 local CloseBtn = Instance.new("TextButton")
-CloseBtn.Size = UDim2.new(0, 22, 0, 22)
-CloseBtn.Position = UDim2.new(1, -28, 0, 5)
-CloseBtn.BackgroundColor3 = Color3.fromRGB(26, 26, 30)
-CloseBtn.Text = "✕"
+CloseBtn.Size = UDim2.new(0, 24, 0, 24)
+CloseBtn.Position = UDim2.new(1, -28, 0, 4)
+CloseBtn.BackgroundColor3 = Color3.fromRGB(28, 28, 34)
+CloseBtn.Text = "X"
 CloseBtn.Font = Enum.Font.GothamBold
-CloseBtn.TextSize = 10
+CloseBtn.TextSize = 11
 CloseBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 CloseBtn.Parent = TopBar
-Instance.new("UICorner", CloseBtn).CornerRadius = UDim.new(0, 5)
+Instance.new("UICorner", CloseBtn).CornerRadius = UDim.new(0, 6)
+
 local CloseStroke = Instance.new("UIStroke", CloseBtn)
 CloseStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 CloseStroke.Color = Color3.fromRGB(255, 255, 255)
 CloseStroke.Thickness = 1
-CloseStroke.Transparency = 0.5
+CloseStroke.Transparency = 0.6
 
 -- Container Pembagi Kiri & Kanan
 local ContentContainer = Instance.new("Frame")
-ContentContainer.Size = UDim2.new(1, -16, 1, -40)
-ContentContainer.Position = UDim2.new(0, 8, 0, 34)
+ContentContainer.Size = UDim2.new(1, -12, 1, -48)
+ContentContainer.Position = UDim2.new(0, 6, 0, 42)
 ContentContainer.BackgroundTransparency = 1
 ContentContainer.Parent = MainFrame
 
+-- ========================================================
+-- LOGIC SMART INSERTION (MULTI-LAYER SPAWN ENGINE)
+-- ========================================================
+local function insertAssetIntoGame(assetId)
+    local numId = tonumber(assetId)
+    if not numId or numId <= 0 then return false end
+
+    -- Selalu copy ke clipboard sebagai cadangan pasti
+    if copyClipboard then
+        copyClipboard(tostring(numId))
+    end
+
+    local spawned = false
+
+    -- 1. Cari RemoteEvent / RemoteFunction game Studio Lite untuk spawn
+    pcall(function()
+        for _, obj in ipairs(game:GetDescendants()) do
+            if obj:IsA("RemoteEvent") or obj:IsA("RemoteFunction") then
+                local n = obj.Name:lower()
+                if string.find(n, "insert") or string.find(n, "loadasset") or string.find(n, "spawnmodel") or string.find(n, "toolbox") then
+                    if obj:IsA("RemoteEvent") then
+                        obj:FireServer(numId)
+                        spawned = true
+                    else
+                        obj:InvokeServer(numId)
+                        spawned = true
+                    end
+                end
+            end
+        end
+    end)
+
+    -- 2. Bypass langsung lewat engine GetObjects jika executor mengizinkan
+    if not spawned then
+        local success, objects = pcall(function()
+            return game:GetObjects("rbxassetid://" .. tostring(numId))
+        end)
+        if success and objects and #objects > 0 then
+            for _, item in ipairs(objects) do
+                item.Parent = workspace
+                if item:IsA("Model") and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                    item:MoveTo(LocalPlayer.Character.HumanoidRootPart.Position + LocalPlayer.Character.HumanoidRootPart.CFrame.LookVector * 6)
+                end
+            end
+            spawned = true
+        end
+    end
+
+    -- 3. Cek InsertService standar
+    if not spawned then
+        pcall(function()
+            local model = game:GetService("InsertService"):LoadAsset(numId)
+            if model then
+                model.Parent = workspace
+                spawned = true
+            end
+        end)
+    end
+
+    -- 4. Auto-fill ke TextBox in-game Studio Lite jika tersedia di layar
+    pcall(function()
+        for _, gui in ipairs(LocalPlayer.PlayerGui:GetDescendants()) do
+            if gui:IsA("TextBox") then
+                local n = gui.Name:lower()
+                local ph = gui.PlaceholderText:lower()
+                if string.find(n, "id") or string.find(n, "asset") or string.find(ph, "id") or string.find(ph, "asset") then
+                    gui.Text = tostring(numId)
+                end
+            end
+        end
+    end)
+
+    return spawned
+end
+
 -- ==========================================
--- SISI KIRI (WIDTH: 220px) - SEARCH & DETAIL
+-- SISI KIRI (WIDTH: 235px) - SEARCH & DETAIL
 -- ==========================================
 local LeftPanel = Instance.new("Frame")
-LeftPanel.Size = UDim2.new(0, 220, 1, 0)
+LeftPanel.Size = UDim2.new(0, 235, 1, 0)
 LeftPanel.BackgroundTransparency = 1
 LeftPanel.Parent = ContentContainer
 
--- Box 1: Search & Direct ID
+-- Box 1: Search & Direct Insert
 local SearchSection = Instance.new("Frame")
-SearchSection.Size = UDim2.new(1, 0, 0, 118)
+SearchSection.Size = UDim2.new(1, 0, 0, 122)
 SearchSection.BackgroundColor3 = Color3.fromRGB(18, 18, 22)
 SearchSection.Parent = LeftPanel
 Instance.new("UICorner", SearchSection).CornerRadius = UDim.new(0, 8)
@@ -127,9 +212,9 @@ SS_Stroke.Color = Color3.fromRGB(255, 255, 255)
 SS_Stroke.Thickness = 1
 SS_Stroke.Transparency = 0.75
 
--- Row 1: Direct Load ID
+-- Direct Insert ID
 local IdBox = Instance.new("TextBox")
-IdBox.Size = UDim2.new(1, -66, 0, 24)
+IdBox.Size = UDim2.new(1, -72, 0, 25)
 IdBox.Position = UDim2.new(0, 6, 0, 8)
 IdBox.BackgroundColor3 = Color3.fromRGB(24, 24, 28)
 IdBox.PlaceholderText = "Masukkan Asset ID..."
@@ -142,21 +227,21 @@ IdBox.ClearTextOnFocus = false
 IdBox.Parent = SearchSection
 Instance.new("UICorner", IdBox).CornerRadius = UDim.new(0, 5)
 
-local LoadIdBtn = Instance.new("TextButton")
-LoadIdBtn.Size = UDim2.new(0, 50, 0, 24)
-LoadIdBtn.Position = UDim2.new(1, -56, 0, 8)
-LoadIdBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-LoadIdBtn.Text = "LOAD"
-LoadIdBtn.Font = Enum.Font.GothamBold
-LoadIdBtn.TextSize = 9
-LoadIdBtn.TextColor3 = Color3.fromRGB(0, 0, 0)
-LoadIdBtn.Parent = SearchSection
-Instance.new("UICorner", LoadIdBtn).CornerRadius = UDim.new(0, 5)
+local InsertIdBtn = Instance.new("TextButton")
+InsertIdBtn.Size = UDim2.new(0, 56, 0, 25)
+InsertIdBtn.Position = UDim2.new(1, -62, 0, 8)
+InsertIdBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+InsertIdBtn.Text = "INSERT"
+InsertIdBtn.Font = Enum.Font.GothamBold
+InsertIdBtn.TextSize = 9
+InsertIdBtn.TextColor3 = Color3.fromRGB(0, 0, 0)
+InsertIdBtn.Parent = SearchSection
+Instance.new("UICorner", InsertIdBtn).CornerRadius = UDim.new(0, 5)
 
--- Row 2: Keyword Search
+-- Keyword Search
 local SearchBox = Instance.new("TextBox")
-SearchBox.Size = UDim2.new(1, -66, 0, 24)
-SearchBox.Position = UDim2.new(0, 6, 0, 36)
+SearchBox.Size = UDim2.new(1, -72, 0, 25)
+SearchBox.Position = UDim2.new(0, 6, 0, 38)
 SearchBox.BackgroundColor3 = Color3.fromRGB(24, 24, 28)
 SearchBox.PlaceholderText = "Cari kata kunci..."
 SearchBox.PlaceholderColor3 = Color3.fromRGB(110, 110, 120)
@@ -169,8 +254,8 @@ SearchBox.Parent = SearchSection
 Instance.new("UICorner", SearchBox).CornerRadius = UDim.new(0, 5)
 
 local SearchBtn = Instance.new("TextButton")
-SearchBtn.Size = UDim2.new(0, 50, 0, 24)
-SearchBtn.Position = UDim2.new(1, -56, 0, 36)
+SearchBtn.Size = UDim2.new(0, 56, 0, 25)
+SearchBtn.Position = UDim2.new(1, -62, 0, 38)
 SearchBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
 SearchBtn.Text = "CARI"
 SearchBtn.Font = Enum.Font.GothamBold
@@ -179,7 +264,7 @@ SearchBtn.TextColor3 = Color3.fromRGB(0, 0, 0)
 SearchBtn.Parent = SearchSection
 Instance.new("UICorner", SearchBtn).CornerRadius = UDim.new(0, 5)
 
--- Row 3: Category Selector Pills
+-- Category Pills
 local selectedCategory = 10
 local categoryButtons = {}
 local categories = {
@@ -191,7 +276,7 @@ local categories = {
 
 local CatRow = Instance.new("Frame")
 CatRow.Size = UDim2.new(1, -12, 0, 20)
-CatRow.Position = UDim2.new(0, 6, 0, 65)
+CatRow.Position = UDim2.new(0, 6, 0, 68)
 CatRow.BackgroundTransparency = 1
 CatRow.Parent = SearchSection
 
@@ -237,12 +322,11 @@ for _, cat in ipairs(categories) do
 end
 updateTabs()
 
--- Status Text
 local SearchStatus = Instance.new("TextLabel")
-SearchStatus.Size = UDim2.new(1, -12, 0, 20)
-SearchStatus.Position = UDim2.new(0, 6, 0, 90)
+SearchStatus.Size = UDim2.new(1, -12, 0, 18)
+SearchStatus.Position = UDim2.new(0, 6, 0, 94)
 SearchStatus.BackgroundTransparency = 1
-SearchStatus.Text = "[•] Mode: Model | Siap cari"
+SearchStatus.Text = "[•] Mode: Model | Siap insert"
 SearchStatus.Font = Enum.Font.Gotham
 SearchStatus.TextSize = 9
 SearchStatus.TextColor3 = Color3.fromRGB(140, 140, 150)
@@ -251,8 +335,8 @@ SearchStatus.Parent = SearchSection
 
 -- Box 2: Detail Asset Panel (Inspector)
 local DetailBox = Instance.new("Frame")
-DetailBox.Size = UDim2.new(1, 0, 1, -124)
-DetailBox.Position = UDim2.new(0, 0, 0, 124)
+DetailBox.Size = UDim2.new(1, 0, 1, -128)
+DetailBox.Position = UDim2.new(0, 0, 0, 128)
 DetailBox.BackgroundColor3 = Color3.fromRGB(18, 18, 22)
 DetailBox.Parent = LeftPanel
 Instance.new("UICorner", DetailBox).CornerRadius = UDim.new(0, 8)
@@ -274,7 +358,7 @@ DetailTitle.TextXAlignment = Enum.TextXAlignment.Left
 DetailTitle.Parent = DetailBox
 
 local DetailThumb = Instance.new("ImageLabel")
-DetailThumb.Size = UDim2.new(0, 50, 0, 50)
+DetailThumb.Size = UDim2.new(0, 54, 0, 54)
 DetailThumb.Position = UDim2.new(0, 8, 0, 24)
 DetailThumb.BackgroundColor3 = Color3.fromRGB(26, 26, 30)
 DetailThumb.Image = ""
@@ -287,8 +371,8 @@ DT_Stroke.Thickness = 1
 DT_Stroke.Transparency = 0.8
 
 local DetailName = Instance.new("TextLabel")
-DetailName.Size = UDim2.new(1, -68, 0, 24)
-DetailName.Position = UDim2.new(0, 64, 0, 22)
+DetailName.Size = UDim2.new(1, -72, 0, 26)
+DetailName.Position = UDim2.new(0, 68, 0, 22)
 DetailName.BackgroundTransparency = 1
 DetailName.Text = "Pilih aset dari grid"
 DetailName.Font = Enum.Font.GothamBold
@@ -300,8 +384,8 @@ DetailName.TextWrapped = true
 DetailName.Parent = DetailBox
 
 local DetailCreator = Instance.new("TextLabel")
-DetailCreator.Size = UDim2.new(1, -68, 0, 14)
-DetailCreator.Position = UDim2.new(0, 64, 0, 46)
+DetailCreator.Size = UDim2.new(1, -72, 0, 14)
+DetailCreator.Position = UDim2.new(0, 68, 0, 48)
 DetailCreator.BackgroundTransparency = 1
 DetailCreator.Text = "By: -"
 DetailCreator.Font = Enum.Font.Gotham
@@ -311,8 +395,8 @@ DetailCreator.TextXAlignment = Enum.TextXAlignment.Left
 DetailCreator.Parent = DetailBox
 
 local DetailId = Instance.new("TextLabel")
-DetailId.Size = UDim2.new(1, -68, 0, 14)
-DetailId.Position = UDim2.new(0, 64, 0, 58)
+DetailId.Size = UDim2.new(1, -72, 0, 14)
+DetailId.Position = UDim2.new(0, 68, 0, 62)
 DetailId.BackgroundTransparency = 1
 DetailId.Text = "ID: -"
 DetailId.Font = Enum.Font.Gotham
@@ -321,43 +405,65 @@ DetailId.TextColor3 = Color3.fromRGB(150, 150, 160)
 DetailId.TextXAlignment = Enum.TextXAlignment.Left
 DetailId.Parent = DetailBox
 
-local DetailWarning = Instance.new("TextLabel")
-DetailWarning.Size = UDim2.new(1, -16, 0, 20)
-DetailWarning.Position = UDim2.new(0, 8, 0, 78)
-DetailWarning.BackgroundTransparency = 1
-DetailWarning.Text = "[!] Siap dimasukkan ke Studio Lite"
-DetailWarning.Font = Enum.Font.Gotham
-DetailWarning.TextSize = 8
-DetailWarning.TextColor3 = Color3.fromRGB(180, 180, 190)
-DetailWarning.TextXAlignment = Enum.TextXAlignment.Left
-DetailWarning.Parent = DetailBox
+local currentInspectedId = ""
 
--- Tombol Copy ID di Inspector
+-- Tombol Aksi Detail: INSERT & COPY ID
+local DetailBtnRow = Instance.new("Frame")
+DetailBtnRow.Size = UDim2.new(1, -16, 0, 26)
+DetailBtnRow.Position = UDim2.new(0, 8, 1, -32)
+DetailBtnRow.BackgroundTransparency = 1
+DetailBtnRow.Parent = DetailBox
+
+local DetailInsertBtn = Instance.new("TextButton")
+DetailInsertBtn.Size = UDim2.new(0.5, -3, 1, 0)
+DetailInsertBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+DetailInsertBtn.Text = "INSERT"
+DetailInsertBtn.Font = Enum.Font.GothamBold
+DetailInsertBtn.TextSize = 9
+DetailInsertBtn.TextColor3 = Color3.fromRGB(0, 0, 0)
+DetailInsertBtn.Parent = DetailBtnRow
+Instance.new("UICorner", DetailInsertBtn).CornerRadius = UDim.new(0, 5)
+
 local DetailCopyBtn = Instance.new("TextButton")
-DetailCopyBtn.Size = UDim2.new(1, -16, 0, 26)
-DetailCopyBtn.Position = UDim2.new(0, 8, 1, -32)
+DetailCopyBtn.Size = UDim2.new(0.5, -3, 1, 0)
+DetailCopyBtn.Position = UDim2.new(0.5, 3, 0, 0)
 DetailCopyBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-DetailCopyBtn.Text = "COPY ASSET ID"
+DetailCopyBtn.Text = "COPY ID"
 DetailCopyBtn.Font = Enum.Font.GothamBold
 DetailCopyBtn.TextSize = 9
 DetailCopyBtn.TextColor3 = Color3.fromRGB(0, 0, 0)
-DetailCopyBtn.Parent = DetailBox
-Instance.new("UICorner", DetailCopyBtn).CornerRadius = UDim.new(0, 6)
+DetailCopyBtn.Parent = DetailBtnRow
+Instance.new("UICorner", DetailCopyBtn).CornerRadius = UDim.new(0, 5)
 
-local currentInspectedId = ""
 DetailCopyBtn.MouseButton1Click:Connect(function()
     if currentInspectedId ~= "" and copyClipboard then
         copyClipboard(currentInspectedId)
-        DetailCopyBtn.Text = "ID TERSALIN ✓"
-        task.delay(1.5, function()
+        DetailCopyBtn.Text = "COPIED ✓"
+        task.delay(1.2, function()
             if DetailCopyBtn and DetailCopyBtn.Parent then
-                DetailCopyBtn.Text = "COPY ASSET ID"
+                DetailCopyBtn.Text = "COPY ID"
             end
         end)
     end
 end)
 
--- Fungsi untuk update isi Detail Inspector
+DetailInsertBtn.MouseButton1Click:Connect(function()
+    if currentInspectedId ~= "" then
+        DetailInsertBtn.Text = "INSERTING..."
+        task.spawn(function()
+            local ok = insertAssetIntoGame(currentInspectedId)
+            if DetailInsertBtn and DetailInsertBtn.Parent then
+                DetailInsertBtn.Text = ok and "INSERTED ✓" or "COPIED ✓"
+                task.delay(1.5, function()
+                    if DetailInsertBtn and DetailInsertBtn.Parent then
+                        DetailInsertBtn.Text = "INSERT"
+                    end
+                end)
+            end
+        end)
+    end
+end)
+
 local function inspectAsset(assetId, name, creator)
     currentInspectedId = tostring(assetId)
     DetailThumb.Image = "rbxthumb://type=Asset&id=" .. currentInspectedId .. "&w=150&h=150"
@@ -365,7 +471,6 @@ local function inspectAsset(assetId, name, creator)
     DetailCreator.Text = "By: @" .. (creator or "Unknown")
     DetailId.Text = "ID: " .. currentInspectedId
 
-    -- Fetch nama resmi
     local num = tonumber(currentInspectedId)
     if num and num > 0 then
         task.spawn(function()
@@ -382,11 +487,11 @@ local function inspectAsset(assetId, name, creator)
 end
 
 -- ========================================================
--- SISI KANAN (WIDTH: Sisa ~336px) - ASSET BROWSER GRID (3-COL)
+-- SISI KANAN (WIDTH: Sisa ~365px) - ASSET BROWSER GRID
 -- ========================================================
 local RightPanel = Instance.new("Frame")
-RightPanel.Size = UDim2.new(1, -228, 1, 0)
-RightPanel.Position = UDim2.new(0, 228, 0, 0)
+RightPanel.Size = UDim2.new(1, -243, 1, 0)
+RightPanel.Position = UDim2.new(0, 243, 0, 0)
 RightPanel.BackgroundColor3 = Color3.fromRGB(18, 18, 22)
 RightPanel.Parent = ContentContainer
 Instance.new("UICorner", RightPanel).CornerRadius = UDim.new(0, 8)
@@ -416,7 +521,7 @@ GridScroll.ScrollBarImageColor3 = Color3.fromRGB(255, 255, 255)
 GridScroll.Parent = RightPanel
 
 local UIGrid = Instance.new("UIGridLayout")
-UIGrid.CellSize = UDim2.new(0, 98, 0, 110)
+UIGrid.CellSize = UDim2.new(0, 108, 0, 118)
 UIGrid.CellPadding = UDim2.new(0, 6, 0, 6)
 UIGrid.SortOrder = Enum.SortOrder.LayoutOrder
 UIGrid.Parent = GridScroll
@@ -430,7 +535,7 @@ GridStatus.TextSize = 10
 GridStatus.TextColor3 = Color3.fromRGB(140, 140, 150)
 GridStatus.Parent = GridScroll
 
--- DRAGGABLE ENGINE
+-- DRAGGABLE ENGINE (TOUCH & MOUSE)
 local function makeDraggable(frame, handle)
     handle = handle or frame
     local dragging, dragStart, startPos = false, nil, nil
@@ -465,13 +570,13 @@ local function toggleWindow()
     isOpen = not isOpen
     if isOpen then
         MainFrame.Visible = true
-        MainFrame.Size = UDim2.new(0, 560, 0, 295)
+        MainFrame.Size = UDim2.new(0, 600, 0, 320)
         TweenService:Create(MainFrame, TweenInfo.new(0.2, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-            Size = UDim2.new(0, 580, 0, 310)
+            Size = UDim2.new(0, 620, 0, 335)
         }):Play()
     else
         local tween = TweenService:Create(MainFrame, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
-            Size = UDim2.new(0, 550, 0, 285)
+            Size = UDim2.new(0, 590, 0, 310)
         })
         tween:Play()
         tween.Completed:Connect(function()
@@ -525,7 +630,6 @@ local function renderGrid(data)
 
     GridStatus.Visible = false
 
-    -- Set preview pertama kali ke item pertama
     local first = data[1]
     if first then
         local fId = first.id or (first.asset and first.asset.id) or "0"
@@ -539,7 +643,6 @@ local function renderGrid(data)
         local assetName = item.name or (item.asset and item.asset.name) or "Asset"
         local creatorName = (item.creator and item.creator.name) or (item.asset and item.asset.creator and item.asset.creator.name) or "Unknown"
 
-        -- Card Box
         local Card = Instance.new("Frame")
         Card.BackgroundColor3 = Color3.fromRGB(24, 24, 28)
         Card.BorderSizePixel = 0
@@ -554,7 +657,7 @@ local function renderGrid(data)
 
         -- Thumbnail
         local Thumb = Instance.new("ImageLabel")
-        Thumb.Size = UDim2.new(1, -8, 0, 50)
+        Thumb.Size = UDim2.new(1, -8, 0, 52)
         Thumb.Position = UDim2.new(0, 4, 0, 4)
         Thumb.BackgroundColor3 = Color3.fromRGB(30, 30, 36)
         Thumb.Image = "rbxthumb://type=Asset&id=" .. assetId .. "&w=150&h=150"
@@ -564,7 +667,7 @@ local function renderGrid(data)
         -- Title
         local NameLbl = Instance.new("TextLabel")
         NameLbl.Size = UDim2.new(1, -8, 0, 14)
-        NameLbl.Position = UDim2.new(0, 4, 0, 56)
+        NameLbl.Position = UDim2.new(0, 4, 0, 58)
         NameLbl.BackgroundTransparency = 1
         NameLbl.Text = assetName
         NameLbl.Font = Enum.Font.GothamBold
@@ -574,10 +677,10 @@ local function renderGrid(data)
         NameLbl.TextTruncate = Enum.TextTruncate.AtEnd
         NameLbl.Parent = Card
 
-        -- Creator / ID
+        -- Creator
         local SubLbl = Instance.new("TextLabel")
         SubLbl.Size = UDim2.new(1, -8, 0, 12)
-        SubLbl.Position = UDim2.new(0, 4, 0, 70)
+        SubLbl.Position = UDim2.new(0, 4, 0, 72)
         SubLbl.BackgroundTransparency = 1
         SubLbl.Text = "@" .. creatorName
         SubLbl.Font = Enum.Font.Gotham
@@ -587,22 +690,38 @@ local function renderGrid(data)
         SubLbl.TextTruncate = Enum.TextTruncate.AtEnd
         SubLbl.Parent = Card
 
-        -- Copy Button
+        -- Tombol Row di Kartu: INSERT & COPY
+        local CardBtnRow = Instance.new("Frame")
+        CardBtnRow.Size = UDim2.new(1, -8, 0, 18)
+        CardBtnRow.Position = UDim2.new(0, 4, 1, -22)
+        CardBtnRow.BackgroundTransparency = 1
+        CardBtnRow.Parent = Card
+
+        local CardInsert = Instance.new("TextButton")
+        CardInsert.Size = UDim2.new(0.5, -2, 1, 0)
+        CardInsert.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+        CardInsert.Text = "INSERT"
+        CardInsert.Font = Enum.Font.GothamBold
+        CardInsert.TextSize = 8
+        CardInsert.TextColor3 = Color3.fromRGB(0, 0, 0)
+        CardInsert.Parent = CardBtnRow
+        Instance.new("UICorner", CardInsert).CornerRadius = UDim.new(0, 4)
+
         local CardCopy = Instance.new("TextButton")
-        CardCopy.Size = UDim2.new(1, -8, 0, 18)
-        CardCopy.Position = UDim2.new(0, 4, 1, -22)
+        CardCopy.Size = UDim2.new(0.5, -2, 1, 0)
+        CardCopy.Position = UDim2.new(0.5, 2, 0, 0)
         CardCopy.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
         CardCopy.Text = "COPY"
         CardCopy.Font = Enum.Font.GothamBold
         CardCopy.TextSize = 8
         CardCopy.TextColor3 = Color3.fromRGB(0, 0, 0)
-        CardCopy.Parent = Card
+        CardCopy.Parent = CardBtnRow
         Instance.new("UICorner", CardCopy).CornerRadius = UDim.new(0, 4)
 
         CardCopy.MouseButton1Click:Connect(function()
             if copyClipboard then
                 copyClipboard(assetId)
-                CardCopy.Text = "COPIED ✓"
+                CardCopy.Text = "✓"
                 task.delay(1.2, function()
                     if CardCopy and CardCopy.Parent then
                         CardCopy.Text = "COPY"
@@ -611,10 +730,24 @@ local function renderGrid(data)
             end
         end)
 
-        -- Klik kartu untuk inspeksi di detail panel kiri
+        CardInsert.MouseButton1Click:Connect(function()
+            CardInsert.Text = "..."
+            task.spawn(function()
+                local ok = insertAssetIntoGame(assetId)
+                if CardInsert and CardInsert.Parent then
+                    CardInsert.Text = ok and "✓" or "COPY"
+                    task.delay(1.2, function()
+                        if CardInsert and CardInsert.Parent then
+                            CardInsert.Text = "INSERT"
+                        end
+                    end)
+                end
+            end)
+        end)
+
+        -- Hitbox Thumbnail untuk Inspeksi Detail
         local Hitbox = Instance.new("TextButton")
-        Hitbox.Size = UDim2.new(1, 0, 0, 84)
-        Hitbox.Position = UDim2.new(0, 0, 0, 0)
+        Hitbox.Size = UDim2.new(1, 0, 0, 86)
         Hitbox.BackgroundTransparency = 1
         Hitbox.Text = ""
         Hitbox.Parent = Card
@@ -663,19 +796,22 @@ SearchBox.FocusLost:Connect(function(enterPressed)
     if enterPressed then executeSearch() end
 end)
 
--- Listener Direct ID Load
-LoadIdBtn.MouseButton1Click:Connect(function()
+-- Listener Direct ID Insert Button
+InsertIdBtn.MouseButton1Click:Connect(function()
     local inputId = IdBox.Text:gsub("%D+", "")
     if inputId ~= "" then
         inspectAsset(inputId, "Memuat Asset ID...", "Mencari...")
-        if copyClipboard then
-            copyClipboard(inputId)
-            LoadIdBtn.Text = "COPIED"
-            task.delay(1.2, function()
-                if LoadIdBtn and LoadIdBtn.Parent then
-                    LoadIdBtn.Text = "LOAD"
-                end
-            end)
-        end
+        InsertIdBtn.Text = "..."
+        task.spawn(function()
+            local ok = insertAssetIntoGame(inputId)
+            if InsertIdBtn and InsertIdBtn.Parent then
+                InsertIdBtn.Text = ok and "INSERTED ✓" or "COPIED ✓"
+                task.delay(1.5, function()
+                    if InsertIdBtn and InsertIdBtn.Parent then
+                        InsertIdBtn.Text = "INSERT"
+                    end
+                end)
+            end
+        end)
     end
 end)
