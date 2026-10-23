@@ -1,7 +1,8 @@
 -- =======================================================
--- BLUExCrown ENGINE v4.1 - FIXED EDITION
+-- BLUExCrown ENGINE v5.0 - STUDIO LITE FIXED
 -- MENU: Splash | TOOLBOX ASSET | INSERT RBXM
--- Fix: syntax error + nil function guards
+-- Fix: Correct Studio Lite RemoteFunction endpoint
+-- Logic: Based on LANGZ IMPORTER v62 research
 -- Toggle Asset ID: 102337382069600
 -- =======================================================
 
@@ -11,6 +12,7 @@ local TweenService       = game:GetService("TweenService")
 local UserInputService   = game:GetService("UserInputService")
 local CoreGui            = game:GetService("CoreGui")
 local Players            = game:GetService("Players")
+local ReplicatedStorage  = game:GetService("ReplicatedStorage")
 
 local LP = Players.LocalPlayer
 local ParentGui = (gethui and gethui()) or CoreGui or LP:WaitForChild("PlayerGui")
@@ -25,18 +27,69 @@ if not httpRequest then
     return
 end
 
--- Bersihkan GUI lama
-if ParentGui:FindFirstChild("BLUExCrownV4") then
-    ParentGui.BLUExCrownV4:Destroy()
+local slFolder   = ReplicatedStorage:FindFirstChild("StudioLiteFolder")
+local serverFuncs = slFolder and slFolder:FindFirstChild("ServerFunctions")
+
+local function triggerServerLoad(idStr)
+    if not serverFuncs or not idStr or idStr == "" then return end
+    local id = tostring(idStr):match("%d+")
+    if id and tonumber(id) and tonumber(id) > 0 then
+        pcall(function()
+            serverFuncs:InvokeServer("LoadMeshToRuntimeMeshes", tonumber(id))
+        end)
+    end
+end
+
+local function applyStudioLiteProps(obj)
+    if not obj then return end
+    pcall(function()
+        if obj:IsA("BasePart") then
+            local origAnchor  = obj.Anchored
+            local origCollide = obj.CanCollide
+            obj.Anchored = true
+            if obj:GetAttribute("SL_Anchored") == nil then
+                obj:SetAttribute("SL_Anchored", origAnchor)
+            end
+            if obj:GetAttribute("SL_CanCollide") == nil then
+                obj:SetAttribute("SL_CanCollide", origCollide)
+            end
+        end
+    end)
+    for _, child in ipairs(obj:GetChildren()) do
+        applyStudioLiteProps(child)
+    end
+end
+
+local function loadAssetsToSLServer(obj)
+    local function scan(node)
+        pcall(function()
+            if node:IsA("MeshPart") then
+                triggerServerLoad(node.MeshId)
+                triggerServerLoad(node.TextureID)
+            elseif node:IsA("Decal") or node:IsA("Texture") then
+                triggerServerLoad(node.Texture)
+            elseif node:IsA("SpecialMesh") then
+                triggerServerLoad(node.MeshId)
+                triggerServerLoad(node.TextureId)
+            elseif node:IsA("UnionOperation") or node:IsA("PartOperation") then
+                triggerServerLoad(node.AssetId)
+            end
+        end)
+        for _, child in ipairs(node:GetChildren()) do scan(child) end
+    end
+    scan(obj)
+end
+
+if ParentGui:FindFirstChild("BLUExCrownV5") then
+    ParentGui.BLUExCrownV5:Destroy()
 end
 
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "BLUExCrownV4"
+ScreenGui.Name = "BLUExCrownV5"
 ScreenGui.ResetOnSpawn = false
 ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 ScreenGui.Parent = ParentGui
 
--- ===================== HELPERS =====================
 local function makeCorner(parent, radius)
     local c = Instance.new("UICorner", parent)
     c.CornerRadius = UDim.new(0, radius or 8)
@@ -55,7 +108,6 @@ end
 local tweenQuick  = TweenInfo.new(0.18, Enum.EasingStyle.Quad,  Enum.EasingDirection.Out)
 local tweenBounce = TweenInfo.new(0.22, Enum.EasingStyle.Back,  Enum.EasingDirection.Out)
 
--- ===================== TOGGLE BUTTON =====================
 local ToggleBtn = Instance.new("ImageButton")
 ToggleBtn.Size = UDim2.new(0, 42, 0, 42)
 ToggleBtn.Position = UDim2.new(0.02, 0, 0.45, 0)
@@ -66,7 +118,6 @@ ToggleBtn.Parent = ScreenGui
 makeCorner(ToggleBtn, 8)
 makeStroke(ToggleBtn, Color3.fromRGB(255,255,255), 1.4)
 
--- ===================== MAIN WINDOW =====================
 local MainFrame = Instance.new("Frame")
 MainFrame.Name = "MainFrame"
 MainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
@@ -79,7 +130,6 @@ MainFrame.Parent = ScreenGui
 makeCorner(MainFrame, 10)
 makeStroke(MainFrame, Color3.fromRGB(255,255,255), 1.4)
 
--- TOP BAR
 local TopBar = Instance.new("Frame")
 TopBar.Size = UDim2.new(1, -12, 0, 30)
 TopBar.Position = UDim2.new(0, 6, 0, 6)
@@ -93,7 +143,7 @@ local TitleLbl = Instance.new("TextLabel")
 TitleLbl.Size = UDim2.new(1, -50, 1, 0)
 TitleLbl.Position = UDim2.new(0, 12, 0, 0)
 TitleLbl.BackgroundTransparency = 1
-TitleLbl.Text = "BLUExCrown ENGINE v4.1"
+TitleLbl.Text = "BLUExCrown ENGINE v5.0"
 TitleLbl.Font = Enum.Font.GothamBold
 TitleLbl.TextSize = 11
 TitleLbl.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -112,16 +162,12 @@ CloseBtn.Parent = TopBar
 makeCorner(CloseBtn, 6)
 makeStroke(CloseBtn, Color3.fromRGB(255,255,255), 1, 0.55)
 
--- CONTENT AREA
 local Content = Instance.new("Frame")
 Content.Size = UDim2.new(1, -12, 1, -46)
 Content.Position = UDim2.new(0, 6, 0, 40)
 Content.BackgroundTransparency = 1
 Content.Parent = MainFrame
 
--- =====================================================
--- PAGE CONTAINER
--- =====================================================
 local PageSplash  = Instance.new("Frame")
 local PageToolbox = Instance.new("Frame")
 local PageRBXM    = Instance.new("Frame")
@@ -134,11 +180,6 @@ for _, pg in ipairs({PageSplash, PageToolbox, PageRBXM}) do
 end
 PageSplash.Visible = true
 
--- =====================================================
--- PAGE 1: SPLASH SCREEN (HOME)
--- =====================================================
-
--- KIRI: Profil Player
 local ProfileCard = Instance.new("Frame")
 ProfileCard.Size = UDim2.new(0, 175, 1, 0)
 ProfileCard.BackgroundColor3 = Color3.fromRGB(17, 17, 22)
@@ -188,11 +229,23 @@ SepLine.BackgroundTransparency = 0.85
 SepLine.BorderSizePixel = 0
 SepLine.Parent = ProfileCard
 
+local SLStatusLbl = Instance.new("TextLabel")
+SLStatusLbl.Size = UDim2.new(1, -16, 0, 14)
+SLStatusLbl.Position = UDim2.new(0, 8, 0, 144)
+SLStatusLbl.BackgroundTransparency = 1
+SLStatusLbl.Text = serverFuncs and "[OK] Studio Lite Connected" or "[!] Studio Lite: Not found"
+SLStatusLbl.Font = Enum.Font.Gotham
+SLStatusLbl.TextSize = 8
+SLStatusLbl.TextColor3 = serverFuncs and Color3.fromRGB(120, 220, 120) or Color3.fromRGB(220, 120, 120)
+SLStatusLbl.TextXAlignment = Enum.TextXAlignment.Center
+SLStatusLbl.TextWrapped = true
+SLStatusLbl.Parent = ProfileCard
+
 local StatsLbl = Instance.new("TextLabel")
-StatsLbl.Size = UDim2.new(1, -16, 1, -148)
-StatsLbl.Position = UDim2.new(0, 8, 0, 144)
+StatsLbl.Size = UDim2.new(1, -16, 1, -168)
+StatsLbl.Position = UDim2.new(0, 8, 0, 162)
 StatsLbl.BackgroundTransparency = 1
-StatsLbl.Text = "UserID: "..tostring(LP.UserId).."\nBLUExCrown ENGINE\nv4.1 — Delta Mobile"
+StatsLbl.Text = "UserID: "..tostring(LP.UserId).."\nBLUExCrown ENGINE\nv5.0 — Delta Mobile"
 StatsLbl.Font = Enum.Font.Gotham
 StatsLbl.TextSize = 9
 StatsLbl.TextColor3 = Color3.fromRGB(130, 130, 140)
@@ -200,7 +253,6 @@ StatsLbl.TextXAlignment = Enum.TextXAlignment.Center
 StatsLbl.TextWrapped = true
 StatsLbl.Parent = ProfileCard
 
--- KANAN: Menu Area
 local MenuArea = Instance.new("Frame")
 MenuArea.Size = UDim2.new(1, -183, 1, 0)
 MenuArea.Position = UDim2.new(0, 183, 0, 0)
@@ -226,7 +278,6 @@ local function makeMenuCard(parent, posY, icon, title, subtitle)
     card.Parent = parent
     makeCorner(card, 8)
     makeStroke(card, Color3.fromRGB(255,255,255), 1, 0.78)
-
     local iconLbl = Instance.new("TextLabel")
     iconLbl.Size = UDim2.new(0, 44, 0, 44)
     iconLbl.Position = UDim2.new(0, 14, 0.5, -22)
@@ -237,7 +288,6 @@ local function makeMenuCard(parent, posY, icon, title, subtitle)
     iconLbl.TextColor3 = Color3.fromRGB(255, 255, 255)
     iconLbl.Parent = card
     makeCorner(iconLbl, 8)
-
     local titleL = Instance.new("TextLabel")
     titleL.Size = UDim2.new(1, -80, 0, 20)
     titleL.Position = UDim2.new(0, 68, 0, 16)
@@ -248,7 +298,6 @@ local function makeMenuCard(parent, posY, icon, title, subtitle)
     titleL.TextColor3 = Color3.fromRGB(255, 255, 255)
     titleL.TextXAlignment = Enum.TextXAlignment.Left
     titleL.Parent = card
-
     local subL = Instance.new("TextLabel")
     subL.Size = UDim2.new(1, -80, 0, 16)
     subL.Position = UDim2.new(0, 68, 0, 37)
@@ -259,7 +308,6 @@ local function makeMenuCard(parent, posY, icon, title, subtitle)
     subL.TextColor3 = Color3.fromRGB(150, 150, 160)
     subL.TextXAlignment = Enum.TextXAlignment.Left
     subL.Parent = card
-
     local arrow = Instance.new("TextLabel")
     arrow.Size = UDim2.new(0, 20, 0, 20)
     arrow.Position = UDim2.new(1, -28, 0.5, -10)
@@ -269,23 +317,18 @@ local function makeMenuCard(parent, posY, icon, title, subtitle)
     arrow.TextSize = 18
     arrow.TextColor3 = Color3.fromRGB(200, 200, 210)
     arrow.Parent = card
-
     card.MouseEnter:Connect(function()
         TweenService:Create(card, tweenQuick, {BackgroundColor3 = Color3.fromRGB(28,28,34)}):Play()
     end)
     card.MouseLeave:Connect(function()
         TweenService:Create(card, tweenQuick, {BackgroundColor3 = Color3.fromRGB(20,20,25)}):Play()
     end)
-
     return card
 end
 
 local CardToolbox = makeMenuCard(MenuArea, 28,  "[T]", "TOOLBOX ASET",     "Cari & insert model dari Roblox Creator Store")
 local CardRBXM    = makeMenuCard(MenuArea, 108, "[R]", "INSERT RBXM FILE", "Scan file .rbxm dari folder workspace Delta")
 
--- =====================================================
--- HELPER: Back Button
--- =====================================================
 local function makeBackBtn(parent)
     local b = Instance.new("TextButton")
     b.Size = UDim2.new(0, 64, 0, 22)
@@ -300,14 +343,10 @@ local function makeBackBtn(parent)
     return b
 end
 
--- =====================================================
--- PAGE 2: TOOLBOX ASSET
--- =====================================================
 local TbHeader = Instance.new("Frame")
 TbHeader.Size = UDim2.new(1, 0, 0, 28)
 TbHeader.BackgroundTransparency = 1
 TbHeader.Parent = PageToolbox
-
 local TbTitleLbl = Instance.new("TextLabel")
 TbTitleLbl.Size = UDim2.new(1, -80, 1, 0)
 TbTitleLbl.BackgroundTransparency = 1
@@ -317,22 +356,18 @@ TbTitleLbl.TextSize = 11
 TbTitleLbl.TextColor3 = Color3.fromRGB(255, 255, 255)
 TbTitleLbl.TextXAlignment = Enum.TextXAlignment.Left
 TbTitleLbl.Parent = TbHeader
-
 local TbBack = makeBackBtn(TbHeader)
-
 local TbContent = Instance.new("Frame")
 TbContent.Size = UDim2.new(1, 0, 1, -34)
 TbContent.Position = UDim2.new(0, 0, 0, 34)
 TbContent.BackgroundTransparency = 1
 TbContent.Parent = PageToolbox
 
--- LEFT PANEL
 local TbLeft = Instance.new("Frame")
 TbLeft.Size = UDim2.new(0, 220, 1, 0)
 TbLeft.BackgroundTransparency = 1
 TbLeft.Parent = TbContent
 
--- Search Section
 local TbSearchSec = Instance.new("Frame")
 TbSearchSec.Size = UDim2.new(1, 0, 0, 118)
 TbSearchSec.BackgroundColor3 = Color3.fromRGB(18, 18, 22)
@@ -340,7 +375,6 @@ TbSearchSec.Parent = TbLeft
 makeCorner(TbSearchSec, 8)
 makeStroke(TbSearchSec, Color3.fromRGB(255,255,255), 1, 0.78)
 
--- Asset ID input
 local TbIdBox = Instance.new("TextBox")
 TbIdBox.Size = UDim2.new(1, -70, 0, 24)
 TbIdBox.Position = UDim2.new(0, 6, 0, 8)
@@ -366,7 +400,6 @@ TbInsertIdBtn.TextColor3 = Color3.fromRGB(0, 0, 0)
 TbInsertIdBtn.Parent = TbSearchSec
 makeCorner(TbInsertIdBtn, 5)
 
--- Keyword search
 local TbSearchBox = Instance.new("TextBox")
 TbSearchBox.Size = UDim2.new(1, -70, 0, 24)
 TbSearchBox.Position = UDim2.new(0, 6, 0, 36)
@@ -392,55 +425,34 @@ TbSearchBtn.TextColor3 = Color3.fromRGB(0, 0, 0)
 TbSearchBtn.Parent = TbSearchSec
 makeCorner(TbSearchBtn, 5)
 
--- Category Pills
 local selectedCat = 10
 local catBtns = {}
-local cats = {
-    {n="MODEL", id=10},
-    {n="DECAL", id=13},
-    {n="AUDIO", id=3},
-    {n="MESH",  id=11}
-}
-
+local cats = {{n="MODEL",id=10},{n="DECAL",id=13},{n="AUDIO",id=3},{n="MESH",id=11}}
 local TbCatRow = Instance.new("Frame")
 TbCatRow.Size = UDim2.new(1, -12, 0, 20)
 TbCatRow.Position = UDim2.new(0, 6, 0, 65)
 TbCatRow.BackgroundTransparency = 1
 TbCatRow.Parent = TbSearchSec
-
 local catUL = Instance.new("UIListLayout")
 catUL.FillDirection = Enum.FillDirection.Horizontal
 catUL.Padding = UDim.new(0, 4)
 catUL.Parent = TbCatRow
-
 local function updateCatTabs()
     for id, btn in pairs(catBtns) do
-        if id == selectedCat then
-            btn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-            btn.TextColor3 = Color3.fromRGB(0, 0, 0)
-        else
-            btn.BackgroundColor3 = Color3.fromRGB(26, 26, 32)
-            btn.TextColor3 = Color3.fromRGB(160, 160, 170)
-        end
+        if id == selectedCat then btn.BackgroundColor3 = Color3.fromRGB(255,255,255); btn.TextColor3 = Color3.fromRGB(0,0,0)
+        else btn.BackgroundColor3 = Color3.fromRGB(26,26,32); btn.TextColor3 = Color3.fromRGB(160,160,170) end
     end
 end
-
 for _, c in ipairs(cats) do
     local cb = Instance.new("TextButton")
     cb.Size = UDim2.new(0.25, -3, 1, 0)
-    cb.BackgroundColor3 = Color3.fromRGB(26, 26, 32)
-    cb.Text = c.n
-    cb.Font = Enum.Font.GothamBold
-    cb.TextSize = 8
-    cb.TextColor3 = Color3.fromRGB(160, 160, 170)
+    cb.BackgroundColor3 = Color3.fromRGB(26,26,32)
+    cb.Text = c.n; cb.Font = Enum.Font.GothamBold; cb.TextSize = 8
+    cb.TextColor3 = Color3.fromRGB(160,160,170)
     cb.Parent = TbCatRow
-    makeCorner(cb, 4)
-    makeStroke(cb, Color3.fromRGB(255,255,255), 1, 0.82)
+    makeCorner(cb, 4); makeStroke(cb, Color3.fromRGB(255,255,255), 1, 0.82)
     catBtns[c.id] = cb
-    cb.MouseButton1Click:Connect(function()
-        selectedCat = c.id
-        updateCatTabs()
-    end)
+    cb.MouseButton1Click:Connect(function() selectedCat = c.id; updateCatTabs() end)
 end
 updateCatTabs()
 
@@ -449,624 +461,400 @@ TbStatusLbl.Size = UDim2.new(1, -12, 0, 16)
 TbStatusLbl.Position = UDim2.new(0, 6, 0, 90)
 TbStatusLbl.BackgroundTransparency = 1
 TbStatusLbl.Text = "[.] Siap"
-TbStatusLbl.Font = Enum.Font.Gotham
-TbStatusLbl.TextSize = 9
-TbStatusLbl.TextColor3 = Color3.fromRGB(140, 140, 150)
+TbStatusLbl.Font = Enum.Font.Gotham; TbStatusLbl.TextSize = 9
+TbStatusLbl.TextColor3 = Color3.fromRGB(140,140,150)
 TbStatusLbl.TextXAlignment = Enum.TextXAlignment.Left
 TbStatusLbl.Parent = TbSearchSec
 
--- Detail Box
 local TbDetailBox = Instance.new("Frame")
 TbDetailBox.Size = UDim2.new(1, 0, 1, -124)
 TbDetailBox.Position = UDim2.new(0, 0, 0, 124)
 TbDetailBox.BackgroundColor3 = Color3.fromRGB(18, 18, 22)
 TbDetailBox.Parent = TbLeft
-makeCorner(TbDetailBox, 8)
-makeStroke(TbDetailBox, Color3.fromRGB(255,255,255), 1, 0.78)
+makeCorner(TbDetailBox, 8); makeStroke(TbDetailBox, Color3.fromRGB(255,255,255), 1, 0.78)
 
 local TbDetTitleLbl = Instance.new("TextLabel")
-TbDetTitleLbl.Size = UDim2.new(1, -12, 0, 18)
-TbDetTitleLbl.Position = UDim2.new(0, 8, 0, 4)
-TbDetTitleLbl.BackgroundTransparency = 1
-TbDetTitleLbl.Text = "DETAIL ASSET"
-TbDetTitleLbl.Font = Enum.Font.GothamBold
-TbDetTitleLbl.TextSize = 9
-TbDetTitleLbl.TextColor3 = Color3.fromRGB(200, 200, 210)
-TbDetTitleLbl.TextXAlignment = Enum.TextXAlignment.Left
-TbDetTitleLbl.Parent = TbDetailBox
+TbDetTitleLbl.Size = UDim2.new(1,-12,0,18); TbDetTitleLbl.Position = UDim2.new(0,8,0,4)
+TbDetTitleLbl.BackgroundTransparency = 1; TbDetTitleLbl.Text = "DETAIL ASSET"
+TbDetTitleLbl.Font = Enum.Font.GothamBold; TbDetTitleLbl.TextSize = 9
+TbDetTitleLbl.TextColor3 = Color3.fromRGB(200,200,210)
+TbDetTitleLbl.TextXAlignment = Enum.TextXAlignment.Left; TbDetTitleLbl.Parent = TbDetailBox
 
 local TbDetThumb = Instance.new("ImageLabel")
-TbDetThumb.Size = UDim2.new(0, 52, 0, 52)
-TbDetThumb.Position = UDim2.new(0, 8, 0, 24)
-TbDetThumb.BackgroundColor3 = Color3.fromRGB(26, 26, 30)
-TbDetThumb.Image = ""
-TbDetThumb.Parent = TbDetailBox
-makeCorner(TbDetThumb, 6)
-makeStroke(TbDetThumb, Color3.fromRGB(255,255,255), 1, 0.82)
+TbDetThumb.Size = UDim2.new(0,52,0,52); TbDetThumb.Position = UDim2.new(0,8,0,24)
+TbDetThumb.BackgroundColor3 = Color3.fromRGB(26,26,30); TbDetThumb.Image = ""
+TbDetThumb.Parent = TbDetailBox; makeCorner(TbDetThumb, 6); makeStroke(TbDetThumb, Color3.fromRGB(255,255,255), 1, 0.82)
 
 local TbDetName = Instance.new("TextLabel")
-TbDetName.Size = UDim2.new(1, -70, 0, 26)
-TbDetName.Position = UDim2.new(0, 66, 0, 22)
-TbDetName.BackgroundTransparency = 1
-TbDetName.Text = "Pilih aset dari grid"
-TbDetName.Font = Enum.Font.GothamBold
-TbDetName.TextSize = 10
-TbDetName.TextColor3 = Color3.fromRGB(255, 255, 255)
-TbDetName.TextXAlignment = Enum.TextXAlignment.Left
-TbDetName.TextWrapped = true
-TbDetName.Parent = TbDetailBox
+TbDetName.Size = UDim2.new(1,-70,0,26); TbDetName.Position = UDim2.new(0,66,0,22)
+TbDetName.BackgroundTransparency = 1; TbDetName.Text = "Pilih aset dari grid"
+TbDetName.Font = Enum.Font.GothamBold; TbDetName.TextSize = 10
+TbDetName.TextColor3 = Color3.fromRGB(255,255,255)
+TbDetName.TextXAlignment = Enum.TextXAlignment.Left; TbDetName.TextWrapped = true; TbDetName.Parent = TbDetailBox
 
 local TbDetCreator = Instance.new("TextLabel")
-TbDetCreator.Size = UDim2.new(1, -70, 0, 14)
-TbDetCreator.Position = UDim2.new(0, 66, 0, 46)
-TbDetCreator.BackgroundTransparency = 1
-TbDetCreator.Text = "By: -"
-TbDetCreator.Font = Enum.Font.Gotham
-TbDetCreator.TextSize = 8
-TbDetCreator.TextColor3 = Color3.fromRGB(150, 150, 160)
-TbDetCreator.TextXAlignment = Enum.TextXAlignment.Left
-TbDetCreator.Parent = TbDetailBox
+TbDetCreator.Size = UDim2.new(1,-70,0,14); TbDetCreator.Position = UDim2.new(0,66,0,46)
+TbDetCreator.BackgroundTransparency = 1; TbDetCreator.Text = "By: -"
+TbDetCreator.Font = Enum.Font.Gotham; TbDetCreator.TextSize = 8
+TbDetCreator.TextColor3 = Color3.fromRGB(150,150,160)
+TbDetCreator.TextXAlignment = Enum.TextXAlignment.Left; TbDetCreator.Parent = TbDetailBox
 
 local TbDetId = Instance.new("TextLabel")
-TbDetId.Size = UDim2.new(1, -70, 0, 14)
-TbDetId.Position = UDim2.new(0, 66, 0, 60)
-TbDetId.BackgroundTransparency = 1
-TbDetId.Text = "ID: -"
-TbDetId.Font = Enum.Font.Gotham
-TbDetId.TextSize = 8
-TbDetId.TextColor3 = Color3.fromRGB(150, 150, 160)
-TbDetId.TextXAlignment = Enum.TextXAlignment.Left
-TbDetId.Parent = TbDetailBox
+TbDetId.Size = UDim2.new(1,-70,0,14); TbDetId.Position = UDim2.new(0,66,0,60)
+TbDetId.BackgroundTransparency = 1; TbDetId.Text = "ID: -"
+TbDetId.Font = Enum.Font.Gotham; TbDetId.TextSize = 8
+TbDetId.TextColor3 = Color3.fromRGB(150,150,160)
+TbDetId.TextXAlignment = Enum.TextXAlignment.Left; TbDetId.Parent = TbDetailBox
 
 local currentInspId = ""
-
 local TbDetRow = Instance.new("Frame")
-TbDetRow.Size = UDim2.new(1, -16, 0, 26)
-TbDetRow.Position = UDim2.new(0, 8, 1, -32)
-TbDetRow.BackgroundTransparency = 1
-TbDetRow.Parent = TbDetailBox
+TbDetRow.Size = UDim2.new(1,-16,0,26); TbDetRow.Position = UDim2.new(0,8,1,-32)
+TbDetRow.BackgroundTransparency = 1; TbDetRow.Parent = TbDetailBox
 
 local TbDetInsert = Instance.new("TextButton")
-TbDetInsert.Size = UDim2.new(0.5, -3, 1, 0)
-TbDetInsert.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-TbDetInsert.Text = "INSERT"
-TbDetInsert.Font = Enum.Font.GothamBold
-TbDetInsert.TextSize = 9
-TbDetInsert.TextColor3 = Color3.fromRGB(0, 0, 0)
-TbDetInsert.Parent = TbDetRow
-makeCorner(TbDetInsert, 5)
+TbDetInsert.Size = UDim2.new(0.5,-3,1,0); TbDetInsert.BackgroundColor3 = Color3.fromRGB(255,255,255)
+TbDetInsert.Text = "INSERT"; TbDetInsert.Font = Enum.Font.GothamBold; TbDetInsert.TextSize = 9
+TbDetInsert.TextColor3 = Color3.fromRGB(0,0,0); TbDetInsert.Parent = TbDetRow; makeCorner(TbDetInsert, 5)
 
 local TbDetCopy = Instance.new("TextButton")
-TbDetCopy.Size = UDim2.new(0.5, -3, 1, 0)
-TbDetCopy.Position = UDim2.new(0.5, 3, 0, 0)
-TbDetCopy.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-TbDetCopy.Text = "COPY ID"
-TbDetCopy.Font = Enum.Font.GothamBold
-TbDetCopy.TextSize = 9
-TbDetCopy.TextColor3 = Color3.fromRGB(0, 0, 0)
-TbDetCopy.Parent = TbDetRow
-makeCorner(TbDetCopy, 5)
+TbDetCopy.Size = UDim2.new(0.5,-3,1,0); TbDetCopy.Position = UDim2.new(0.5,3,0,0)
+TbDetCopy.BackgroundColor3 = Color3.fromRGB(255,255,255); TbDetCopy.Text = "COPY ID"
+TbDetCopy.Font = Enum.Font.GothamBold; TbDetCopy.TextSize = 9
+TbDetCopy.TextColor3 = Color3.fromRGB(0,0,0); TbDetCopy.Parent = TbDetRow; makeCorner(TbDetCopy, 5)
 
--- RIGHT PANEL: Grid Browser
 local TbRight = Instance.new("Frame")
-TbRight.Size = UDim2.new(1, -228, 1, 0)
-TbRight.Position = UDim2.new(0, 228, 0, 0)
-TbRight.BackgroundColor3 = Color3.fromRGB(18, 18, 22)
-TbRight.Parent = TbContent
-makeCorner(TbRight, 8)
-makeStroke(TbRight, Color3.fromRGB(255,255,255), 1, 0.78)
+TbRight.Size = UDim2.new(1,-228,1,0); TbRight.Position = UDim2.new(0,228,0,0)
+TbRight.BackgroundColor3 = Color3.fromRGB(18,18,22); TbRight.Parent = TbContent
+makeCorner(TbRight, 8); makeStroke(TbRight, Color3.fromRGB(255,255,255), 1, 0.78)
 
 local TbBrowserLbl = Instance.new("TextLabel")
-TbBrowserLbl.Size = UDim2.new(1, -16, 0, 24)
-TbBrowserLbl.Position = UDim2.new(0, 8, 0, 4)
-TbBrowserLbl.BackgroundTransparency = 1
-TbBrowserLbl.Text = "ASSET BROWSER"
-TbBrowserLbl.Font = Enum.Font.GothamBold
-TbBrowserLbl.TextSize = 10
-TbBrowserLbl.TextColor3 = Color3.fromRGB(255, 255, 255)
-TbBrowserLbl.TextXAlignment = Enum.TextXAlignment.Left
-TbBrowserLbl.Parent = TbRight
+TbBrowserLbl.Size = UDim2.new(1,-16,0,24); TbBrowserLbl.Position = UDim2.new(0,8,0,4)
+TbBrowserLbl.BackgroundTransparency = 1; TbBrowserLbl.Text = "ASSET BROWSER"
+TbBrowserLbl.Font = Enum.Font.GothamBold; TbBrowserLbl.TextSize = 10
+TbBrowserLbl.TextColor3 = Color3.fromRGB(255,255,255)
+TbBrowserLbl.TextXAlignment = Enum.TextXAlignment.Left; TbBrowserLbl.Parent = TbRight
 
 local TbGridScroll = Instance.new("ScrollingFrame")
-TbGridScroll.Size = UDim2.new(1, -12, 1, -34)
-TbGridScroll.Position = UDim2.new(0, 6, 0, 28)
-TbGridScroll.BackgroundTransparency = 1
-TbGridScroll.ScrollBarThickness = 3
-TbGridScroll.ScrollBarImageColor3 = Color3.fromRGB(255, 255, 255)
-TbGridScroll.Parent = TbRight
+TbGridScroll.Size = UDim2.new(1,-12,1,-34); TbGridScroll.Position = UDim2.new(0,6,0,28)
+TbGridScroll.BackgroundTransparency = 1; TbGridScroll.ScrollBarThickness = 3
+TbGridScroll.ScrollBarImageColor3 = Color3.fromRGB(255,255,255); TbGridScroll.Parent = TbRight
 
 local TbGrid = Instance.new("UIGridLayout")
-TbGrid.CellSize = UDim2.new(0, 104, 0, 115)
-TbGrid.CellPadding = UDim2.new(0, 6, 0, 6)
-TbGrid.SortOrder = Enum.SortOrder.LayoutOrder
-TbGrid.Parent = TbGridScroll
+TbGrid.CellSize = UDim2.new(0,104,0,115); TbGrid.CellPadding = UDim2.new(0,6,0,6)
+TbGrid.SortOrder = Enum.SortOrder.LayoutOrder; TbGrid.Parent = TbGridScroll
 
 local TbGridStatus = Instance.new("TextLabel")
-TbGridStatus.Size = UDim2.new(1, 0, 0, 40)
-TbGridStatus.BackgroundTransparency = 1
+TbGridStatus.Size = UDim2.new(1,0,0,40); TbGridStatus.BackgroundTransparency = 1
 TbGridStatus.Text = "Ketik kata kunci & klik CARI"
-TbGridStatus.Font = Enum.Font.Gotham
-TbGridStatus.TextSize = 10
-TbGridStatus.TextColor3 = Color3.fromRGB(140, 140, 150)
-TbGridStatus.Parent = TbGridScroll
+TbGridStatus.Font = Enum.Font.Gotham; TbGridStatus.TextSize = 10
+TbGridStatus.TextColor3 = Color3.fromRGB(140,140,150); TbGridStatus.Parent = TbGridScroll
 
--- =====================================================
--- PAGE 3: INSERT RBXM FILE
--- =====================================================
 local RbxmHeader = Instance.new("Frame")
-RbxmHeader.Size = UDim2.new(1, 0, 0, 28)
-RbxmHeader.BackgroundTransparency = 1
-RbxmHeader.Parent = PageRBXM
-
+RbxmHeader.Size = UDim2.new(1,0,0,28); RbxmHeader.BackgroundTransparency = 1; RbxmHeader.Parent = PageRBXM
 local RbxmTitleLbl = Instance.new("TextLabel")
-RbxmTitleLbl.Size = UDim2.new(1, -80, 1, 0)
-RbxmTitleLbl.BackgroundTransparency = 1
-RbxmTitleLbl.Text = "INSERT RBXM FILE"
-RbxmTitleLbl.Font = Enum.Font.GothamBold
-RbxmTitleLbl.TextSize = 11
-RbxmTitleLbl.TextColor3 = Color3.fromRGB(255, 255, 255)
-RbxmTitleLbl.TextXAlignment = Enum.TextXAlignment.Left
-RbxmTitleLbl.Parent = RbxmHeader
-
+RbxmTitleLbl.Size = UDim2.new(1,-80,1,0); RbxmTitleLbl.BackgroundTransparency = 1
+RbxmTitleLbl.Text = "INSERT RBXM FILE"; RbxmTitleLbl.Font = Enum.Font.GothamBold; RbxmTitleLbl.TextSize = 11
+RbxmTitleLbl.TextColor3 = Color3.fromRGB(255,255,255)
+RbxmTitleLbl.TextXAlignment = Enum.TextXAlignment.Left; RbxmTitleLbl.Parent = RbxmHeader
 local RbxmBack = makeBackBtn(RbxmHeader)
 
 local RbxmToolbar = Instance.new("Frame")
-RbxmToolbar.Size = UDim2.new(1, 0, 0, 28)
-RbxmToolbar.Position = UDim2.new(0, 0, 0, 32)
-RbxmToolbar.BackgroundTransparency = 1
-RbxmToolbar.Parent = PageRBXM
+RbxmToolbar.Size = UDim2.new(1,0,0,28); RbxmToolbar.Position = UDim2.new(0,0,0,32)
+RbxmToolbar.BackgroundTransparency = 1; RbxmToolbar.Parent = PageRBXM
 
 local RbxmScanBtn = Instance.new("TextButton")
-RbxmScanBtn.Size = UDim2.new(0, 90, 0, 24)
-RbxmScanBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-RbxmScanBtn.Text = "SCAN FILES"
-RbxmScanBtn.Font = Enum.Font.GothamBold
-RbxmScanBtn.TextSize = 10
-RbxmScanBtn.TextColor3 = Color3.fromRGB(0, 0, 0)
-RbxmScanBtn.Parent = RbxmToolbar
-makeCorner(RbxmScanBtn, 6)
+RbxmScanBtn.Size = UDim2.new(0,90,0,24); RbxmScanBtn.BackgroundColor3 = Color3.fromRGB(255,255,255)
+RbxmScanBtn.Text = "SCAN FILES"; RbxmScanBtn.Font = Enum.Font.GothamBold; RbxmScanBtn.TextSize = 10
+RbxmScanBtn.TextColor3 = Color3.fromRGB(0,0,0); RbxmScanBtn.Parent = RbxmToolbar; makeCorner(RbxmScanBtn, 6)
+
+local RbxmSLStatus = Instance.new("TextLabel")
+RbxmSLStatus.Size = UDim2.new(0,120,1,0); RbxmSLStatus.Position = UDim2.new(0,96,0,0)
+RbxmSLStatus.BackgroundTransparency = 1
+RbxmSLStatus.Text = serverFuncs and "[SL: ON]" or "[SL: OFF]"
+RbxmSLStatus.Font = Enum.Font.GothamBold; RbxmSLStatus.TextSize = 9
+RbxmSLStatus.TextColor3 = serverFuncs and Color3.fromRGB(120,220,120) or Color3.fromRGB(220,120,120)
+RbxmSLStatus.TextXAlignment = Enum.TextXAlignment.Left; RbxmSLStatus.Parent = RbxmToolbar
 
 local RbxmCountLbl = Instance.new("TextLabel")
-RbxmCountLbl.Size = UDim2.new(1, -100, 1, 0)
-RbxmCountLbl.Position = UDim2.new(0, 96, 0, 0)
-RbxmCountLbl.BackgroundTransparency = 1
-RbxmCountLbl.Text = "[.] Klik SCAN untuk mencari file .rbxm di workspace Delta"
-RbxmCountLbl.Font = Enum.Font.Gotham
-RbxmCountLbl.TextSize = 9
-RbxmCountLbl.TextColor3 = Color3.fromRGB(140, 140, 150)
-RbxmCountLbl.TextXAlignment = Enum.TextXAlignment.Left
-RbxmCountLbl.Parent = RbxmToolbar
+RbxmCountLbl.Size = UDim2.new(1,-230,1,0); RbxmCountLbl.Position = UDim2.new(0,220,0,0)
+RbxmCountLbl.BackgroundTransparency = 1; RbxmCountLbl.Text = "[.] Klik SCAN untuk mencari file .rbxm"
+RbxmCountLbl.Font = Enum.Font.Gotham; RbxmCountLbl.TextSize = 9
+RbxmCountLbl.TextColor3 = Color3.fromRGB(140,140,150)
+RbxmCountLbl.TextXAlignment = Enum.TextXAlignment.Left; RbxmCountLbl.Parent = RbxmToolbar
 
 local RbxmScroll = Instance.new("ScrollingFrame")
-RbxmScroll.Size = UDim2.new(1, 0, 1, -66)
-RbxmScroll.Position = UDim2.new(0, 0, 0, 62)
-RbxmScroll.BackgroundColor3 = Color3.fromRGB(17, 17, 22)
-RbxmScroll.BorderSizePixel = 0
-RbxmScroll.ScrollBarThickness = 3
-RbxmScroll.ScrollBarImageColor3 = Color3.fromRGB(255, 255, 255)
-RbxmScroll.Parent = PageRBXM
-makeCorner(RbxmScroll, 8)
-makeStroke(RbxmScroll, Color3.fromRGB(255,255,255), 1, 0.78)
+RbxmScroll.Size = UDim2.new(1,0,1,-66); RbxmScroll.Position = UDim2.new(0,0,0,62)
+RbxmScroll.BackgroundColor3 = Color3.fromRGB(17,17,22); RbxmScroll.BorderSizePixel = 0
+RbxmScroll.ScrollBarThickness = 3; RbxmScroll.ScrollBarImageColor3 = Color3.fromRGB(255,255,255)
+RbxmScroll.Parent = PageRBXM; makeCorner(RbxmScroll, 8); makeStroke(RbxmScroll, Color3.fromRGB(255,255,255), 1, 0.78)
 
 local RbxmList = Instance.new("UIListLayout")
-RbxmList.Padding = UDim.new(0, 5)
-RbxmList.SortOrder = Enum.SortOrder.LayoutOrder
-RbxmList.Parent = RbxmScroll
-
+RbxmList.Padding = UDim.new(0,5); RbxmList.SortOrder = Enum.SortOrder.LayoutOrder; RbxmList.Parent = RbxmScroll
 local RbxmPad = Instance.new("UIPadding")
-RbxmPad.PaddingTop = UDim.new(0, 6)
-RbxmPad.PaddingLeft = UDim.new(0, 6)
-RbxmPad.PaddingRight = UDim.new(0, 6)
-RbxmPad.Parent = RbxmScroll
+RbxmPad.PaddingTop = UDim.new(0,6); RbxmPad.PaddingLeft = UDim.new(0,6); RbxmPad.PaddingRight = UDim.new(0,6); RbxmPad.Parent = RbxmScroll
 
 local RbxmEmpty = Instance.new("TextLabel")
-RbxmEmpty.Size = UDim2.new(1, 0, 0, 40)
-RbxmEmpty.BackgroundTransparency = 1
+RbxmEmpty.Size = UDim2.new(1,0,0,40); RbxmEmpty.BackgroundTransparency = 1
 RbxmEmpty.Text = "Belum ada file .rbxm ditemukan. Klik SCAN FILES."
-RbxmEmpty.Font = Enum.Font.Gotham
-RbxmEmpty.TextSize = 10
-RbxmEmpty.TextColor3 = Color3.fromRGB(140, 140, 150)
-RbxmEmpty.Parent = RbxmScroll
+RbxmEmpty.Font = Enum.Font.Gotham; RbxmEmpty.TextSize = 10
+RbxmEmpty.TextColor3 = Color3.fromRGB(140,140,150); RbxmEmpty.Parent = RbxmScroll
 
--- =====================================================
--- LOGIC: DRAGGABLE
--- =====================================================
 local function makeDraggable(frame, handle)
-    local dragging = false
-    local dragStart = nil
-    local startPos = nil
-
+    local dragging, dragStart, startPos = false, nil, nil
     handle.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1
-        or input.UserInputType == Enum.UserInputType.Touch then
-            dragging = true
-            dragStart = input.Position
-            startPos = frame.Position
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true; dragStart = input.Position; startPos = frame.Position
             input.Changed:Connect(function()
-                if input.UserInputState == Enum.UserInputState.End then
-                    dragging = false
-                end
+                if input.UserInputState == Enum.UserInputState.End then dragging = false end
             end)
         end
     end)
-
     UserInputService.InputChanged:Connect(function(input)
-        if dragging and (
-            input.UserInputType == Enum.UserInputType.MouseMovement
-            or input.UserInputType == Enum.UserInputType.Touch
-        ) then
+        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
             local d = input.Position - dragStart
-            frame.Position = UDim2.new(
-                startPos.X.Scale, startPos.X.Offset + d.X,
-                startPos.Y.Scale, startPos.Y.Offset + d.Y
-            )
+            frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset+d.X, startPos.Y.Scale, startPos.Y.Offset+d.Y)
         end
     end)
 end
-
 makeDraggable(MainFrame, TopBar)
 makeDraggable(ToggleBtn, ToggleBtn)
 
--- =====================================================
--- LOGIC: TOGGLE WINDOW
--- =====================================================
 local isOpen = true
 local function toggleWindow()
     isOpen = not isOpen
     if isOpen then
         MainFrame.Visible = true
-        MainFrame.Size = UDim2.new(0, 618, 0, 348)
-        TweenService:Create(MainFrame, tweenBounce, {Size = UDim2.new(0, 640, 0, 360)}):Play()
+        MainFrame.Size = UDim2.new(0,618,0,348)
+        TweenService:Create(MainFrame, tweenBounce, {Size = UDim2.new(0,640,0,360)}):Play()
     else
-        local tw = TweenService:Create(MainFrame, tweenQuick, {Size = UDim2.new(0, 610, 0, 340)})
+        local tw = TweenService:Create(MainFrame, tweenQuick, {Size = UDim2.new(0,610,0,340)})
         tw:Play()
-        tw.Completed:Connect(function()
-            if not isOpen then
-                MainFrame.Visible = false
-            end
-        end)
+        tw.Completed:Connect(function() if not isOpen then MainFrame.Visible = false end end)
     end
 end
-
 ToggleBtn.MouseButton1Click:Connect(toggleWindow)
 CloseBtn.MouseButton1Click:Connect(toggleWindow)
 
--- =====================================================
--- LOGIC: PAGE NAVIGATION
--- =====================================================
 local function showPage(target)
-    PageSplash.Visible  = false
-    PageToolbox.Visible = false
-    PageRBXM.Visible    = false
+    PageSplash.Visible = false; PageToolbox.Visible = false; PageRBXM.Visible = false
     target.Visible = true
 end
-
 CardToolbox.MouseButton1Click:Connect(function() showPage(PageToolbox) end)
-CardRBXM.MouseButton1Click:Connect(function()    showPage(PageRBXM)    end)
-TbBack.MouseButton1Click:Connect(function()      showPage(PageSplash)  end)
-RbxmBack.MouseButton1Click:Connect(function()    showPage(PageSplash)  end)
+CardRBXM.MouseButton1Click:Connect(function() showPage(PageRBXM) end)
+TbBack.MouseButton1Click:Connect(function() showPage(PageSplash) end)
+RbxmBack.MouseButton1Click:Connect(function() showPage(PageSplash) end)
 
--- =====================================================
--- LOGIC: SMART INSERT (ASSET ID)
--- =====================================================
 local function smartInsert(assetId)
     local numId = tonumber(assetId)
-    if not numId then
-        return false, "ID tidak valid"
-    end
-
-    -- Always copy to clipboard as guaranteed fallback
-    if clipFn then
-        pcall(clipFn, tostring(numId))
-    end
-
-    local insertOk = false
-    local method = ""
-
-    -- METHOD 1: Cari & trigger UI bawaan Studio Lite
-    pcall(function()
-        for _, gui in ipairs(LP.PlayerGui:GetDescendants()) do
-            if gui:IsA("TextBox") and not gui:IsDescendantOf(ScreenGui) then
-                local ph = gui.PlaceholderText:lower()
-                local nm = gui.Name:lower()
-                if string.find(nm,"id") or string.find(nm,"asset")
-                or string.find(ph,"id") or string.find(ph,"asset") then
-                    gui.Text = tostring(numId)
-                    local container = gui.Parent
-                    if container then
-                        for _, btn in ipairs(container:GetDescendants()) do
-                            if (btn:IsA("TextButton") or btn:IsA("ImageButton")) and btn ~= gui then
-                                local bt = ""
-                                if btn:IsA("TextButton") then
-                                    bt = btn.Text:lower()
-                                end
-                                local bn = btn.Name:lower()
-                                if string.find(bt,"get") or string.find(bt,"insert")
-                                or string.find(bn,"get") or string.find(bn,"insert")
-                                or string.find(bn,"load") then
-                                    -- Fire button safely
-                                    if firesignal then
-                                        pcall(firesignal, btn.MouseButton1Click)
-                                    elseif getconnections then
-                                        pcall(function()
-                                            for _, c in ipairs(getconnections(btn.MouseButton1Click)) do
-                                                pcall(c.Function, c)
-                                            end
-                                        end)
-                                    else
-                                        btn:Activate()
-                                    end
-                                    insertOk = true
-                                    method = "Native Studio Lite UI"
-                                end
-                            end
-                        end
-                    end
-                end
-            end
-        end
-    end)
-
-    -- METHOD 2: RemoteEvent hunter
-    if not insertOk then
-        pcall(function()
-            local repStorage = game:GetService("ReplicatedStorage")
-            for _, rem in ipairs(repStorage:GetDescendants()) do
-                if rem:IsA("RemoteEvent") or rem:IsA("RemoteFunction") then
-                    local rn = rem.Name:lower()
-                    if string.find(rn,"insert") or string.find(rn,"asset")
-                    or string.find(rn,"toolbox") or string.find(rn,"load") then
-                        if rem:IsA("RemoteEvent") then
-                            rem:FireServer(numId)
-                        else
-                            rem:InvokeServer(numId)
-                        end
-                        insertOk = true
-                        method = "Remote: "..rem.Name
-                    end
-                end
-            end
-        end)
-    end
-
-    -- METHOD 3: GetObjects executor bypass
+    if not numId then return false, "ID tidak valid" end
+    if clipFn then pcall(clipFn, tostring(numId)) end
+    local insertOk, method = false, ""
     if not insertOk then
         pcall(function()
             local objs = game:GetObjects("rbxassetid://"..tostring(numId))
             if objs and #objs > 0 then
                 for _, o in ipairs(objs) do
                     o.Parent = workspace
+                    applyStudioLiteProps(o)
+                    loadAssetsToSLServer(o)
                     if o:IsA("Model") and LP.Character then
                         local hrp = LP.Character:FindFirstChild("HumanoidRootPart")
-                        if hrp then
-                            o:MoveTo(hrp.Position + hrp.CFrame.LookVector * 7)
-                        end
+                        if hrp then pcall(function() o:MoveTo(hrp.Position + hrp.CFrame.LookVector * 7) end) end
                     end
                 end
-                insertOk = true
-                method = "GetObjects Spawn"
+                insertOk = true; method = "GetObjects + SL Props"
             end
         end)
     end
-
+    if serverFuncs then
+        pcall(function()
+            serverFuncs:InvokeServer("LoadMeshToRuntimeMeshes", numId)
+            if not insertOk then insertOk = true; method = "SL ServerFunctions"
+            else method = method .. " + SL Server" end
+        end)
+    end
+    if not insertOk then
+        pcall(function()
+            for _, gui in ipairs(LP.PlayerGui:GetDescendants()) do
+                if gui:IsA("TextBox") and not gui:IsDescendantOf(ScreenGui) then
+                    local ph = gui.PlaceholderText:lower(); local nm = gui.Name:lower()
+                    if string.find(nm,"id") or string.find(nm,"asset") or string.find(ph,"id") or string.find(ph,"asset") then
+                        gui.Text = tostring(numId)
+                        local container = gui.Parent
+                        if container then
+                            for _, btn in ipairs(container:GetDescendants()) do
+                                if btn:IsA("TextButton") or btn:IsA("ImageButton") then
+                                    local bt = btn:IsA("TextButton") and btn.Text:lower() or ""
+                                    local bn = btn.Name:lower()
+                                    if string.find(bt,"get") or string.find(bt,"insert") or string.find(bn,"get") or string.find(bn,"insert") or string.find(bn,"load") then
+                                        if firesignal then pcall(firesignal, btn.MouseButton1Click)
+                                        elseif getconnections then pcall(function() for _, c in ipairs(getconnections(btn.MouseButton1Click)) do pcall(c.Function, c) end end)
+                                        else pcall(function() btn:Activate() end) end
+                                        insertOk = true; method = "Native UI Studio Lite"
+                                    end
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+        end)
+    end
     return insertOk, (method ~= "" and method or "ID Disalin ke Clipboard")
 end
 
--- =====================================================
--- LOGIC: SMART INSERT RBXM FILE
--- =====================================================
-local function smartInsertRbxm(filePath, fileName)
-    local insertOk = false
+local SCAN_PATHS = {"workspace","Delta/workspace","delta/workspace","Android/Delta/workspace","/sdcard/Delta/workspace","../workspace","."}
 
-    -- Method 1: getcustomasset / getsynasset + GetObjects
+local function smartInsertRbxm(filePath, fileName)
+    local insertOk, statusMsg = false, ""
     if customAsset then
         pcall(function()
             local url = customAsset(filePath)
-            local objs = game:GetObjects(url)
-            if objs and #objs > 0 then
-                for _, o in ipairs(objs) do
-                    o.Parent = workspace
-                    if o:IsA("Model") and LP.Character then
-                        local hrp = LP.Character:FindFirstChild("HumanoidRootPart")
-                        if hrp then
-                            o:MoveTo(hrp.Position + hrp.CFrame.LookVector * 7)
+            if url then
+                local objs = game:GetObjects(url)
+                if objs and #objs > 0 then
+                    for _, o in ipairs(objs) do
+                        o.Parent = workspace; applyStudioLiteProps(o); loadAssetsToSLServer(o)
+                        if o:IsA("Model") and LP.Character then
+                            local hrp = LP.Character:FindFirstChild("HumanoidRootPart")
+                            if hrp then pcall(function() o:MoveTo(hrp.Position + hrp.CFrame.LookVector * 6) end) end
                         end
                     end
+                    insertOk = true; statusMsg = "getcustomasset OK"
                 end
-                insertOk = true
             end
         end)
     end
-
-    -- Method 2: readfile + writefile tmp + getcustomasset
+    if not insertOk then
+        pcall(function()
+            local objs = game:GetObjects("rbxasset://" .. filePath)
+            if objs and #objs > 0 then
+                for _, o in ipairs(objs) do o.Parent = workspace; applyStudioLiteProps(o); loadAssetsToSLServer(o) end
+                insertOk = true; statusMsg = "rbxasset:// OK"
+            end
+        end)
+    end
     if not insertOk and readfile and writefile and customAsset then
         pcall(function()
             local raw = readfile(filePath)
             if raw and #raw > 0 then
-                local tmpName = "bluexcrown_tmp_"..fileName
+                local tmpName = "bce_tmp_"..fileName
                 writefile(tmpName, raw)
                 local url2 = customAsset(tmpName)
-                local objs2 = game:GetObjects(url2)
-                if objs2 and #objs2 > 0 then
-                    for _, o in ipairs(objs2) do
-                        o.Parent = workspace
+                if url2 then
+                    local objs2 = game:GetObjects(url2)
+                    if objs2 and #objs2 > 0 then
+                        for _, o in ipairs(objs2) do o.Parent = workspace; applyStudioLiteProps(o); loadAssetsToSLServer(o) end
+                        insertOk = true; statusMsg = "readfile+tmp OK"
                     end
-                    insertOk = true
                 end
+                pcall(function() if delfile then delfile(tmpName) end end)
             end
         end)
     end
-
-    -- Method 3: Extract AssetId dari XML header rbxm lalu insert via ID
-    if not insertOk and readfile then
-        pcall(function()
-            local raw = readfile(filePath)
-            if raw then
-                local extractedId = raw:match('AssetId="(%d+)"')
-                    or raw:match('<int name="AssetId">(%d+)')
-                    or raw:match('assetid="(%d+)"')
-                if extractedId then
-                    local ok2, _ = smartInsert(extractedId)
-                    if ok2 then
-                        insertOk = true
-                    end
-                end
-            end
-        end)
-    end
-
-    return insertOk
+    return insertOk, statusMsg
 end
 
--- =====================================================
--- LOGIC: SCAN RBXM FILES
--- =====================================================
+local function safeListFiles(p)
+    if not listfilesFn then return nil end
+    local ok, f = pcall(listfilesFn, p); return ok and f or nil
+end
+local function getFileName(p) return p:match("([^/\\]+)$") or p end
+
 local function getAllRbxmFiles()
-    local result = {}
-    if not listfilesFn then
-        return result
-    end
-    local folders = {"", "workspace", "Workspace", "models", "Models", "rbxm", "assets"}
-    for _, folder in ipairs(folders) do
-        pcall(function()
-            local files = listfilesFn(folder)
-            if files then
-                for _, path in ipairs(files) do
-                    local lp = path:lower()
-                    if lp:sub(-5) == ".rbxm" or lp:sub(-6) == ".rbxmx" then
-                        local fileName = path:match("([^/\\]+)$") or path
-                        table.insert(result, {path = path, name = fileName})
-                    end
-                end
+    local result, seen = {}, {}
+    if not listfilesFn then return result end
+    local function scanDeep(folder, depth)
+        if depth > 4 or seen[folder] then return end
+        seen[folder] = true
+        local files = safeListFiles(folder)
+        if not files then return end
+        for _, path in ipairs(files) do
+            local lp = path:lower()
+            if (lp:sub(-5) == ".rbxm" or lp:sub(-6) == ".rbxmx") and not seen[path] then
+                seen[path] = true; table.insert(result, {path=path, name=getFileName(path)})
+            elseif not path:lower():match("%.[%a%d]+$") then
+                scanDeep(path, depth+1)
             end
-        end)
+        end
     end
+    for _, p in ipairs(SCAN_PATHS) do if safeListFiles(p) then scanDeep(p, 0) end end
     return result
 end
 
 local function renderRbxmCards()
-    for _, c in ipairs(RbxmScroll:GetChildren()) do
-        if c:IsA("Frame") then c:Destroy() end
-    end
-
+    for _, c in ipairs(RbxmScroll:GetChildren()) do if c:IsA("Frame") then c:Destroy() end end
     RbxmCountLbl.Text = "[.] Scanning..."
-
     local files = getAllRbxmFiles()
     RbxmEmpty.Visible = (#files == 0)
-
     if #files == 0 then
-        if not listfilesFn then
-            RbxmCountLbl.Text = "[!] Executor ini tidak support listfiles(). Taruh .rbxm di workspace Delta."
-        else
-            RbxmCountLbl.Text = "[!] Tidak ada file .rbxm di workspace"
-        end
+        RbxmCountLbl.Text = not listfilesFn and "[!] listfiles() tidak support" or "[!] Tidak ada file .rbxm"
         return
     end
-
     RbxmCountLbl.Text = string.format("[OK] %d file ditemukan", #files)
-
     for _, file in ipairs(files) do
         local card = Instance.new("Frame")
-        card.Size = UDim2.new(1, -12, 0, 46)
-        card.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
-        card.BorderSizePixel = 0
-        card.Parent = RbxmScroll
-        makeCorner(card, 7)
-        makeStroke(card, Color3.fromRGB(255,255,255), 1, 0.85)
-
+        card.Size = UDim2.new(1,-12,0,50); card.BackgroundColor3 = Color3.fromRGB(20,20,25)
+        card.BorderSizePixel = 0; card.Parent = RbxmScroll; makeCorner(card, 7); makeStroke(card, Color3.fromRGB(255,255,255), 1, 0.85)
         local fileIcon = Instance.new("TextLabel")
-        fileIcon.Size = UDim2.new(0, 36, 0, 36)
-        fileIcon.Position = UDim2.new(0, 5, 0, 5)
-        fileIcon.BackgroundColor3 = Color3.fromRGB(28, 28, 34)
-        fileIcon.Text = ".rbxm"
-        fileIcon.Font = Enum.Font.GothamBold
-        fileIcon.TextSize = 7
-        fileIcon.TextColor3 = Color3.fromRGB(200, 200, 210)
-        fileIcon.Parent = card
-        makeCorner(fileIcon, 6)
-
+        fileIcon.Size = UDim2.new(0,36,0,36); fileIcon.Position = UDim2.new(0,5,0.5,-18)
+        fileIcon.BackgroundColor3 = Color3.fromRGB(28,28,34); fileIcon.Text = ".rbxm"
+        fileIcon.Font = Enum.Font.GothamBold; fileIcon.TextSize = 7
+        fileIcon.TextColor3 = Color3.fromRGB(200,200,210); fileIcon.Parent = card; makeCorner(fileIcon, 6)
         local nameLbl = Instance.new("TextLabel")
-        nameLbl.Size = UDim2.new(1, -135, 0, 16)
-        nameLbl.Position = UDim2.new(0, 48, 0, 6)
-        nameLbl.BackgroundTransparency = 1
-        nameLbl.Text = file.name
-        nameLbl.Font = Enum.Font.GothamBold
-        nameLbl.TextSize = 11
-        nameLbl.TextColor3 = Color3.fromRGB(240, 240, 245)
-        nameLbl.TextXAlignment = Enum.TextXAlignment.Left
-        nameLbl.TextTruncate = Enum.TextTruncate.AtEnd
-        nameLbl.Parent = card
-
+        nameLbl.Size = UDim2.new(1,-145,0,18); nameLbl.Position = UDim2.new(0,48,0,7)
+        nameLbl.BackgroundTransparency = 1; nameLbl.Text = file.name
+        nameLbl.Font = Enum.Font.GothamBold; nameLbl.TextSize = 11
+        nameLbl.TextColor3 = Color3.fromRGB(240,240,245)
+        nameLbl.TextXAlignment = Enum.TextXAlignment.Left; nameLbl.TextTruncate = Enum.TextTruncate.AtEnd; nameLbl.Parent = card
         local pathLbl = Instance.new("TextLabel")
-        pathLbl.Size = UDim2.new(1, -135, 0, 13)
-        pathLbl.Position = UDim2.new(0, 48, 0, 25)
-        pathLbl.BackgroundTransparency = 1
-        pathLbl.Text = file.path
-        pathLbl.Font = Enum.Font.Gotham
-        pathLbl.TextSize = 8
-        pathLbl.TextColor3 = Color3.fromRGB(130, 130, 140)
-        pathLbl.TextXAlignment = Enum.TextXAlignment.Left
-        pathLbl.TextTruncate = Enum.TextTruncate.AtEnd
-        pathLbl.Parent = card
-
+        pathLbl.Size = UDim2.new(1,-145,0,13); pathLbl.Position = UDim2.new(0,48,0,28)
+        pathLbl.BackgroundTransparency = 1; pathLbl.Text = file.path
+        pathLbl.Font = Enum.Font.Gotham; pathLbl.TextSize = 8
+        pathLbl.TextColor3 = Color3.fromRGB(130,130,140)
+        pathLbl.TextXAlignment = Enum.TextXAlignment.Left; pathLbl.TextTruncate = Enum.TextTruncate.AtEnd; pathLbl.Parent = card
         local insertBtn = Instance.new("TextButton")
-        insertBtn.Size = UDim2.new(0, 62, 0, 28)
-        insertBtn.Position = UDim2.new(1, -68, 0.5, -14)
-        insertBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-        insertBtn.Text = "INSERT"
-        insertBtn.Font = Enum.Font.GothamBold
-        insertBtn.TextSize = 9
-        insertBtn.TextColor3 = Color3.fromRGB(0, 0, 0)
-        insertBtn.Parent = card
-        makeCorner(insertBtn, 6)
-
+        insertBtn.Size = UDim2.new(0,70,0,30); insertBtn.Position = UDim2.new(1,-76,0.5,-15)
+        insertBtn.BackgroundColor3 = Color3.fromRGB(255,255,255); insertBtn.Text = "INSERT"
+        insertBtn.Font = Enum.Font.GothamBold; insertBtn.TextSize = 9
+        insertBtn.TextColor3 = Color3.fromRGB(0,0,0); insertBtn.Parent = card; makeCorner(insertBtn, 6)
         insertBtn.MouseButton1Click:Connect(function()
+            if insertBtn.Text == "..." then return end
             insertBtn.Text = "..."
             task.spawn(function()
-                local ok = smartInsertRbxm(file.path, file.name)
+                local ok, msg = smartInsertRbxm(file.path, file.name)
                 if insertBtn and insertBtn.Parent then
                     if ok then
-                        insertBtn.Text = "OK!"
-                        RbxmCountLbl.Text = "[OK] Inserted: "..file.name
+                        insertBtn.Text = "OK!"; insertBtn.BackgroundColor3 = Color3.fromRGB(180,255,180)
+                        RbxmCountLbl.Text = "[OK] "..file.name.." ("..msg..")"
                     else
-                        insertBtn.Text = "COPY ID"
-                        RbxmCountLbl.Text = "[!] Gunakan manual insert di Studio Lite"
+                        insertBtn.Text = "GAGAL"; insertBtn.BackgroundColor3 = Color3.fromRGB(255,180,180)
+                        RbxmCountLbl.Text = "[!] Gagal - getcustomasset nil / SL off"
                     end
-                    task.delay(2, function()
+                    task.delay(2.5, function()
                         if insertBtn and insertBtn.Parent then
-                            insertBtn.Text = "INSERT"
+                            insertBtn.Text = "INSERT"; insertBtn.BackgroundColor3 = Color3.fromRGB(255,255,255)
                         end
                     end)
                 end
             end)
         end)
     end
-
-    RbxmScroll.CanvasSize = UDim2.new(0, 0, 0, RbxmList.AbsoluteContentSize.Y + 20)
+    RbxmScroll.CanvasSize = UDim2.new(0,0,0, RbxmList.AbsoluteContentSize.Y + 20)
 end
-
 RbxmScanBtn.MouseButton1Click:Connect(renderRbxmCards)
 
--- =====================================================
--- LOGIC: INSPECT ASSET (TOOLBOX)
--- =====================================================
 local function inspectAsset(id, name, creator)
     currentInspId = tostring(id)
     TbDetThumb.Image = "rbxthumb://type=Asset&id="..currentInspId.."&w=150&h=150"
-    TbDetName.Text = name or "Memuat..."
-    TbDetCreator.Text = "By: @"..(creator or "?")
-    TbDetId.Text = "ID: "..currentInspId
-
+    TbDetName.Text = name or "Memuat..."; TbDetCreator.Text = "By: @"..(creator or "?"); TbDetId.Text = "ID: "..currentInspId
     local num = tonumber(currentInspId)
     if num and num > 0 then
         task.spawn(function()
-            local s, info = pcall(function()
-                return MarketplaceService:GetProductInfo(num)
-            end)
+            local s, info = pcall(function() return MarketplaceService:GetProductInfo(num) end)
             if s and info and info.Name and TbDetName and TbDetName.Parent then
                 TbDetName.Text = info.Name
-                local rc = (info.Creator and info.Creator.Name) or creator or "?"
-                TbDetCreator.Text = "By: @"..rc
+                TbDetCreator.Text = "By: @"..((info.Creator and info.Creator.Name) or creator or "?")
             end
         end)
     end
@@ -1074,13 +862,8 @@ end
 
 TbDetCopy.MouseButton1Click:Connect(function()
     if currentInspId ~= "" and clipFn then
-        pcall(clipFn, currentInspId)
-        TbDetCopy.Text = "COPIED!"
-        task.delay(1.2, function()
-            if TbDetCopy and TbDetCopy.Parent then
-                TbDetCopy.Text = "COPY ID"
-            end
-        end)
+        pcall(clipFn, currentInspId); TbDetCopy.Text = "COPIED!"
+        task.delay(1.2, function() if TbDetCopy and TbDetCopy.Parent then TbDetCopy.Text = "COPY ID" end end)
     end
 end)
 
@@ -1092,19 +875,12 @@ TbDetInsert.MouseButton1Click:Connect(function()
             TbStatusLbl.Text = "[.] "..m
             if TbDetInsert and TbDetInsert.Parent then
                 TbDetInsert.Text = ok and "OK!" or "COPIED"
-                task.delay(1.5, function()
-                    if TbDetInsert and TbDetInsert.Parent then
-                        TbDetInsert.Text = "INSERT"
-                    end
-                end)
+                task.delay(1.5, function() if TbDetInsert and TbDetInsert.Parent then TbDetInsert.Text = "INSERT" end end)
             end
         end)
     end
 end)
 
--- =====================================================
--- LOGIC: QUERY & RENDER TOOLBOX GRID
--- =====================================================
 local function queryMarketplace(catId, query)
     local enc = HttpService:UrlEncode(query)
     local urls = {
@@ -1112,226 +888,117 @@ local function queryMarketplace(catId, query)
         ("https://apis.roblox.com/toolbox-service/v1/marketplace/%d?keyword=%s&limit=30"):format(catId, enc),
     }
     for _, url in ipairs(urls) do
-        local s, r = pcall(function()
-            return httpRequest({
-                Url = url,
-                Method = "GET",
-                Headers = {["User-Agent"] = "RobloxStudio/WinInet"}
-            })
-        end)
+        local s, r = pcall(function() return httpRequest({Url=url,Method="GET",Headers={["User-Agent"]="RobloxStudio/WinInet"}}) end)
         if s and r and r.StatusCode == 200 then
-            local ds, parsed = pcall(function()
-                return HttpService:JSONDecode(r.Body)
-            end)
-            if ds and parsed and parsed.data and #parsed.data > 0 then
-                return parsed.data
-            end
+            local ds, parsed = pcall(function() return HttpService:JSONDecode(r.Body) end)
+            if ds and parsed and parsed.data and #parsed.data > 0 then return parsed.data end
         end
     end
     return nil
 end
 
 local function renderGrid(data)
-    for _, c in ipairs(TbGridScroll:GetChildren()) do
-        if c:IsA("Frame") then c:Destroy() end
-    end
-
-    if not data or #data == 0 then
-        TbGridStatus.Visible = true
-        TbGridStatus.Text = "Tidak ada aset ditemukan."
-        return
-    end
-
+    for _, c in ipairs(TbGridScroll:GetChildren()) do if c:IsA("Frame") then c:Destroy() end end
+    if not data or #data == 0 then TbGridStatus.Visible = true; TbGridStatus.Text = "Tidak ada aset ditemukan."; return end
     TbGridStatus.Visible = false
-
     local first = data[1]
-    if first then
-        inspectAsset(
-            first.id or (first.asset and first.asset.id) or "0",
-            first.name or (first.asset and first.asset.name) or "Asset",
-            (first.creator and first.creator.name) or "?"
-        )
-    end
-
+    if first then inspectAsset(first.id or (first.asset and first.asset.id) or "0", first.name or (first.asset and first.asset.name) or "Asset", (first.creator and first.creator.name) or "?") end
     for _, item in ipairs(data) do
-        local assetId   = tostring(item.id or (item.asset and item.asset.id) or "0")
+        local assetId = tostring(item.id or (item.asset and item.asset.id) or "0")
         local assetName = item.name or (item.asset and item.asset.name) or "Asset"
-        local creator   = (item.creator and item.creator.name) or "?"
-
+        local creator = (item.creator and item.creator.name) or "?"
         local card = Instance.new("Frame")
-        card.BackgroundColor3 = Color3.fromRGB(22, 22, 27)
-        card.BorderSizePixel = 0
-        card.Parent = TbGridScroll
-        makeCorner(card, 6)
-        makeStroke(card, Color3.fromRGB(255,255,255), 1, 0.88)
-
+        card.BackgroundColor3 = Color3.fromRGB(22,22,27); card.BorderSizePixel = 0; card.Parent = TbGridScroll
+        makeCorner(card, 6); makeStroke(card, Color3.fromRGB(255,255,255), 1, 0.88)
         local thumb = Instance.new("ImageLabel")
-        thumb.Size = UDim2.new(1, -8, 0, 50)
-        thumb.Position = UDim2.new(0, 4, 0, 4)
-        thumb.BackgroundColor3 = Color3.fromRGB(30, 30, 36)
-        thumb.Image = "rbxthumb://type=Asset&id="..assetId.."&w=150&h=150"
-        thumb.Parent = card
-        makeCorner(thumb, 5)
-
+        thumb.Size = UDim2.new(1,-8,0,50); thumb.Position = UDim2.new(0,4,0,4)
+        thumb.BackgroundColor3 = Color3.fromRGB(30,30,36)
+        thumb.Image = "rbxthumb://type=Asset&id="..assetId.."&w=150&h=150"; thumb.Parent = card; makeCorner(thumb, 5)
         local nameL = Instance.new("TextLabel")
-        nameL.Size = UDim2.new(1, -8, 0, 14)
-        nameL.Position = UDim2.new(0, 4, 0, 56)
-        nameL.BackgroundTransparency = 1
-        nameL.Text = assetName
-        nameL.Font = Enum.Font.GothamBold
-        nameL.TextSize = 8
-        nameL.TextColor3 = Color3.fromRGB(240, 240, 240)
-        nameL.TextXAlignment = Enum.TextXAlignment.Left
-        nameL.TextTruncate = Enum.TextTruncate.AtEnd
-        nameL.Parent = card
-
+        nameL.Size = UDim2.new(1,-8,0,14); nameL.Position = UDim2.new(0,4,0,56)
+        nameL.BackgroundTransparency = 1; nameL.Text = assetName
+        nameL.Font = Enum.Font.GothamBold; nameL.TextSize = 8; nameL.TextColor3 = Color3.fromRGB(240,240,240)
+        nameL.TextXAlignment = Enum.TextXAlignment.Left; nameL.TextTruncate = Enum.TextTruncate.AtEnd; nameL.Parent = card
         local subL = Instance.new("TextLabel")
-        subL.Size = UDim2.new(1, -8, 0, 12)
-        subL.Position = UDim2.new(0, 4, 0, 70)
-        subL.BackgroundTransparency = 1
-        subL.Text = "@"..creator
-        subL.Font = Enum.Font.Gotham
-        subL.TextSize = 7
-        subL.TextColor3 = Color3.fromRGB(140, 140, 150)
-        subL.TextXAlignment = Enum.TextXAlignment.Left
-        subL.TextTruncate = Enum.TextTruncate.AtEnd
-        subL.Parent = card
-
+        subL.Size = UDim2.new(1,-8,0,12); subL.Position = UDim2.new(0,4,0,70)
+        subL.BackgroundTransparency = 1; subL.Text = "@"..creator
+        subL.Font = Enum.Font.Gotham; subL.TextSize = 7; subL.TextColor3 = Color3.fromRGB(140,140,150)
+        subL.TextXAlignment = Enum.TextXAlignment.Left; subL.TextTruncate = Enum.TextTruncate.AtEnd; subL.Parent = card
         local btnRow = Instance.new("Frame")
-        btnRow.Size = UDim2.new(1, -8, 0, 17)
-        btnRow.Position = UDim2.new(0, 4, 1, -21)
-        btnRow.BackgroundTransparency = 1
-        btnRow.Parent = card
-
+        btnRow.Size = UDim2.new(1,-8,0,17); btnRow.Position = UDim2.new(0,4,1,-21); btnRow.BackgroundTransparency = 1; btnRow.Parent = card
         local iBtn = Instance.new("TextButton")
-        iBtn.Size = UDim2.new(0.5, -2, 1, 0)
-        iBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-        iBtn.Text = "INSERT"
-        iBtn.Font = Enum.Font.GothamBold
-        iBtn.TextSize = 8
-        iBtn.TextColor3 = Color3.fromRGB(0, 0, 0)
-        iBtn.Parent = btnRow
-        makeCorner(iBtn, 4)
-
+        iBtn.Size = UDim2.new(0.5,-2,1,0); iBtn.BackgroundColor3 = Color3.fromRGB(255,255,255)
+        iBtn.Text = "INSERT"; iBtn.Font = Enum.Font.GothamBold; iBtn.TextSize = 8
+        iBtn.TextColor3 = Color3.fromRGB(0,0,0); iBtn.Parent = btnRow; makeCorner(iBtn, 4)
         local cBtn = Instance.new("TextButton")
-        cBtn.Size = UDim2.new(0.5, -2, 1, 0)
-        cBtn.Position = UDim2.new(0.5, 2, 0, 0)
-        cBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-        cBtn.Text = "COPY"
-        cBtn.Font = Enum.Font.GothamBold
-        cBtn.TextSize = 8
-        cBtn.TextColor3 = Color3.fromRGB(0, 0, 0)
-        cBtn.Parent = btnRow
-        makeCorner(cBtn, 4)
-
+        cBtn.Size = UDim2.new(0.5,-2,1,0); cBtn.Position = UDim2.new(0.5,2,0,0)
+        cBtn.BackgroundColor3 = Color3.fromRGB(255,255,255); cBtn.Text = "COPY"
+        cBtn.Font = Enum.Font.GothamBold; cBtn.TextSize = 8
+        cBtn.TextColor3 = Color3.fromRGB(0,0,0); cBtn.Parent = btnRow; makeCorner(cBtn, 4)
         cBtn.MouseButton1Click:Connect(function()
-            if clipFn then
-                pcall(clipFn, assetId)
-                cBtn.Text = "OK!"
-                task.delay(1.2, function()
-                    if cBtn and cBtn.Parent then cBtn.Text = "COPY" end
-                end)
-            end
+            if clipFn then pcall(clipFn, assetId); cBtn.Text = "OK!"
+                task.delay(1.2, function() if cBtn and cBtn.Parent then cBtn.Text = "COPY" end end) end
         end)
-
         iBtn.MouseButton1Click:Connect(function()
-            iBtn.Text = "..."
-            TbStatusLbl.Text = "[.] Inserting "..assetId
+            iBtn.Text = "..."; TbStatusLbl.Text = "[.] Inserting "..assetId
             task.spawn(function()
-                local ok, m = smartInsert(assetId)
-                TbStatusLbl.Text = "[.] "..m
+                local ok, m = smartInsert(assetId); TbStatusLbl.Text = "[.] "..m
                 if iBtn and iBtn.Parent then
                     iBtn.Text = ok and "OK!" or "COPY"
-                    task.delay(1.2, function()
-                        if iBtn and iBtn.Parent then iBtn.Text = "INSERT" end
-                    end)
+                    task.delay(1.2, function() if iBtn and iBtn.Parent then iBtn.Text = "INSERT" end end)
                 end
             end)
         end)
-
         local hitbox = Instance.new("TextButton")
-        hitbox.Size = UDim2.new(1, 0, 0, 86)
-        hitbox.BackgroundTransparency = 1
-        hitbox.Text = ""
-        hitbox.Parent = card
-        hitbox.MouseButton1Click:Connect(function()
-            inspectAsset(assetId, nameL.Text, creator)
-        end)
-
+        hitbox.Size = UDim2.new(1,0,0,86); hitbox.BackgroundTransparency = 1; hitbox.Text = ""; hitbox.Parent = card
+        hitbox.MouseButton1Click:Connect(function() inspectAsset(assetId, nameL.Text, creator) end)
         task.spawn(function()
-            local num = tonumber(assetId)
-            if not num then return end
-            local s, info = pcall(function()
-                return MarketplaceService:GetProductInfo(num)
-            end)
+            local num = tonumber(assetId); if not num then return end
+            local s, info = pcall(function() return MarketplaceService:GetProductInfo(num) end)
             if s and info and info.Name and nameL and nameL.Parent then
-                nameL.Text = info.Name
-                local rc = (info.Creator and info.Creator.Name) or creator
-                subL.Text = "@"..rc
+                nameL.Text = info.Name; subL.Text = "@"..((info.Creator and info.Creator.Name) or creator)
             end
         end)
     end
-
     TbGrid:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-        TbGridScroll.CanvasSize = UDim2.new(0, 0, 0, TbGrid.AbsoluteContentSize.Y + 10)
+        TbGridScroll.CanvasSize = UDim2.new(0,0,0, TbGrid.AbsoluteContentSize.Y + 10)
     end)
-    TbGridScroll.CanvasSize = UDim2.new(0, 0, 0, TbGrid.AbsoluteContentSize.Y + 10)
+    TbGridScroll.CanvasSize = UDim2.new(0,0,0, TbGrid.AbsoluteContentSize.Y + 10)
 end
 
 local function execSearch()
     if TbSearchBox.Text ~= "" then
-        TbGridStatus.Visible = true
-        TbGridStatus.Text = "Searching..."
+        TbGridStatus.Visible = true; TbGridStatus.Text = "Searching..."
         TbStatusLbl.Text = "[.] Mencari: "..TbSearchBox.Text
         task.spawn(function()
             local data = queryMarketplace(selectedCat, TbSearchBox.Text)
-            renderGrid(data)
-            TbStatusLbl.Text = "[.] Selesai"
+            renderGrid(data); TbStatusLbl.Text = "[.] Selesai"
         end)
     end
 end
-
 TbSearchBtn.MouseButton1Click:Connect(execSearch)
-TbSearchBox.FocusLost:Connect(function(enter)
-    if enter then execSearch() end
-end)
+TbSearchBox.FocusLost:Connect(function(enter) if enter then execSearch() end end)
 
 TbInsertIdBtn.MouseButton1Click:Connect(function()
     local id = TbIdBox.Text:gsub("%D+", "")
     if id ~= "" then
-        inspectAsset(id, "Memuat...", "?")
-        TbInsertIdBtn.Text = "..."
+        inspectAsset(id, "Memuat...", "?"); TbInsertIdBtn.Text = "..."
         task.spawn(function()
-            local ok, m = smartInsert(id)
-            TbStatusLbl.Text = "[.] "..m
+            local ok, m = smartInsert(id); TbStatusLbl.Text = "[.] "..m
             if TbInsertIdBtn and TbInsertIdBtn.Parent then
                 TbInsertIdBtn.Text = ok and "OK!" or "COPIED"
-                task.delay(1.5, function()
-                    if TbInsertIdBtn and TbInsertIdBtn.Parent then
-                        TbInsertIdBtn.Text = "INSERT"
-                    end
-                end)
+                task.delay(1.5, function() if TbInsertIdBtn and TbInsertIdBtn.Parent then TbInsertIdBtn.Text = "INSERT" end end)
             end
         end)
     end
 end)
 
--- =====================================================
--- LOAD PLAYER PROFILE
--- =====================================================
 task.spawn(function()
-    -- Data dari engine langsung (selalu tersedia, tanpa HTTP)
-    DispName.Text   = LP.DisplayName or LP.Name
+    DispName.Text = LP.DisplayName or LP.Name
     UsernLabel.Text = "@"..LP.Name
-
-    -- Avatar headshot via RoProxy
     pcall(function()
         local url = ("https://thumbnails.roproxy.com/v1/users/avatar-headshot?userIds=%d&size=150x150&format=Png&isCircular=false"):format(LP.UserId)
-        local res = httpRequest({
-            Url = url,
-            Method = "GET",
-            Headers = {["User-Agent"] = "RobloxStudio/WinInet"}
-        })
+        local res = httpRequest({Url=url,Method="GET",Headers={["User-Agent"]="RobloxStudio/WinInet"}})
         if res and res.StatusCode == 200 then
             local data = HttpService:JSONDecode(res.Body)
             if data and data.data and data.data[1] and data.data[1].imageUrl then
@@ -1339,4 +1006,14 @@ task.spawn(function()
             end
         end
     end)
+    task.wait(3)
+    local slFolder2 = ReplicatedStorage:FindFirstChild("StudioLiteFolder")
+    local serverFuncs2 = slFolder2 and slFolder2:FindFirstChild("ServerFunctions")
+    if serverFuncs2 and not serverFuncs then
+        serverFuncs = serverFuncs2
+        SLStatusLbl.Text = "[OK] Studio Lite Connected"; SLStatusLbl.TextColor3 = Color3.fromRGB(120,220,120)
+        RbxmSLStatus.Text = "[SL: ON]"; RbxmSLStatus.TextColor3 = Color3.fromRGB(120,220,120)
+    end
 end)
+
+print("[BLUExCrown] ENGINE v5.0 LOADED — SL:", serverFuncs and "CONNECTED" or "NOT FOUND")
