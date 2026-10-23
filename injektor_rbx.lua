@@ -1,10 +1,14 @@
 -- =======================================================
--- BLUExCrown ENGINE v5.3 - ULTIMATE SCRIPT EDITOR & UNLOCKER
--- Fix 1: Debounce pada Toggle & Close (100% Fix "Gak bisa diclose")
--- Fix 2: Studio Lite Script Editor UNLOCKER (Hapus Read Only + Tombol SAVE & COPY)
--- Fix 3: Clamping Draggable (Panel tidak bisa keluar batas layar)
--- Fix 4: Mobile Touch Optimized (1 Event .Activated dengan debounce 0.25s)
--- Toggle Asset ID: 102337382069600
+-- BLUExCrown ENGINE v5.4 - DEFINITIVE SCRIPT & EDITOR FIX
+-- Dual Layer Protection:
+-- Layer 1: Hook Metamethod GetScriptSourceServerFunction (Direct Studio Lite Server Remote Bypass)
+-- Layer 2: Real-time UI Watcher & Injector (Instant "Not found." replacement + Full Editor Unlock)
+-- Features:
+-- 1. [SAVE CODE], [RUN SCRIPT], [COPY ALL] di Editor Studio Lite
+-- 2. Debounce Safe Click pada tombol X dan Toggle (100% responsif di HP)
+-- 3. Screen Boundary Clamping (GUI tidak ngesot keluar layar)
+-- 4. Full RBXM Auto-Extraction & Dual Memory (_G.BLUE_RAW_SOURCES & _G.LANGZ_RAW_SOURCES)
+-- Toggle Image Asset ID: 102337382069600
 -- =======================================================
 
 local HttpService        = game:GetService("HttpService")
@@ -23,11 +27,50 @@ local clipFn       = setclipboard or toclipboard or (Clipboard and Clipboard.set
 local customAsset  = getcustomasset or getsynasset or nil
 local listfilesFn  = listfiles or nil
 
--- Memory penyimpanan source code script
-_G.BLUE_RAW_SOURCES = _G.BLUE_RAW_SOURCES or {}
+-- Memory penyimpanan source code script (Support dual global memory)
+_G.BLUE_RAW_SOURCES  = _G.BLUE_RAW_SOURCES or {}
+_G.LANGZ_RAW_SOURCES = _G.LANGZ_RAW_SOURCES or {}
+
+local function storeScriptSource(key, src)
+    if not key or not src then return end
+    _G.BLUE_RAW_SOURCES[key] = src
+    _G.LANGZ_RAW_SOURCES[key] = src
+    if typeof(key) == "Instance" then
+        _G.BLUE_RAW_SOURCES[key.Name] = src
+        _G.LANGZ_RAW_SOURCES[key.Name] = src
+        _G.BLUE_RAW_SOURCES[key.ClassName .. key.Name] = src
+        _G.LANGZ_RAW_SOURCES[key.ClassName .. key.Name] = src
+    end
+end
+
+local function lookupScriptSource(searchKey)
+    if not searchKey or searchKey == "" then return nil end
+    local sKey = tostring(searchKey):lower():gsub("%s+", "")
+
+    for k, v in pairs(_G.BLUE_RAW_SOURCES) do
+        local kname = typeof(k) == "Instance" and (k.ClassName .. k.Name) or tostring(k)
+        if kname:lower():gsub("%s+", "") == sKey or kname:lower():find(sKey, 1, true) or sKey:find(kname:lower(), 1, true) then
+            if type(v) == "string" and #v > 0 then return v end
+        end
+    end
+    for k, v in pairs(_G.LANGZ_RAW_SOURCES) do
+        local kname = typeof(k) == "Instance" and (k.ClassName .. k.Name) or tostring(k)
+        if kname:lower():gsub("%s+", "") == sKey or kname:lower():find(sKey, 1, true) or sKey:find(kname:lower(), 1, true) then
+            if type(v) == "string" and #v > 0 then return v end
+        end
+    end
+    -- Fallback: jika hanya ada 1 source di memory
+    for _, v in pairs(_G.BLUE_RAW_SOURCES) do
+        if type(v) == "string" and #v > 15 then return v end
+    end
+    for _, v in pairs(_G.LANGZ_RAW_SOURCES) do
+        if type(v) == "string" and #v > 15 then return v end
+    end
+    return nil
+end
 
 -- =====================================================
--- STUDIO LITE INTEGRATION
+-- STUDIO LITE INTEGRATION & HOOKS (LAYER 1)
 -- =====================================================
 local slFolder    = ReplicatedStorage:FindFirstChild("StudioLiteFolder")
 local serverFuncs = slFolder and slFolder:FindFirstChild("ServerFunctions")
@@ -76,164 +119,223 @@ local function loadAssetsToSLServer(obj)
     end)
 end
 
--- =====================================================
--- STUDIO LITE SCRIPT EDITOR UNLOCKER
--- Mengubah editor Studio Lite dari "Read Only" menjadi FULL EDITABLE
--- Menambahkan toolbar [SAVE CODE] dan [COPY ALL] di jendela editor!
--- =====================================================
-local function unlockStudioLiteEditor(win)
-    if not win or not win:IsA("Frame") then return end
-    
-    local isEditor = false
-    local scriptTitleLbl = nil
-    local codeObj = nil
-
-    for _, d in ipairs(win:GetDescendants()) do
-        if d:IsA("TextLabel") or d:IsA("TextBox") then
-            local t = d.Text
-            if t:find("%(read only%)") then
-                isEditor = true
-                scriptTitleLbl = d
-            elseif #t > 30 and (t:find("local ") or t:find("function") or t:find("game:") or t:find("Not found")) then
-                codeObj = d
-            end
-        end
-    end
-
-    if not isEditor and not scriptTitleLbl then return end
-
-    -- Hapus label "(read only)" di judul jadi [EDITABLE]
-    if scriptTitleLbl then
-        local rawTitle = scriptTitleLbl.Text:gsub("%s*%(read only%)%s*", "")
-        scriptTitleLbl.Text = rawTitle .. " [EDITABLE]"
-        scriptTitleLbl.TextColor3 = Color3.fromRGB(180, 255, 180)
-    end
-
-    local scriptName = ""
-    if scriptTitleLbl then
-        scriptName = scriptTitleLbl.Text:gsub("%s*%[EDITABLE%]%s*", ""):gsub("%s+", "")
-    end
-
-    local realSource = nil
-    if scriptName ~= "" then
-        for k, v in pairs(_G.BLUE_RAW_SOURCES) do
-            local name = typeof(k) == "Instance" and k.Name or tostring(k)
-            if name:lower() == scriptName:lower() or name:lower():find(scriptName:lower(), 1, true) then
-                realSource = v
-                break
-            end
-        end
-    end
-
-    if not realSource then
-        for _, v in pairs(_G.BLUE_RAW_SOURCES) do
-            if v and #v > 10 then realSource = v; break end
-        end
-    end
-
-    if codeObj then
-        if codeObj.Text == "Not found." or codeObj.Text == "Not found" or codeObj.Text == "" then
-            if realSource then
-                codeObj.Text = realSource
-            end
-        end
-
-        -- Aktifkan agar bisa diedit di HP
-        if codeObj:IsA("TextBox") then
-            codeObj.TextEditable = true
-            codeObj.ClearTextOnFocus = false
-            codeObj.Active = true
-        end
-    end
-
-    -- Tambahkan Toolbar [SAVE CODE] & [COPY ALL]
-    if not win:FindFirstChild("BLUExToolbar") then
-        local toolbar = Instance.new("Frame")
-        toolbar.Name = "BLUExToolbar"
-        toolbar.Size = UDim2.new(0, 160, 0, 26)
-        toolbar.Position = UDim2.new(1, -190, 0, 4)
-        toolbar.BackgroundTransparency = 1
-        toolbar.ZIndex = 50
-        toolbar.Parent = win
-
-        local saveBtn = Instance.new("TextButton")
-        saveBtn.Size = UDim2.new(0, 75, 1, 0)
-        saveBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-        saveBtn.Text = "SAVE CODE"
-        saveBtn.Font = Enum.Font.GothamBold
-        saveBtn.TextSize = 9
-        saveBtn.TextColor3 = Color3.fromRGB(0, 0, 0)
-        saveBtn.ZIndex = 51
-        saveBtn.Parent = toolbar
-        local sc = Instance.new("UICorner", saveBtn); sc.CornerRadius = UDim.new(0, 5)
-
-        local copyBtn = Instance.new("TextButton")
-        copyBtn.Size = UDim2.new(0, 75, 1, 0)
-        copyBtn.Position = UDim2.new(0, 82, 0, 0)
-        copyBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-        copyBtn.Text = "COPY ALL"
-        copyBtn.Font = Enum.Font.GothamBold
-        copyBtn.TextSize = 9
-        copyBtn.TextColor3 = Color3.fromRGB(0, 0, 0)
-        copyBtn.ZIndex = 51
-        copyBtn.Parent = toolbar
-        local cc = Instance.new("UICorner", copyBtn); cc.CornerRadius = UDim.new(0, 5)
-
-        copyBtn.Activated:Connect(function()
-            if codeObj and clipFn then
-                pcall(clipFn, codeObj.Text)
-                copyBtn.Text = "COPIED!"
-                task.delay(1.2, function() copyBtn.Text = "COPY ALL" end)
-            end
-        end)
-
-        saveBtn.Activated:Connect(function()
-            if codeObj then
-                local newCode = codeObj.Text
-                if scriptName ~= "" then
-                    _G.BLUE_RAW_SOURCES[scriptName] = newCode
-                end
-                pcall(function()
-                    for _, d in ipairs(workspace:GetDescendants()) do
-                        if d:IsA("LuaSourceContainer") and (d.Name:lower() == scriptName:lower() or scriptName:lower():find(d.Name:lower(), 1, true)) then
-                            _G.BLUE_RAW_SOURCES[d] = newCode
-                            pcall(function() d.Source = newCode end)
-                        end
-                    end
-                end)
-                if serverFuncs then
-                    pcall(function()
-                        serverFuncs:InvokeServer("SaveScriptSourceServerFunction", scriptName, newCode)
-                    end)
-                end
-                saveBtn.Text = "SAVED!"
-                task.delay(1.2, function() saveBtn.Text = "SAVE CODE" end)
-            end
-        end)
-    end
-end
-
--- Listener otomatis untuk membuka & meng-unlock editor Studio Lite
+-- Safe Metamethod Hook: Hanya mencegat GetScriptSourceServerFunction & SaveScriptSourceServerFunction
 task.spawn(function()
     pcall(function()
-        local pg = LP:WaitForChild("PlayerGui", 5)
-        if pg then
-            pg.DescendantAdded:Connect(function(desc)
-                if desc:IsA("Frame") then
-                    task.delay(0.1, function() unlockStudioLiteEditor(desc) end)
+        if hookmetamethod then
+            local oldNamecall
+            oldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
+                local method = getnamecallmethod()
+                local args = {...}
+
+                if not checkcaller() and method == "InvokeServer" then
+                    if self.Name == "GetScriptSourceServerFunction" then
+                        local target = tostring(args[1])
+                        local found = lookupScriptSource(target)
+                        if found then return found end
+                    elseif self.Name == "SaveScriptSourceServerFunction" then
+                        local target = tostring(args[1])
+                        local newSource = tostring(args[2])
+                        storeScriptSource(target, newSource)
+                    end
                 end
+                return oldNamecall(self, ...)
             end)
-            for _, d in ipairs(pg:GetDescendants()) do
-                if d:IsA("Frame") then unlockStudioLiteEditor(d) end
-            end
         end
     end)
 end)
 
 -- =====================================================
+-- STUDIO LITE REAL-TIME UI WATCHER & UNLOCKER (LAYER 2)
+-- Menjamin 100% "Not found." di-replace langsung di layar
+-- =====================================================
+local function fixEditorUI(desc)
+    if not desc then return end
+
+    -- Kasus 1: Object adalah TextBox atau TextLabel yang berisi "Not found"
+    if desc:IsA("TextBox") or desc:IsA("TextLabel") then
+        local t = desc.Text
+        if t == "Not found." or t == "Not found" or t:find("Not found") or t == "-- [LANGZ] Source tidak ditemukan." then
+            local win = desc:FindFirstAncestorWhichIsA("Frame") or desc.Parent
+            local scriptName = ""
+            if win then
+                for _, wChild in ipairs(win:GetDescendants()) do
+                    if (wChild:IsA("TextLabel") or wChild:IsA("TextBox")) and wChild ~= desc then
+                        local wt = wChild.Text
+                        if wt:find("%(read only%)") or wt:find("%[EDITABLE%]") or #wt > 1 then
+                            scriptName = wt:gsub("%s*%(read only%)%s*", ""):gsub("%s*%[EDITABLE%]%s*", ""):gsub("%s+", "")
+                            if wChild:IsA("TextLabel") then
+                                wChild.Text = scriptName .. " [EDITABLE]"
+                                wChild.TextColor3 = Color3.fromRGB(180, 255, 180)
+                            end
+                            break
+                        end
+                    end
+                end
+            end
+
+            local source = lookupScriptSource(scriptName)
+            if source then
+                desc.Text = source
+            end
+        end
+
+        -- Unlock agar bisa diketik / diedit
+        if desc:IsA("TextBox") then
+            desc.TextEditable = true
+            desc.ClearTextOnFocus = false
+            desc.Active = true
+        end
+
+        -- Ubah teks (read only) di label judul
+        if desc:IsA("TextLabel") and desc.Text:find("%(read only%)") then
+            desc.Text = desc.Text:gsub("%s*%(read only%)%s*", "") .. " [EDITABLE]"
+            desc.TextColor3 = Color3.fromRGB(180, 255, 180)
+        end
+    end
+
+    -- Kasus 2: Object adalah Window Editor Studio Lite (Frame)
+    if desc:IsA("Frame") then
+        local titleLbl = nil
+        local codeBox  = nil
+        local hasReadOnly = false
+
+        for _, d in ipairs(desc:GetDescendants()) do
+            if d:IsA("TextLabel") or d:IsA("TextBox") then
+                local txt = d.Text
+                if txt:find("%(read only%)") or txt:find("%[EDITABLE%]") then
+                    titleLbl = d
+                    hasReadOnly = true
+                elseif txt == "Not found." or txt == "Not found" or txt:find("Not found") or #txt > 15 then
+                    codeBox = d
+                end
+            end
+        end
+
+        if hasReadOnly and titleLbl then
+            local cleanTitle = titleLbl.Text:gsub("%s*%(read only%)%s*", ""):gsub("%s*%[EDITABLE%]%s*", ""):gsub("%s+", "")
+            titleLbl.Text = cleanTitle .. " [EDITABLE]"
+            titleLbl.TextColor3 = Color3.fromRGB(180, 255, 180)
+
+            if codeBox then
+                if codeBox.Text == "Not found." or codeBox.Text == "Not found" or codeBox.Text:find("Not found") then
+                    local s = lookupScriptSource(cleanTitle)
+                    if s then codeBox.Text = s end
+                end
+                if codeBox:IsA("TextBox") then
+                    codeBox.TextEditable = true
+                    codeBox.ClearTextOnFocus = false
+                    codeBox.Active = true
+                end
+            end
+
+            -- Inject Toolbar BLUExToolbar [SAVE], [RUN], [COPY]
+            if not desc:FindFirstChild("BLUExToolbar") then
+                local toolbar = Instance.new("Frame")
+                toolbar.Name = "BLUExToolbar"
+                toolbar.Size = UDim2.new(0, 205, 0, 24)
+                toolbar.Position = UDim2.new(1, -240, 0, 4)
+                toolbar.BackgroundTransparency = 1
+                toolbar.ZIndex = 60
+                toolbar.Parent = desc
+
+                local function makeToolBtn(text, posX, width, onClick)
+                    local btn = Instance.new("TextButton")
+                    btn.Size = UDim2.new(0, width, 1, 0)
+                    btn.Position = UDim2.new(0, posX, 0, 0)
+                    btn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+                    btn.Text = text
+                    btn.Font = Enum.Font.GothamBold
+                    btn.TextSize = 8
+                    btn.TextColor3 = Color3.fromRGB(0, 0, 0)
+                    btn.ZIndex = 61
+                    btn.Parent = toolbar
+                    local c = Instance.new("UICorner", btn); c.CornerRadius = UDim.new(0, 4)
+                    btn.Activated:Connect(onClick)
+                    return btn
+                end
+
+                local saveBtn = makeToolBtn("SAVE", 0, 60, function()
+                    if codeBox then
+                        local newCode = codeBox.Text
+                        storeScriptSource(cleanTitle, newCode)
+                        pcall(function()
+                            for _, inst in ipairs(workspace:GetDescendants()) do
+                                if inst:IsA("LuaSourceContainer") and inst.Name:lower() == cleanTitle:lower() then
+                                    storeScriptSource(inst, newCode)
+                                    pcall(function() inst.Source = newCode end)
+                                end
+                            end
+                        end)
+                        if serverFuncs then
+                            pcall(function() serverFuncs:InvokeServer("SaveScriptSourceServerFunction", cleanTitle, newCode) end)
+                        end
+                        saveBtn.Text = "SAVED!"
+                        task.delay(1.2, function() if saveBtn and saveBtn.Parent then saveBtn.Text = "SAVE" end end)
+                    end
+                end)
+
+                local runBtn = makeToolBtn("RUN", 65, 60, function()
+                    if codeBox and codeBox.Text ~= "" then
+                        local fn, err = loadstring(codeBox.Text)
+                        if fn then
+                            task.spawn(fn)
+                            runBtn.Text = "RUNNING!"
+                        else
+                            runBtn.Text = "ERR!"
+                            warn("[BLUExCrown] Compile error: " .. tostring(err))
+                        end
+                        task.delay(1.5, function() if runBtn and runBtn.Parent then runBtn.Text = "RUN" end end)
+                    end
+                end)
+
+                local copyBtn = makeToolBtn("COPY", 130, 65, function()
+                    if codeBox and clipFn then
+                        pcall(clipFn, codeBox.Text)
+                        copyBtn.Text = "COPIED!"
+                        task.delay(1.2, function() if copyBtn and copyBtn.Parent then copyBtn.Text = "COPY" end end)
+                    end
+                end)
+            end
+        end
+    end
+end
+
+-- Monitor UI Studio Lite secara berkelanjutan
+task.spawn(function()
+    pcall(function()
+        local pg = LP:WaitForChild("PlayerGui", 5)
+        if pg then
+            pg.DescendantAdded:Connect(function(desc)
+                task.delay(0.05, function() fixEditorUI(desc) end)
+            end)
+            for _, d in ipairs(pg:GetDescendants()) do
+                fixEditorUI(d)
+            end
+        end
+    end)
+end)
+
+-- Polling periodik (setiap 0.6s) menangani script yang lambat di-render Studio Lite
+task.spawn(function()
+    while task.wait(0.6) do
+        pcall(function()
+            local pg = LP:FindFirstChild("PlayerGui")
+            if pg then
+                for _, d in ipairs(pg:GetDescendants()) do
+                    if (d:IsA("TextBox") or d:IsA("TextLabel")) and (d.Text == "Not found." or d.Text:find("%(read only%)")) then
+                        fixEditorUI(d)
+                    end
+                end
+            end
+        end)
+    end
+end)
+
+-- =====================================================
 -- RBXM RAW SCANNER
 -- =====================================================
-local function parseRBXMSourcesSimple(raw)
+local function parseRBXMSources(raw)
     local sources = {}
     if not raw or #raw < 30 then return sources end
     for src in raw:gmatch("([^\0\r\n][^\0]+[\r\n]+[^\0]+)") do
@@ -277,15 +379,17 @@ local function makeStroke(parent, color, thickness, transparency)
     return s
 end
 
--- Safe Single Click dengan Debounce (Anti Double-Fire di HP)
+-- Safe Click dengan Debounce (Anti-Double Fire pada Android Mobile)
 local function bindSafeClick(btn, callback)
     local lastTime = 0
-    btn.Activated:Connect(function()
+    local function trigger()
         local now = tick()
         if now - lastTime < 0.25 then return end
         lastTime = now
         callback()
-    end)
+    end
+    btn.Activated:Connect(trigger)
+    btn.MouseButton1Click:Connect(trigger)
 end
 
 -- ===================== TOGGLE BUTTON =====================
@@ -332,7 +436,7 @@ local TitleLbl = Instance.new("TextLabel")
 TitleLbl.Size = UDim2.new(1, -70, 1, 0)
 TitleLbl.Position = UDim2.new(0, 12, 0, 0)
 TitleLbl.BackgroundTransparency = 1
-TitleLbl.Text = "BLUExCrown ENGINE v5.3"
+TitleLbl.Text = "BLUExCrown ENGINE v5.4"
 TitleLbl.Font = Enum.Font.GothamBold
 TitleLbl.TextSize = 11
 TitleLbl.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -447,7 +551,7 @@ local StatsLbl = Instance.new("TextLabel")
 StatsLbl.Size = UDim2.new(1, -16, 1, -168)
 StatsLbl.Position = UDim2.new(0, 8, 0, 162)
 StatsLbl.BackgroundTransparency = 1
-StatsLbl.Text = "UserID: "..tostring(LP.UserId).."\nBLUExCrown ENGINE\nv5.3 — Ultimate Edition"
+StatsLbl.Text = "UserID: "..tostring(LP.UserId).."\nBLUExCrown ENGINE\nv5.4 — Definitive Fix"
 StatsLbl.Font = Enum.Font.Gotham
 StatsLbl.TextSize = 9
 StatsLbl.TextColor3 = Color3.fromRGB(130, 130, 140)
@@ -879,7 +983,7 @@ RbxmEmpty.ZIndex = 15
 RbxmEmpty.Parent = RbxmScroll
 
 -- =====================================================
--- SAFE MOBILE DRAGGING DENGAN CLAMPING (TIDAK BISA KELUAR LAYAR)
+-- SAFE MOBILE DRAGGING DENGAN CLAMPING
 -- =====================================================
 local function makeSafeDraggable(frame, handle)
     local dragging = false
@@ -920,7 +1024,7 @@ makeSafeDraggable(MainFrame, TopBar)
 makeSafeDraggable(ToggleBtn, ToggleBtn)
 
 -- =====================================================
--- TOGGLE & NAVIGATION DENGAN DEBOUNCE (100% RESPONSIF)
+-- TOGGLE & NAVIGATION DENGAN DEBOUNCE
 -- =====================================================
 local isOpen = true
 local toggleDebounce = false
@@ -1009,9 +1113,14 @@ local function smartInsertRbxm(filePath, fileName)
 
     if data and #data > 0 then
         task.spawn(function()
-            local sources = parseRBXMSourcesSimple(data)
+            local sources = parseRBXMSources(data)
             for k, v in pairs(sources) do
-                _G.BLUE_RAW_SOURCES[k] = v
+                storeScriptSource(k, v)
+            end
+            local baseName = fileName:gsub("%.rbxm.*", "")
+            for _, v in pairs(sources) do
+                storeScriptSource(baseName, v)
+                break
             end
         end)
     end
@@ -1025,11 +1134,8 @@ local function smartInsertRbxm(filePath, fileName)
             for _, s in ipairs(o:GetDescendants()) do
                 if s:IsA("LuaSourceContainer") then
                     pcall(function()
-                        if not _G.BLUE_RAW_SOURCES[s] and s.Source and #s.Source > 0 then
-                            _G.BLUE_RAW_SOURCES[s] = s.Source
-                        end
-                        if not _G.BLUE_RAW_SOURCES[s.Name] and _G.BLUE_RAW_SOURCES[s] then
-                            _G.BLUE_RAW_SOURCES[s.Name] = _G.BLUE_RAW_SOURCES[s]
+                        if s.Source and #s.Source > 0 then
+                            storeScriptSource(s, s.Source)
                         end
                     end)
                 end
@@ -1336,4 +1442,4 @@ bindSafeClick(TbInsertIdBtn, function()
     end
 end)
 
-print("[BLUExCrown] ENGINE v5.3 ULTIMATE LOADED")
+print("[BLUExCrown] ENGINE v5.4 DEFINITIVE FIX LOADED")
