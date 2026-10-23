@@ -1368,6 +1368,16 @@ end
 -- PURE LUA LZ4 & BINARY RBXM DECOMPRESSOR / PARSER
 -- 100% LOSSLESS RECOVERY OF SCRIPT SOURCES
 -- =====================================================
+
+local function getPackSize(fmt)
+    if not fmt then return 1 end
+    if fmt == "<I4" or fmt == ">I4" or fmt == "<i4" or fmt == ">i4" or fmt == "I4" or fmt == "i4" or fmt == ">f" or fmt == "<f" then return 4 end
+    if fmt == "<I2" or fmt == ">I2" or fmt == "<i2" or fmt == ">i2" or fmt == "I2" or fmt == "i2" then return 2 end
+    if fmt == "<I8" or fmt == ">I8" or fmt == "<i8" or fmt == ">i8" or fmt == "I8" or fmt == "i8" or fmt == "<d" or fmt == ">d" then return 8 end
+    if fmt == "I1" or fmt == "i1" or fmt == "B" or fmt == "b" then return 1 end
+    local ok, sz = pcall(function() return #string.pack(fmt, 0) end)
+    return (ok and sz) or 4
+end
 -- RBXM FILE PARSER (LZ4 + Binary Format)
 
 --                                                                        
@@ -1392,7 +1402,7 @@ local function Buffer(str, allowOverflows)
 
     function Stream:readNumber(fmt, shift)
 
-        fmt = fmt or "I1"; local chunk = self:read(string.packsize(fmt), shift); return string.unpack(fmt, chunk)
+        fmt = fmt or "I1"; local sz = getPackSize(fmt); local chunk = self:read(sz, shift); if #chunk < sz then return 0 end; local ok, val = pcall(string.unpack, fmt, chunk); return ok and val or 0
 
     end
 
@@ -1632,7 +1642,7 @@ local function zstd(stream)
 
     local x = HttpService:JSONDecode(json)
 
-    return buffer.tostring(x)
+    return (buffer and buffer.tostring and buffer.tostring(x)) or ""
 
 end
 
@@ -1847,6 +1857,8 @@ local function parseRBXMForSources(data)
 
 
     return sources, nil
+
+end
 
 
 local function parseAllSources(data)
