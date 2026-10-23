@@ -1,6 +1,6 @@
 -- =======================================================
--- BLUExCrown ENGINE v3.4 - PRO INSERT & BROWSER EDITION
--- Dual-Action: Direct Insert + Copy ID | Multi-Layer Spawn
+-- BLUExCrown ENGINE v3.5 - REAL INSERT ENGINE (STUDIO LITE)
+-- Smart RemoteEvent Hunter + Studio Lite Native UI Trigger
 -- Toggle Asset ID: 102337382069600
 -- =======================================================
 
@@ -49,7 +49,7 @@ ToggleStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 ToggleStroke.Color = Color3.fromRGB(255, 255, 255)
 ToggleStroke.Thickness = 1.4
 
--- 2. MAIN WINDOW FRAME (DIPERBESAR: 620 x 335)
+-- 2. MAIN WINDOW FRAME (620 x 335)
 local MainFrame = Instance.new("Frame")
 MainFrame.Name = "MainFrame"
 MainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
@@ -66,7 +66,7 @@ MainStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 MainStroke.Color = Color3.fromRGB(255, 255, 255)
 MainStroke.Thickness = 1.4
 
--- Top Header dengan UICorner (Tidak keluar batas / tidak lancip)
+-- Top Header dengan UICorner Mandiri
 local TopBar = Instance.new("Frame")
 TopBar.Size = UDim2.new(1, -12, 0, 32)
 TopBar.Position = UDim2.new(0, 6, 0, 6)
@@ -85,14 +85,14 @@ local Title = Instance.new("TextLabel")
 Title.Size = UDim2.new(1, -50, 1, 0)
 Title.Position = UDim2.new(0, 12, 0, 0)
 Title.BackgroundTransparency = 1
-Title.Text = "BLUExCrown ENGINE v3.4"
+Title.Text = "BLUExCrown ENGINE v3.5"
 Title.Font = Enum.Font.GothamBold
 Title.TextSize = 11
 Title.TextColor3 = Color3.fromRGB(255, 255, 255)
 Title.TextXAlignment = Enum.TextXAlignment.Left
 Title.Parent = TopBar
 
--- Tombol Close X Minimalis
+-- Tombol Close X
 local CloseBtn = Instance.new("TextButton")
 CloseBtn.Size = UDim2.new(0, 24, 0, 24)
 CloseBtn.Position = UDim2.new(1, -28, 0, 4)
@@ -110,7 +110,6 @@ CloseStroke.Color = Color3.fromRGB(255, 255, 255)
 CloseStroke.Thickness = 1
 CloseStroke.Transparency = 0.6
 
--- Container Pembagi Kiri & Kanan
 local ContentContainer = Instance.new("Frame")
 ContentContainer.Size = UDim2.new(1, -12, 1, -48)
 ContentContainer.Position = UDim2.new(0, 6, 0, 42)
@@ -118,78 +117,98 @@ ContentContainer.BackgroundTransparency = 1
 ContentContainer.Parent = MainFrame
 
 -- ========================================================
--- LOGIC SMART INSERTION (MULTI-LAYER SPAWN ENGINE)
+-- ADVANCED STUDIO LITE INSERT LOGIC
 -- ========================================================
-local function insertAssetIntoGame(assetId)
+local function executeSmartInsert(assetId)
     local numId = tonumber(assetId)
-    if not numId or numId <= 0 then return false end
+    if not numId or numId <= 0 then 
+        return false, "ID tidak valid" 
+    end
 
-    -- Selalu copy ke clipboard sebagai cadangan pasti
     if copyClipboard then
         copyClipboard(tostring(numId))
     end
 
-    local spawned = false
+    local isInserted = false
+    local resultMethod = ""
 
-    -- 1. Cari RemoteEvent / RemoteFunction game Studio Lite untuk spawn
+    -- 1. Deteksi & Trigger Otomatis UI Bawaan Studio Lite di PlayerGui
     pcall(function()
-        for _, obj in ipairs(game:GetDescendants()) do
-            if obj:IsA("RemoteEvent") or obj:IsA("RemoteFunction") then
-                local n = obj.Name:lower()
-                if string.find(n, "insert") or string.find(n, "loadasset") or string.find(n, "spawnmodel") or string.find(n, "toolbox") then
-                    if obj:IsA("RemoteEvent") then
-                        obj:FireServer(numId)
-                        spawned = true
-                    else
-                        obj:InvokeServer(numId)
-                        spawned = true
+        for _, gui in ipairs(LocalPlayer.PlayerGui:GetDescendants()) do
+            if gui:IsA("TextBox") and not gui:IsDescendantOf(ScreenGui) then
+                local gName = gui.Name:lower()
+                local gHolder = gui.PlaceholderText:lower()
+                if string.find(gName, "asset") or string.find(gName, "id") or string.find(gName, "toolbox") or string.find(gHolder, "id") or string.find(gHolder, "asset") or string.find(gHolder, "url") then
+                    gui.Text = tostring(numId)
+                    
+                    -- Cari tombol Get / Insert terdekat di dalam parent frame
+                    local container = gui.Parent
+                    if container then
+                        for _, btn in ipairs(container:GetDescendants()) do
+                            if (btn:IsA("TextButton") or btn:IsA("ImageButton")) and btn ~= gui then
+                                local bText = (btn:IsA("TextButton") and btn.Text:lower()) or ""
+                                local bName = btn.Name:lower()
+                                if string.find(bText, "get") or string.find(bText, "insert") or string.find(bName, "get") or string.find(bName, "insert") or string.find(bName, "load") then
+                                    if firesignal then
+                                        firesignal(btn.MouseButton1Click)
+                                        firesignal(btn.Activated)
+                                    elseif getconnections then
+                                        for _, c in ipairs(getconnections(btn.MouseButton1Click)) do c:Fire() end
+                                        for _, c in ipairs(getconnections(btn.Activated)) do c:Fire() end
+                                    end
+                                    isInserted = true
+                                    resultMethod = "Native UI Triggered"
+                                    break
+                                end
+                            end
+                        end
                     end
                 end
             end
         end
     end)
 
-    -- 2. Bypass langsung lewat engine GetObjects jika executor mengizinkan
-    if not spawned then
-        local success, objects = pcall(function()
-            return game:GetObjects("rbxassetid://" .. tostring(numId))
+    -- 2. Scan & Fire RemoteEvent Resmi di ReplicatedStorage / Game
+    if not isInserted then
+        pcall(function()
+            for _, rem in ipairs(game:GetService("ReplicatedStorage"):GetDescendants()) do
+                if rem:IsA("RemoteEvent") or rem:IsA("RemoteFunction") then
+                    local rName = rem.Name:lower()
+                    if string.find(rName, "insert") or string.find(rName, "loadasset") or string.find(rName, "spawn") or string.find(rName, "toolbox") or string.find(rName, "asset") then
+                        if rem:IsA("RemoteEvent") then
+                            rem:FireServer(numId)
+                            rem:FireServer("Insert", numId)
+                            rem:FireServer({ AssetId = numId, Id = numId })
+                        else
+                            rem:InvokeServer(numId)
+                            rem:InvokeServer("Insert", numId)
+                        end
+                        isInserted = true
+                        resultMethod = "Remote: " .. rem.Name
+                    end
+                end
+            end
         end)
-        if success and objects and #objects > 0 then
+    end
+
+    -- 3. Executor Local Spawn (Bypass GetObjects)
+    pcall(function()
+        local objects = game:GetObjects("rbxassetid://" .. tostring(numId))
+        if objects and #objects > 0 then
             for _, item in ipairs(objects) do
                 item.Parent = workspace
                 if item:IsA("Model") and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-                    item:MoveTo(LocalPlayer.Character.HumanoidRootPart.Position + LocalPlayer.Character.HumanoidRootPart.CFrame.LookVector * 6)
+                    item:MoveTo(LocalPlayer.Character.HumanoidRootPart.Position + LocalPlayer.Character.HumanoidRootPart.CFrame.LookVector * 7)
                 end
             end
-            spawned = true
-        end
-    end
-
-    -- 3. Cek InsertService standar
-    if not spawned then
-        pcall(function()
-            local model = game:GetService("InsertService"):LoadAsset(numId)
-            if model then
-                model.Parent = workspace
-                spawned = true
-            end
-        end)
-    end
-
-    -- 4. Auto-fill ke TextBox in-game Studio Lite jika tersedia di layar
-    pcall(function()
-        for _, gui in ipairs(LocalPlayer.PlayerGui:GetDescendants()) do
-            if gui:IsA("TextBox") then
-                local n = gui.Name:lower()
-                local ph = gui.PlaceholderText:lower()
-                if string.find(n, "id") or string.find(n, "asset") or string.find(ph, "id") or string.find(ph, "asset") then
-                    gui.Text = tostring(numId)
-                end
+            if not isInserted then
+                isInserted = true
+                resultMethod = "GetObjects Spawn"
             end
         end
     end)
 
-    return spawned
+    return isInserted, (resultMethod ~= "" and resultMethod or "ID Tersalin ke Clipboard")
 end
 
 -- ==========================================
@@ -212,7 +231,6 @@ SS_Stroke.Color = Color3.fromRGB(255, 255, 255)
 SS_Stroke.Thickness = 1
 SS_Stroke.Transparency = 0.75
 
--- Direct Insert ID
 local IdBox = Instance.new("TextBox")
 IdBox.Size = UDim2.new(1, -72, 0, 25)
 IdBox.Position = UDim2.new(0, 6, 0, 8)
@@ -264,7 +282,7 @@ SearchBtn.TextColor3 = Color3.fromRGB(0, 0, 0)
 SearchBtn.Parent = SearchSection
 Instance.new("UICorner", SearchBtn).CornerRadius = UDim.new(0, 5)
 
--- Category Pills
+-- Categories
 local selectedCategory = 10
 local categoryButtons = {}
 local categories = {
@@ -326,14 +344,14 @@ local SearchStatus = Instance.new("TextLabel")
 SearchStatus.Size = UDim2.new(1, -12, 0, 18)
 SearchStatus.Position = UDim2.new(0, 6, 0, 94)
 SearchStatus.BackgroundTransparency = 1
-SearchStatus.Text = "[•] Mode: Model | Siap insert"
+SearchStatus.Text = "[•] Mode: Model | Siap Insert"
 SearchStatus.Font = Enum.Font.Gotham
 SearchStatus.TextSize = 9
 SearchStatus.TextColor3 = Color3.fromRGB(140, 140, 150)
 SearchStatus.TextXAlignment = Enum.TextXAlignment.Left
 SearchStatus.Parent = SearchSection
 
--- Box 2: Detail Asset Panel (Inspector)
+-- Box 2: Detail Asset Panel
 local DetailBox = Instance.new("Frame")
 DetailBox.Size = UDim2.new(1, 0, 1, -128)
 DetailBox.Position = UDim2.new(0, 0, 0, 128)
@@ -407,7 +425,6 @@ DetailId.Parent = DetailBox
 
 local currentInspectedId = ""
 
--- Tombol Aksi Detail: INSERT & COPY ID
 local DetailBtnRow = Instance.new("Frame")
 DetailBtnRow.Size = UDim2.new(1, -16, 0, 26)
 DetailBtnRow.Position = UDim2.new(0, 8, 1, -32)
@@ -450,10 +467,12 @@ end)
 DetailInsertBtn.MouseButton1Click:Connect(function()
     if currentInspectedId ~= "" then
         DetailInsertBtn.Text = "INSERTING..."
+        SearchStatus.Text = "[•] Menghubungi Studio Lite..."
         task.spawn(function()
-            local ok = insertAssetIntoGame(currentInspectedId)
+            local ok, method = executeSmartInsert(currentInspectedId)
+            SearchStatus.Text = "[•] " .. method
             if DetailInsertBtn and DetailInsertBtn.Parent then
-                DetailInsertBtn.Text = ok and "INSERTED ✓" or "COPIED ✓"
+                DetailInsertBtn.Text = ok and "BERHASIL ✓" or "COPIED ✓"
                 task.delay(1.5, function()
                     if DetailInsertBtn and DetailInsertBtn.Parent then
                         DetailInsertBtn.Text = "INSERT"
@@ -487,7 +506,7 @@ local function inspectAsset(assetId, name, creator)
 end
 
 -- ========================================================
--- SISI KANAN (WIDTH: Sisa ~365px) - ASSET BROWSER GRID
+-- SISI KANAN - ASSET BROWSER GRID
 -- ========================================================
 local RightPanel = Instance.new("Frame")
 RightPanel.Size = UDim2.new(1, -243, 1, 0)
@@ -535,7 +554,7 @@ GridStatus.TextSize = 10
 GridStatus.TextColor3 = Color3.fromRGB(140, 140, 150)
 GridStatus.Parent = GridScroll
 
--- DRAGGABLE ENGINE (TOUCH & MOUSE)
+-- DRAGGABLE ENGINE
 local function makeDraggable(frame, handle)
     handle = handle or frame
     local dragging, dragStart, startPos = false, nil, nil
@@ -564,7 +583,6 @@ end
 makeDraggable(MainFrame, TopBar)
 makeDraggable(ToggleBtn, ToggleBtn)
 
--- Toggle Open/Close Window
 local isOpen = true
 local function toggleWindow()
     isOpen = not isOpen
@@ -588,7 +606,7 @@ end
 ToggleBtn.MouseButton1Click:Connect(toggleWindow)
 CloseBtn.MouseButton1Click:Connect(toggleWindow)
 
--- QUERY LOGIC
+-- QUERY LOGIC (HTTP ROBLOX TOOLBOX MARKETPLACE)
 local function queryMarketplace(category, query)
     local encoded = HttpService:UrlEncode(query)
     local endpoints = {
@@ -655,7 +673,6 @@ local function renderGrid(data)
         C_Stroke.Thickness = 1
         C_Stroke.Transparency = 0.85
 
-        -- Thumbnail
         local Thumb = Instance.new("ImageLabel")
         Thumb.Size = UDim2.new(1, -8, 0, 52)
         Thumb.Position = UDim2.new(0, 4, 0, 4)
@@ -664,7 +681,6 @@ local function renderGrid(data)
         Thumb.Parent = Card
         Instance.new("UICorner", Thumb).CornerRadius = UDim.new(0, 5)
 
-        -- Title
         local NameLbl = Instance.new("TextLabel")
         NameLbl.Size = UDim2.new(1, -8, 0, 14)
         NameLbl.Position = UDim2.new(0, 4, 0, 58)
@@ -677,7 +693,6 @@ local function renderGrid(data)
         NameLbl.TextTruncate = Enum.TextTruncate.AtEnd
         NameLbl.Parent = Card
 
-        -- Creator
         local SubLbl = Instance.new("TextLabel")
         SubLbl.Size = UDim2.new(1, -8, 0, 12)
         SubLbl.Position = UDim2.new(0, 4, 0, 72)
@@ -690,7 +705,7 @@ local function renderGrid(data)
         SubLbl.TextTruncate = Enum.TextTruncate.AtEnd
         SubLbl.Parent = Card
 
-        -- Tombol Row di Kartu: INSERT & COPY
+        -- Tombol Aksi: INSERT & COPY
         local CardBtnRow = Instance.new("Frame")
         CardBtnRow.Size = UDim2.new(1, -8, 0, 18)
         CardBtnRow.Position = UDim2.new(0, 4, 1, -22)
@@ -732,8 +747,10 @@ local function renderGrid(data)
 
         CardInsert.MouseButton1Click:Connect(function()
             CardInsert.Text = "..."
+            SearchStatus.Text = "[•] Memproses: " .. assetId
             task.spawn(function()
-                local ok = insertAssetIntoGame(assetId)
+                local ok, method = executeSmartInsert(assetId)
+                SearchStatus.Text = "[•] " .. method
                 if CardInsert and CardInsert.Parent then
                     CardInsert.Text = ok and "✓" or "COPY"
                     task.delay(1.2, function()
@@ -745,7 +762,6 @@ local function renderGrid(data)
             end)
         end)
 
-        -- Hitbox Thumbnail untuk Inspeksi Detail
         local Hitbox = Instance.new("TextButton")
         Hitbox.Size = UDim2.new(1, 0, 0, 86)
         Hitbox.BackgroundTransparency = 1
@@ -755,7 +771,6 @@ local function renderGrid(data)
             inspectAsset(assetId, NameLbl.Text, creatorName)
         end)
 
-        -- Fetch nama resmi di background
         local num = tonumber(assetId)
         if num and num > 0 then
             task.spawn(function()
@@ -782,7 +797,7 @@ local function executeSearch()
     if SearchBox.Text ~= "" then
         GridStatus.Visible = true
         GridStatus.Text = "Mencari di Roblox Toolbox..."
-        SearchStatus.Text = "[•] Sedang mencari: " .. SearchBox.Text
+        SearchStatus.Text = "[•] Mencari: " .. SearchBox.Text
         task.spawn(function()
             local data = queryMarketplace(selectedCategory, SearchBox.Text)
             renderGrid(data)
@@ -802,10 +817,12 @@ InsertIdBtn.MouseButton1Click:Connect(function()
     if inputId ~= "" then
         inspectAsset(inputId, "Memuat Asset ID...", "Mencari...")
         InsertIdBtn.Text = "..."
+        SearchStatus.Text = "[•] Mengirim ke Studio Lite..."
         task.spawn(function()
-            local ok = insertAssetIntoGame(inputId)
+            local ok, method = executeSmartInsert(inputId)
+            SearchStatus.Text = "[•] " .. method
             if InsertIdBtn and InsertIdBtn.Parent then
-                InsertIdBtn.Text = ok and "INSERTED ✓" or "COPIED ✓"
+                InsertIdBtn.Text = ok and "BERHASIL ✓" or "COPIED ✓"
                 task.delay(1.5, function()
                     if InsertIdBtn and InsertIdBtn.Parent then
                         InsertIdBtn.Text = "INSERT"
