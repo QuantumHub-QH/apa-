@@ -824,10 +824,11 @@ Content.Parent = MainFrame
 local PageSplash   = Instance.new("Frame")
 local PageToolbox  = Instance.new("Frame")
 local PageRBXM     = Instance.new("Frame")
+local PageRBXL     = Instance.new("Frame")
 local PageText3D   = Instance.new("Frame")
 local PageReplacer = Instance.new("Frame")
 
-for _, pg in ipairs({PageSplash, PageToolbox, PageRBXM, PageText3D, PageReplacer}) do
+for _, pg in ipairs({PageSplash, PageToolbox, PageRBXM, PageRBXL, PageText3D, PageReplacer}) do
     pg.Size = UDim2.fromScale(1, 1)
     pg.BackgroundTransparency = 1
     pg.Visible = false
@@ -840,6 +841,7 @@ local function showPage(target)
     PageSplash.Visible   = false
     PageToolbox.Visible  = false
     PageRBXM.Visible     = false
+    PageRBXL.Visible     = false
     PageText3D.Visible   = false
     PageReplacer.Visible = false
     target.Visible = true
@@ -927,29 +929,22 @@ StatsLbl.TextWrapped = true
 StatsLbl.ZIndex = 14
 StatsLbl.Parent = ProfileCard
 
--- KANAN: Menu Cards
-local MenuArea = Instance.new("Frame")
-MenuArea.Size = UDim2.new(1, -183, 1, 0)
-MenuArea.Position = UDim2.new(0, 183, 0, 0)
+-- KANAN: Menu Cards (Scrollable agar muat 5 menu dengan nyaman & responsif di HP)
+local MenuArea = Instance.new("ScrollingFrame")
+MenuArea.Size = UDim2.new(1, -183, 1, -10)
+MenuArea.Position = UDim2.new(0, 183, 0, 5)
 MenuArea.BackgroundTransparency = 1
+MenuArea.BorderSizePixel = 0
+MenuArea.ScrollBarThickness = 3
+MenuArea.ScrollBarImageColor3 = Color3.fromRGB(255, 255, 255)
+MenuArea.CanvasSize = UDim2.new(0, 0, 0, 400)
 MenuArea.ZIndex = 13
 MenuArea.Parent = PageSplash
-
-local MenuTitle = Instance.new("TextLabel")
-MenuTitle.Size = UDim2.new(1, 0, 0, 24)
-MenuTitle.BackgroundTransparency = 1
-MenuTitle.Text = "PILIH MENU"
-MenuTitle.Font = Enum.Font.GothamBold
-MenuTitle.TextSize = 10
-MenuTitle.TextColor3 = Color3.fromRGB(180, 180, 190)
-MenuTitle.TextXAlignment = Enum.TextXAlignment.Left
-MenuTitle.ZIndex = 14
-MenuTitle.Parent = MenuArea
 
 -- MENU CARD DENGAN TRANSPARENT FULL HITBOX (100% RESPONSIF)
 local function makeMenuCard(parent, posY, icon, title, subtitle, onClick)
     local card = Instance.new("Frame")
-    card.Size = UDim2.new(1, 0, 0, 72)
+    card.Size = UDim2.new(1, -8, 0, 68)
     card.Position = UDim2.new(0, 0, 0, posY)
     card.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
     card.ZIndex = 14
@@ -958,12 +953,12 @@ local function makeMenuCard(parent, posY, icon, title, subtitle, onClick)
     makeStroke(card, Color3.fromRGB(255,255,255), 1, 0.78)
 
     local iconLbl = Instance.new("TextLabel")
-    iconLbl.Size = UDim2.new(0, 44, 0, 44)
-    iconLbl.Position = UDim2.new(0, 14, 0.5, -22)
+    iconLbl.Size = UDim2.new(0, 42, 0, 42)
+    iconLbl.Position = UDim2.new(0, 12, 0.5, -21)
     iconLbl.BackgroundColor3 = Color3.fromRGB(28, 28, 34)
     iconLbl.Text = icon
     iconLbl.Font = Enum.Font.GothamBold
-    iconLbl.TextSize = 18
+    iconLbl.TextSize = 16
     iconLbl.TextColor3 = Color3.fromRGB(255, 255, 255)
     iconLbl.ZIndex = 15
     iconLbl.Parent = card
@@ -971,11 +966,11 @@ local function makeMenuCard(parent, posY, icon, title, subtitle, onClick)
 
     local titleL = Instance.new("TextLabel")
     titleL.Size = UDim2.new(1, -80, 0, 20)
-    titleL.Position = UDim2.new(0, 68, 0, 16)
+    titleL.Position = UDim2.new(0, 64, 0, 14)
     titleL.BackgroundTransparency = 1
     titleL.Text = title
     titleL.Font = Enum.Font.GothamBold
-    titleL.TextSize = 13
+    titleL.TextSize = 12
     titleL.TextColor3 = Color3.fromRGB(255, 255, 255)
     titleL.TextXAlignment = Enum.TextXAlignment.Left
     titleL.ZIndex = 15
@@ -983,11 +978,11 @@ local function makeMenuCard(parent, posY, icon, title, subtitle, onClick)
 
     local subL = Instance.new("TextLabel")
     subL.Size = UDim2.new(1, -80, 0, 16)
-    subL.Position = UDim2.new(0, 68, 0, 37)
+    subL.Position = UDim2.new(0, 64, 0, 35)
     subL.BackgroundTransparency = 1
     subL.Text = subtitle
     subL.Font = Enum.Font.Gotham
-    subL.TextSize = 9
+    subL.TextSize = 8.5
     subL.TextColor3 = Color3.fromRGB(150, 150, 160)
     subL.TextXAlignment = Enum.TextXAlignment.Left
     subL.ZIndex = 15
@@ -995,11 +990,11 @@ local function makeMenuCard(parent, posY, icon, title, subtitle, onClick)
 
     local arrow = Instance.new("TextLabel")
     arrow.Size = UDim2.new(0, 20, 0, 20)
-    arrow.Position = UDim2.new(1, -28, 0.5, -10)
+    arrow.Position = UDim2.new(1, -26, 0.5, -10)
     arrow.BackgroundTransparency = 1
     arrow.Text = ">"
     arrow.Font = Enum.Font.GothamBold
-    arrow.TextSize = 18
+    arrow.TextSize = 16
     arrow.TextColor3 = Color3.fromRGB(200, 200, 210)
     arrow.ZIndex = 15
     arrow.Parent = card
@@ -1020,19 +1015,24 @@ local function makeMenuCard(parent, posY, icon, title, subtitle, onClick)
     return card
 end
 
-makeMenuCard(MenuArea, 20,  "[T]", "TOOLBOX ASET",     "Cari & insert model dari Creator Store", function()
+makeMenuCard(MenuArea, 10,  "[T]", "TOOLBOX ASET",     "Cari & insert model dari Creator Store", function()
     showPage(PageToolbox)
 end)
 
-makeMenuCard(MenuArea, 96,  "[R]", "INSERT RBXM FILE", "Scan & insert file .rbxm dengan Source Script", function()
+makeMenuCard(MenuArea, 86,  "[R]", "INSERT RBXM FILE", "Scan & insert file .rbxm dengan Source Script", function()
     showPage(PageRBXM)
 end)
 
-makeMenuCard(MenuArea, 172, "[3D]", "GENE TEXT 3D", "Buat teks 3D (3D extruded parts) kustom langsung di map", function()
+-- Tombol INSERT RBXL PERSIS DI BAWAH INSERT RBXM
+makeMenuCard(MenuArea, 162, "[L]", "INSERT RBXL PLACE", "Scan & insert file map (.rbxl/.rbxlx) ke Workspace", function()
+    showPage(PageRBXL)
+end)
+
+makeMenuCard(MenuArea, 238, "[3D]", "GENE TEXT 3D", "Buat teks 3D (3D extruded parts) kustom langsung di map", function()
     showPage(PageText3D)
 end)
 
-makeMenuCard(MenuArea, 248, "[[REP]]", "REPLACER TOOLS", "Ganti banyak objek target di map dengan 1 model/part pilihan", function()
+makeMenuCard(MenuArea, 314, "[[REP]]", "REPLACER TOOLS", "Ganti banyak objek target di map dengan 1 model/part pilihan", function()
     showPage(PageReplacer)
 end)
 
@@ -2418,12 +2418,18 @@ local function getFileName(p) return p:match("([^/\\]+)$") or p end
 local function getAllRbxmFiles()
     local result, seen = {}, {}
     if not listfilesFn then return result end
+    local lastYield = os.clock()
     local function scanDeep(folder, depth)
         if depth > 4 or seen[folder] then return end
         seen[folder] = true
         local files = safeListFiles(folder)
         if not files then return end
         for _, path in ipairs(files) do
+            -- Anti-Lag Framerate Throttling ala FORKT (tetap 60 FPS saat scan)
+            if os.clock() - lastYield > 0.015 then
+                task.wait()
+                lastYield = os.clock()
+            end
             local lp = path:lower()
             if (lp:sub(-5) == ".rbxm" or lp:sub(-6) == ".rbxmx") and not seen[path] then
                 seen[path] = true; table.insert(result, {path=path, name=getFileName(path)})
@@ -2714,6 +2720,413 @@ end)
 -- =====================================================
 -- =====================================================
 -- =====================================================
+-- =====================================================
+-- PAGE: INSERT RBXL PLACE [MODULAR SCOPE - FORKT LOGIC]
+-- =====================================================
+local function initRbxlPage()
+    local RbxlHeader = Instance.new("Frame")
+    RbxlHeader.Size = UDim2.new(1, 0, 0, 28); RbxlHeader.BackgroundTransparency = 1
+    RbxlHeader.ZIndex = 13; RbxlHeader.Parent = PageRBXL
+
+    local RbxlTitleLbl = Instance.new("TextLabel")
+    RbxlTitleLbl.Size = UDim2.new(1, -90, 1, 0); RbxlTitleLbl.Position = UDim2.new(0, 8, 0, 0)
+    RbxlTitleLbl.BackgroundTransparency = 1; RbxlTitleLbl.Font = Enum.Font.GothamBold
+    RbxlTitleLbl.TextSize = 12; RbxlTitleLbl.TextColor3 = Color3.fromRGB(255, 255, 255)
+    RbxlTitleLbl.TextXAlignment = Enum.TextXAlignment.Left
+    RbxlTitleLbl.Text = "[L] INSERT RBXL PLACE FILE (MAP LOADER)"; RbxlTitleLbl.ZIndex = 14; RbxlTitleLbl.Parent = RbxlHeader
+
+    makeBackBtn(RbxlHeader, function() showPage(PageSplash) end)
+
+    -- RBXL TOOLBAR
+    local RbxlToolbar = Instance.new("Frame")
+    RbxlToolbar.Size = UDim2.new(1, 0, 0, 28); RbxlToolbar.Position = UDim2.new(0, 0, 0, 32)
+    RbxlToolbar.BackgroundTransparency = 1; RbxlToolbar.ZIndex = 13; RbxlToolbar.Parent = PageRBXL
+
+    local RbxlScanBtn = Instance.new("TextButton")
+    RbxlScanBtn.Size = UDim2.new(0, 88, 0, 24); RbxlScanBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    RbxlScanBtn.Text = "[?] SCAN RBXL"; RbxlScanBtn.Font = Enum.Font.GothamBold; RbxlScanBtn.TextSize = 9.5
+    RbxlScanBtn.TextColor3 = Color3.fromRGB(0, 0, 0); RbxlScanBtn.Active = true; RbxlScanBtn.ZIndex = 15; RbxlScanBtn.Parent = RbxlToolbar
+    makeCorner(RbxlScanBtn, 6); makeStroke(RbxlScanBtn, Color3.fromRGB(0, 0, 0), 1)
+
+    local RbxlProgressFrame = Instance.new("Frame")
+    RbxlProgressFrame.Size = UDim2.new(1, -96, 1, 0); RbxlProgressFrame.Position = UDim2.new(0, 96, 0, 0)
+    RbxlProgressFrame.BackgroundTransparency = 1; RbxlProgressFrame.ZIndex = 14; RbxlProgressFrame.Parent = RbxlToolbar
+
+    local RbxlInsertStatus = Instance.new("TextLabel")
+    RbxlInsertStatus.Size = UDim2.new(0.68, 0, 0, 14); RbxlInsertStatus.Position = UDim2.new(0, 4, 0, 0)
+    RbxlInsertStatus.BackgroundTransparency = 1; RbxlInsertStatus.Font = Enum.Font.Code
+    RbxlInsertStatus.TextSize = 9; RbxlInsertStatus.TextColor3 = Color3.fromRGB(240, 240, 245)
+    RbxlInsertStatus.TextXAlignment = Enum.TextXAlignment.Left; RbxlInsertStatus.Text = "READY | AUTO-DISTRIBUTE: ON"
+    RbxlInsertStatus.ZIndex = 15; RbxlInsertStatus.Parent = RbxlProgressFrame
+
+    local RbxlInsertPct = Instance.new("TextLabel")
+    RbxlInsertPct.Size = UDim2.new(0.32, 0, 0, 14); RbxlInsertPct.Position = UDim2.new(0.68, 0, 0, 0)
+    RbxlInsertPct.BackgroundTransparency = 1; RbxlInsertPct.Font = Enum.Font.Code
+    RbxlInsertPct.TextSize = 8.5; RbxlInsertPct.TextColor3 = Color3.fromRGB(200, 200, 210)
+    RbxlInsertPct.TextXAlignment = Enum.TextXAlignment.Right; RbxlInsertPct.Text = "[.] Klik SCAN RBXL"
+    RbxlInsertPct.ZIndex = 15; RbxlInsertPct.Parent = RbxlProgressFrame
+
+    local RbxlBarBg = Instance.new("Frame")
+    RbxlBarBg.Size = UDim2.new(1, -8, 0, 4); RbxlBarBg.Position = UDim2.new(0, 4, 0, 16)
+    RbxlBarBg.BackgroundColor3 = Color3.fromRGB(30, 30, 38); RbxlBarBg.BorderSizePixel = 0
+    RbxlBarBg.ZIndex = 14; RbxlBarBg.Parent = RbxlProgressFrame; makeCorner(RbxlBarBg, 2)
+
+    local RbxlBarFill = Instance.new("Frame")
+    RbxlBarFill.Size = UDim2.new(0, 0, 1, 0); RbxlBarFill.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    RbxlBarFill.BorderSizePixel = 0; RbxlBarFill.ZIndex = 15; RbxlBarFill.Parent = RbxlBarBg; makeCorner(RbxlBarFill, 2)
+
+    local function updateInlineRbxlProgress(pct, statusText)
+        pcall(function()
+            pct = math.clamp(pct or 0, 0, 100)
+            RbxlBarFill.Size = UDim2.new(pct / 100, 0, 1, 0)
+            if statusText then RbxlInsertStatus.Text = statusText end
+            RbxlInsertPct.Text = tostring(math.floor(pct)) .. "%"
+        end)
+    end
+
+    -- SEARCH BAR RBXL
+    local RbxlSearchCard = Instance.new("Frame")
+    RbxlSearchCard.Size = UDim2.new(1, -12, 0, 32); RbxlSearchCard.Position = UDim2.new(0, 6, 0, 62)
+    RbxlSearchCard.BackgroundColor3 = Color3.fromRGB(22, 22, 28); RbxlSearchCard.BorderSizePixel = 0
+    RbxlSearchCard.ZIndex = 14; RbxlSearchCard.Parent = PageRBXL
+    makeCorner(RbxlSearchCard, 6); makeStroke(RbxlSearchCard, Color3.fromRGB(255, 255, 255), 1, 0.85)
+
+    local RbxlSearchBox = Instance.new("TextBox")
+    RbxlSearchBox.Size = UDim2.new(1, -16, 1, 0); RbxlSearchBox.Position = UDim2.new(0, 8, 0, 0)
+    RbxlSearchBox.BackgroundTransparency = 1; RbxlSearchBox.Font = Enum.Font.Gotham
+    RbxlSearchBox.TextSize = 10; RbxlSearchBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+    RbxlSearchBox.PlaceholderText = "[?] Cari file .rbxl di sini..."
+    RbxlSearchBox.PlaceholderColor3 = Color3.fromRGB(140, 140, 150)
+    RbxlSearchBox.TextXAlignment = Enum.TextXAlignment.Left; RbxlSearchBox.ClearTextOnFocus = false
+    RbxlSearchBox.ZIndex = 15; RbxlSearchBox.Parent = RbxlSearchCard
+
+    local currentRbxlFilter = ""
+    local renderedRbxlCards = {}
+
+    local RbxlScroll = Instance.new("ScrollingFrame")
+    RbxlScroll.Size = UDim2.new(1, -12, 1, -102); RbxlScroll.Position = UDim2.new(0, 6, 0, 98)
+    RbxlScroll.BackgroundColor3 = Color3.fromRGB(17, 17, 22); RbxlScroll.BorderSizePixel = 0
+    RbxlScroll.ScrollBarThickness = 3; RbxlScroll.ScrollBarImageColor3 = Color3.fromRGB(255, 255, 255)
+    RbxlScroll.ZIndex = 14; RbxlScroll.Parent = PageRBXL
+    makeCorner(RbxlScroll, 8); makeStroke(RbxlScroll, Color3.fromRGB(255, 255, 255), 1, 0.78)
+
+    local RbxlList = Instance.new("UIListLayout")
+    RbxlList.Padding = UDim.new(0, 8); RbxlList.SortOrder = Enum.SortOrder.LayoutOrder; RbxlList.Parent = RbxlScroll
+
+    local RbxlPad = Instance.new("UIPadding")
+    RbxlPad.PaddingTop = UDim.new(0, 8); RbxlPad.PaddingBottom = UDim.new(0, 8)
+    RbxlPad.PaddingLeft = UDim.new(0, 6); RbxlPad.PaddingRight = UDim.new(0, 6); RbxlPad.Parent = RbxlScroll
+
+    local RbxlEmpty = Instance.new("TextLabel")
+    RbxlEmpty.Size = UDim2.new(1, 0, 0, 40); RbxlEmpty.BackgroundTransparency = 1
+    RbxlEmpty.Font = Enum.Font.Gotham; RbxlEmpty.TextSize = 11; RbxlEmpty.TextColor3 = Color3.fromRGB(120, 120, 130)
+    RbxlEmpty.Text = "Klik 'SCAN RBXL' untuk mencari file map (.rbxl/.rbxlx)"
+    RbxlEmpty.ZIndex = 15; RbxlEmpty.Parent = RbxlScroll
+
+    local function filterRbxlList()
+        local filter = currentRbxlFilter:lower():gsub("%s+", "")
+        local visibleCount = 0
+        for _, item in ipairs(renderedRbxlCards) do
+            local match = (filter == "") or item.name:lower():find(filter, 1, true) or item.path:lower():find(filter, 1, true)
+            item.card.Visible = (match ~= nil)
+            if match then visibleCount = visibleCount + 1 end
+        end
+        if RbxlEmpty then
+            RbxlEmpty.Visible = (visibleCount == 0)
+            if visibleCount == 0 and #renderedRbxlCards > 0 then
+                RbxlEmpty.Text = "Tidak ada file yang cocok dengan '" .. currentRbxlFilter .. "'"
+            end
+        end
+    end
+
+    RbxlSearchBox:GetPropertyChangedSignal("Text"):Connect(function()
+        currentRbxlFilter = RbxlSearchBox.Text
+        filterRbxlList()
+    end)
+
+    -- FORKT SCANNING LOGIC (Anti-Lag Framerate Throttling)
+    local function getAllRbxlFiles()
+        local result, seen = {}, {}
+        if not listfilesFn then return result end
+        local lastYield = os.clock()
+
+        local function scanDeep(folder, depth)
+            if depth > 4 or seen[folder] then return end
+            seen[folder] = true
+            local files = safeListFiles(folder)
+            if not files then return end
+            for _, path in ipairs(files) do
+                if os.clock() - lastYield > 0.015 then
+                    task.wait()
+                    lastYield = os.clock()
+                end
+                local lp = path:lower()
+                if (lp:sub(-5) == ".rbxl" or lp:sub(-6) == ".rbxlx") and not seen[path] then
+                    seen[path] = true
+                    table.insert(result, { path = path, name = getFileName(path) })
+                elseif not path:lower():match("%.[%a%d]+$") then
+                    scanDeep(path, depth + 1)
+                end
+            end
+        end
+
+        for _, p in ipairs(SCAN_PATHS) do
+            if safeListFiles(p) then scanDeep(p, 0) end
+        end
+        return result
+    end
+
+    -- FORKT IMPORT RBXL CORE LOGIC
+    local function smartInsertRbxl(filePath, fileName)
+        updateInlineRbxlProgress(15, "[1/5] MEMBACA FILE RBXL...")
+        task.wait(0.2)
+
+        local data = safeReadFile(filePath)
+        local parsedSources = {}
+        if data and #data > 0 then
+            updateInlineRbxlProgress(35, "[2/5] PARSING SCRIPT & METADATA...")
+            parsedSources = parseAllSources(data)
+            for k, v in pairs(parsedSources) do
+                storeScriptSource(k, stripRichText(v))
+            end
+        end
+
+        updateInlineRbxlProgress(60, "[3/5] MEMUAT PLACE INSTANCE...")
+        task.wait(0.2)
+
+        local urls = {
+            "rbxasset://" .. tostring(filePath):gsub("\\", "/")
+        }
+        if customAsset then
+            pcall(function()
+                local u = customAsset(filePath)
+                if u then table.insert(urls, 1, u) end
+            end)
+        end
+
+        local loadedObjs = nil
+        for _, url in ipairs(urls) do
+            local ok, res = pcall(function() return game:GetObjects(url) end)
+            if ok and res and #res > 0 then
+                loadedObjs = res
+                break
+            end
+        end
+
+        if not loadedObjs or #loadedObjs == 0 then
+            if data and writefile and customAsset then
+                pcall(function()
+                    local tmpName = "mchlern_tmp_" .. fileName
+                    writefile(tmpName, data)
+                    local urlTmp = customAsset(tmpName)
+                    if urlTmp then
+                        local okT, resT = pcall(function() return game:GetObjects(urlTmp) end)
+                        if okT and resT and #resT > 0 then loadedObjs = resT end
+                    end
+                    pcall(function() if delfile then delfile(tmpName) end end)
+                end)
+            end
+        end
+
+        if not loadedObjs or #loadedObjs == 0 then
+            updateInlineRbxlProgress(100, "[ERR] GAGAL MEMUAT PLACE INSTANCE")
+            return false, "game:GetObjects gagal memuat instance dari file .rbxl"
+        end
+
+        updateInlineRbxlProgress(80, "[4/5] DISTRIBUSI KE SERVICES...")
+        task.wait(0.2)
+
+        local serviceMap = {
+            Workspace = workspace,
+            ReplicatedStorage = ReplicatedStorage,
+            Lighting = game:GetService("Lighting"),
+            SoundService = game:GetService("SoundService"),
+            StarterGui = game:GetService("StarterGui"),
+            StarterPack = game:GetService("StarterPack"),
+            StarterPlayer = game:GetService("StarterPlayer"),
+            Teams = game:GetService("Teams"),
+            Chat = game:GetService("Chat")
+        }
+
+        local cleanName = fileName:gsub("%.[^%.]+$", ""):gsub('[\\/:*?<>|]', "_")
+        local placeFolder = Instance.new("Folder")
+        placeFolder.Name = cleanName .. "_Map"
+        placeFolder.Parent = workspace
+        pcall(function()
+            placeFolder:SetAttribute("MCHLERN_RBXL_IMPORT", true)
+            placeFolder:SetAttribute("SourceFile", tostring(filePath))
+        end)
+
+        local function setupImportedItem(item)
+            pcall(function()
+                if item:IsA("BasePart") then
+                    item.Anchored = true
+                    item.Velocity = Vector3.new(0, 0, 0)
+                    if item:GetAttribute("SL_Anchored") == nil then
+                        item:SetAttribute("SL_Anchored", true)
+                        item:SetAttribute("SL_CanCollide", item.CanCollide)
+                    end
+                end
+                if item:IsA("MeshPart") then
+                    local num = tostring(item.MeshId):match("%d+")
+                    if num and serverFuncs then
+                        pcall(function()
+                            serverFuncs:InvokeServer("LoadMeshToRuntimeMeshes", tonumber(num))
+                        end)
+                    end
+                end
+                if item:IsA("LuaSourceContainer") then
+                    local path = item.ClassName .. ":" .. item.Name
+                    local src = parsedSources[path] or parsedSources[item.Name]
+                    if not src then
+                        for k, v in pairs(parsedSources) do
+                            if k:sub(-#item.Name) == item.Name or k:find(item.Name, 1, true) then
+                                src = v; break
+                            end
+                        end
+                    end
+                    if not src then
+                        pcall(function() src = item.Source end)
+                    end
+                    src = stripRichText(src or "-- Script Source")
+                    recreateScriptAsNative(item, src)
+                end
+                for _, d in ipairs(item:GetDescendants()) do
+                    if d:IsA("BasePart") then
+                        d.Anchored = true
+                        d.Velocity = Vector3.new(0, 0, 0)
+                        if d:GetAttribute("SL_Anchored") == nil then
+                            d:SetAttribute("SL_Anchored", true)
+                            d:SetAttribute("SL_CanCollide", d.CanCollide)
+                        end
+                    end
+                    if d:IsA("MeshPart") then
+                        local num = tostring(d.MeshId):match("%d+")
+                        if num and serverFuncs then
+                            pcall(function()
+                                serverFuncs:InvokeServer("LoadMeshToRuntimeMeshes", tonumber(num))
+                            end)
+                        end
+                    end
+                    if d:IsA("LuaSourceContainer") then
+                        local path = d.ClassName .. ":" .. d.Name
+                        local src = parsedSources[path] or parsedSources[d.Name]
+                        if not src then
+                            for k, v in pairs(parsedSources) do
+                                if k:sub(-#d.Name) == d.Name or k:find(d.Name, 1, true) then
+                                    src = v; break
+                                end
+                            end
+                        end
+                        if not src then
+                            pcall(function() src = d.Source end)
+                        end
+                        src = stripRichText(src or "-- Script Source")
+                        recreateScriptAsNative(d, src)
+                    end
+                end
+            end)
+        end
+
+        local loadedCount = 0
+        for _, obj in ipairs(loadedObjs) do
+            if obj:IsA("DataModel") then
+                for _, service in ipairs(obj:GetChildren()) do
+                    local target = serviceMap[service.ClassName] or serviceMap[service.Name]
+                    if target and target ~= workspace then
+                        for _, child in ipairs(service:GetChildren()) do
+                            pcall(function() child.Parent = target end)
+                            setupImportedItem(child)
+                            loadedCount = loadedCount + 1
+                        end
+                    else
+                        for _, child in ipairs(service:GetChildren()) do
+                            pcall(function() child.Parent = placeFolder end)
+                            setupImportedItem(child)
+                            loadedCount = loadedCount + 1
+                        end
+                    end
+                end
+            else
+                pcall(function() obj.Parent = placeFolder end)
+                setupImportedItem(obj)
+                loadedCount = loadedCount + 1
+            end
+        end
+
+        updateInlineRbxlProgress(100, string.format("[5/5] SUKSES! %d OBJEK TERDISTRIBUSI", loadedCount))
+        return true, string.format("Sukses import place (%d objek dimuat)!", loadedCount)
+    end
+
+    local function renderRbxlCards()
+        for _, c in ipairs(RbxlScroll:GetChildren()) do if c:IsA("Frame") then c:Destroy() end end
+        renderedRbxlCards = {}
+        RbxlInsertPct.Text = "[.] Scanning..."
+        local files = getAllRbxlFiles()
+        RbxlEmpty.Visible = (#files == 0)
+        if #files == 0 then
+            RbxlInsertPct.Text = not listfilesFn and "[!] listfiles() tidak support" or "[!] Tidak ada file .rbxl"
+            return
+        end
+        RbxlInsertPct.Text = string.format("[OK] %d file ditemukan", #files)
+        for _, file in ipairs(files) do
+            local card = Instance.new("Frame")
+            table.insert(renderedRbxlCards, { card = card, name = file.name, path = file.path })
+            card.Size = UDim2.new(1, -12, 0, 50); card.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+            card.BorderSizePixel = 0; card.Parent = RbxlScroll; makeCorner(card, 7); makeStroke(card, Color3.fromRGB(255, 255, 255), 1, 0.85)
+
+            local fileIcon = Instance.new("TextLabel")
+            fileIcon.Size = UDim2.new(0, 36, 0, 36); fileIcon.Position = UDim2.new(0, 5, 0.5, -18)
+            fileIcon.BackgroundColor3 = Color3.fromRGB(28, 28, 34); fileIcon.Text = ".rbxl"
+            fileIcon.Font = Enum.Font.GothamBold; fileIcon.TextSize = 7.5
+            fileIcon.TextColor3 = Color3.fromRGB(120, 255, 170); fileIcon.Parent = card; makeCorner(fileIcon, 6)
+
+            local nameLbl = Instance.new("TextLabel")
+            nameLbl.Size = UDim2.new(1, -195, 0, 18); nameLbl.Position = UDim2.new(0, 48, 0, 7)
+            nameLbl.BackgroundTransparency = 1; nameLbl.Text = file.name
+            nameLbl.Font = Enum.Font.GothamBold; nameLbl.TextSize = 11
+            nameLbl.TextColor3 = Color3.fromRGB(255, 255, 255); nameLbl.TextXAlignment = Enum.TextXAlignment.Left
+            nameLbl.TextTruncate = Enum.TextTruncate.AtEnd; nameLbl.ZIndex = 15; nameLbl.Parent = card
+
+            local pathLbl = Instance.new("TextLabel")
+            pathLbl.Size = UDim2.new(1, -195, 0, 14); pathLbl.Position = UDim2.new(0, 48, 0, 26)
+            pathLbl.BackgroundTransparency = 1; pathLbl.Text = file.path
+            pathLbl.Font = Enum.Font.Code; pathLbl.TextSize = 8.5
+            pathLbl.TextColor3 = Color3.fromRGB(140, 140, 150); pathLbl.TextXAlignment = Enum.TextXAlignment.Left
+            pathLbl.TextTruncate = Enum.TextTruncate.AtEnd; pathLbl.ZIndex = 15; pathLbl.Parent = card
+
+            local insertBtn = Instance.new("TextButton")
+            insertBtn.Size = UDim2.new(0, 96, 0, 28); insertBtn.Position = UDim2.new(1, -102, 0.5, -14)
+            insertBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255); insertBtn.Text = "IMPORT PLACE"
+            insertBtn.Font = Enum.Font.GothamBold; insertBtn.TextSize = 9.5; insertBtn.TextColor3 = Color3.fromRGB(0, 0, 0)
+            insertBtn.Active = true; insertBtn.ZIndex = 16; insertBtn.Parent = card; makeCorner(insertBtn, 6)
+
+            local capturedFile = file
+            insertBtn.MouseButton1Click:Connect(function()
+                insertBtn.Text = "LOADING..."
+                insertBtn.BackgroundColor3 = Color3.fromRGB(200, 200, 200)
+                task.spawn(function()
+                    local ok, msg = smartInsertRbxl(capturedFile.path, capturedFile.name)
+                    insertBtn.Text = ok and "BERHASIL!" or "[!] GAGAL"
+                    insertBtn.BackgroundColor3 = ok and Color3.fromRGB(80, 200, 120) or Color3.fromRGB(240, 70, 70)
+                    task.delay(2.5, function()
+                        if insertBtn and insertBtn.Parent then
+                            insertBtn.Text = "IMPORT PLACE"
+                            insertBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+                        end
+                    end)
+                end)
+            end)
+        end
+        filterRbxlList()
+    end
+
+    RbxlScanBtn.MouseButton1Click:Connect(function()
+        task.spawn(renderRbxlCards)
+    end)
+end
+initRbxlPage()
+
 -- =====================================================
 -- PAGE 4: 3D TEXT GENERATOR (GENE TEXT 3D) [MODULAR SCOPE]
 -- =====================================================
