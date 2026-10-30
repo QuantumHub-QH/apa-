@@ -1389,6 +1389,94 @@ RbxmEmpty.Parent = RbxmScroll
 -- =====================================================
 -- LOGIC: SMART INSERT ASSET ID
 -- =====================================================
+-- =====================================================
+-- SMART ASSET POSITIONING & AUTO-ANCHOR HELPER
+-- Menghilangkan bug "spawn kejauhan" dan mencegah part jatuh / fling
+-- Menempatkan model / part tepat di depan arah pandang Kamera Studio Lite
+-- =====================================================
+local function positionAndAnchorAsset(obj)
+    if not obj then return end
+
+    -- 1. RECURSIVE AUTO-ANCHOR & VELOCITY FREEZE
+    pcall(function()
+        if obj:IsA("BasePart") then
+            obj.Anchored = true
+            obj.Velocity = Vector3.zero
+            obj.RotVelocity = Vector3.zero
+            obj.AssemblyLinearVelocity = Vector3.zero
+            obj.AssemblyAngularVelocity = Vector3.zero
+        end
+        for _, desc in ipairs(obj:GetDescendants()) do
+            if desc:IsA("BasePart") then
+                desc.Anchored = true
+                desc.Velocity = Vector3.zero
+                desc.RotVelocity = Vector3.zero
+                desc.AssemblyLinearVelocity = Vector3.zero
+                desc.AssemblyAngularVelocity = Vector3.zero
+            end
+        end
+    end)
+
+    pcall(applyStudioLiteProps, obj)
+
+    -- 2. TARGET POSITIONING DI DEPAN KAMERA AKTIF STUDIO LITE
+    local targetPos = nil
+    local cam = workspace.CurrentCamera
+
+    if cam and cam.CFrame then
+        local camCF = cam.CFrame
+        local rayOrigin = camCF.Position
+        local rayDir = camCF.LookVector * 28
+
+        local rayParams = RaycastParams.new()
+        rayParams.FilterType = Enum.RaycastFilterType.Exclude
+        local filterList = {obj}
+        if LP.Character then table.insert(filterList, LP.Character) end
+        rayParams.FilterDescendantsInstances = filterList
+
+        local rayResult = nil
+        pcall(function() rayResult = workspace:Raycast(rayOrigin, rayDir, rayParams) end)
+
+        if rayResult and rayResult.Position then
+            targetPos = rayResult.Position + Vector3.new(0, 1.5, 0)
+        else
+            targetPos = camCF.Position + (camCF.LookVector * 12)
+        end
+    elseif LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then
+        local hrp = LP.Character.HumanoidRootPart
+        targetPos = hrp.Position + (hrp.CFrame.LookVector * 8) + Vector3.new(0, 1, 0)
+    else
+        targetPos = Vector3.new(0, 5, 0)
+    end
+
+    -- 3. PINDAHKAN OBJEK KE TARGET POS
+    if targetPos then
+        pcall(function()
+            if obj:IsA("Model") then
+                local cf, sz = obj:GetBoundingBox()
+                local bottomOffset = sz.Y / 2
+                obj:PivotTo(CFrame.new(targetPos + Vector3.new(0, bottomOffset, 0)))
+            elseif obj:IsA("BasePart") then
+                obj.CFrame = CFrame.new(targetPos + Vector3.new(0, obj.Size.Y / 2, 0))
+            else
+                local parts = {}
+                for _, d in ipairs(obj:GetDescendants()) do
+                    if d:IsA("BasePart") then table.insert(parts, d) end
+                end
+                if #parts > 0 then
+                    local avgPos = Vector3.zero
+                    for _, p in ipairs(parts) do avgPos = avgPos + p.Position end
+                    avgPos = avgPos / #parts
+                    local delta = targetPos - avgPos
+                    for _, p in ipairs(parts) do
+                        p.CFrame = p.CFrame + delta
+                    end
+                end
+            end
+        end)
+    end
+end
+
 local function smartInsert(assetId)
     local numId = tonumber(assetId)
     if not numId then return false, "ID tidak valid" end
@@ -1401,11 +1489,8 @@ local function smartInsert(assetId)
             for _, o in ipairs(objs) do
                 o.Parent = workspace
                 applyStudioLiteProps(o)
+                positionAndAnchorAsset(o)
                 loadAssetsToSLServer(o)
-                if o:IsA("Model") and LP.Character then
-                    local hrp = LP.Character:FindFirstChild("HumanoidRootPart")
-                    if hrp then pcall(function() o:MoveTo(hrp.Position + hrp.CFrame.LookVector * 7) end) end
-                end
             end
             insertOk = true; method = "GetObjects + SL Props"
         end
@@ -2154,6 +2239,7 @@ local function smartInsertRbxm(filePath, fileName)
         for _, o in ipairs(objs) do
             o.Parent = workspace
             applyStudioLiteProps(o)
+            positionAndAnchorAsset(o)
             loadAssetsToSLServer(o)
 
             -- RECREATE SCRIPTS AS NATIVE ROBLOX INSTANCES
@@ -2183,11 +2269,6 @@ local function smartInsertRbxm(filePath, fileName)
 
                 -- Recreate fresh native script
                 recreateScriptAsNative(scr, src)
-            end
-
-            if o:IsA("Model") and LP.Character then
-                local hrp = LP.Character:FindFirstChild("HumanoidRootPart")
-                if hrp then pcall(function() o:MoveTo(hrp.Position + hrp.CFrame.LookVector * 6) end) end
             end
         end
     end
@@ -2830,12 +2911,20 @@ local RBXL_SAFE_CLASSES = {
     SpringConstraint=true, TorsionSpringConstraint=true,
     -- Textures/Decals
     Texture=true, Decal=true, SelectionBox=true, SelectionSphere=true,
-    -- Lighting
+    -- Lighting & Atmosphere
     PointLight=true, SpotLight=true, SurfaceLight=true,
+    Sky=true, Atmosphere=true, BloomEffect=true, BlurEffect=true,
+    ColorCorrectionEffect=true, SunRaysEffect=true, DepthOfFieldEffect=true,
     -- Scripts
     Script=true, LocalScript=true, ModuleScript=true,
-    -- GUI
-    BillboardGui=true, SurfaceGui=true,
+    -- GUI (Full Set)
+    ScreenGui=true, BillboardGui=true, SurfaceGui=true,
+    Frame=true, ScrollingFrame=true, CanvasGroup=true,
+    TextLabel=true, TextButton=true, ImageLabel=true, ImageButton=true, TextBox=true,
+    VideoFrame=true, ViewportFrame=true,
+    UICorner=true, UIStroke=true, UIGradient=true, UIPadding=true,
+    UIAspectRatioConstraint=true, UISizeConstraint=true, UITextSizeConstraint=true,
+    UIListLayout=true, UIGridLayout=true, UIPageLayout=true, UITableLayout=true,
     -- Values
     IntValue=true, StringValue=true, BoolValue=true, NumberValue=true,
     Vector3Value=true, CFrameValue=true, Color3Value=true, ObjectValue=true,
@@ -2843,10 +2932,13 @@ local RBXL_SAFE_CLASSES = {
     Configuration=true, RemoteEvent=true, RemoteFunction=true,
     BindableEvent=true, BindableFunction=true,
     -- FX
-    Sound=true, ParticleEmitter=true, Smoke=true, Fire=true, Sparkles=true,
-    Trail=true, Attachment=true, Beam=true,
+    Sound=true, SoundGroup=true, ParticleEmitter=true, Smoke=true, Fire=true, Sparkles=true,
+    Trail=true, Attachment=true, Beam=true, Highlight=true,
     -- Animation
     Animation=true, Animator=true, Humanoid=true, HumanoidDescription=true,
+    -- Place Services Whitelist (Mapped directly in applyDeserializedTree)
+    Workspace=true, Lighting=true, ReplicatedStorage=true, StarterGui=true,
+    ServerScriptService=true, ServerStorage=true, SoundService=true, StarterPack=true,
 }
 
 -- Properties to skip (read-only / protected / crash-causing)
@@ -3175,25 +3267,67 @@ local function applyDeserializedTree(parsed, targetFolder, onProgress)
     for _ in pairs(parsed.instances) do total = total + 1 end
     local done = 0
 
-    -- Phase 1: Create instances
+    local engineServices = {
+        [workspace] = true,
+        [game:GetService("Lighting")] = true,
+        [game:GetService("ReplicatedStorage")] = true,
+        [game:GetService("StarterGui")] = true,
+        [game:GetService("SoundService")] = true,
+        [game:GetService("StarterPack")] = true,
+    }
+
+    -- Phase 1: Create instances & Map Services Direct
     for ref, data in pairs(parsed.instances) do
         local className = data.class
-        local inst
-        if RBXL_SAFE_CLASSES[className] then
+        local inst = nil
+
+        -- Service Mapping Langsung ke Engine Studio Lite
+        if className == "Workspace" then
+            inst = workspace
+        elseif className == "Lighting" then
+            inst = game:GetService("Lighting")
+        elseif className == "ReplicatedStorage" then
+            inst = game:GetService("ReplicatedStorage")
+        elseif className == "StarterGui" then
+            inst = game:GetService("StarterGui")
+        elseif className == "SoundService" then
+            inst = game:GetService("SoundService")
+        elseif className == "StarterPack" then
+            inst = game:GetService("StarterPack")
+        elseif className == "ServerScriptService" or className == "ServerStorage" then
+            inst = resolveServiceTarget(className)
+            if not inst then
+                local f = workspace:FindFirstChild(className)
+                if not f then
+                    f = Instance.new("Folder")
+                    f.Name = className
+                    f.Parent = workspace
+                end
+                inst = f
+            end
+        elseif RBXL_SAFE_CLASSES[className] then
             local ok2, i = pcall(Instance.new, className)
             if ok2 and i then
                 inst = i
                 -- CRITICAL: Prevent parts from falling into the void on mobile
                 if inst:IsA("BasePart") then
-                    pcall(function() inst.Anchored = true end)
+                    pcall(function()
+                        inst.Anchored = true
+                        inst.Velocity = Vector3.zero
+                        inst.RotVelocity = Vector3.zero
+                        inst.AssemblyLinearVelocity = Vector3.zero
+                        inst.AssemblyAngularVelocity = Vector3.zero
+                    end)
                 end
             end
         end
+
         if not inst then
             -- Placeholder folder for unsupported classes
             local ok2, f = pcall(Instance.new, "Folder")
             if ok2 and f then f.Name = "[" .. className .. "]"; inst = f end
         end
+
         if inst then instMap[ref] = inst end
         done = done + 1
         if onProgress and done % 100 == 0 then
@@ -3201,11 +3335,11 @@ local function applyDeserializedTree(parsed, targetFolder, onProgress)
         end
     end
 
-    -- Phase 2: Set properties
+    -- Phase 2: Set properties (Skip root engine services)
     done = 0
     for ref, data in pairs(parsed.instances) do
         local inst = instMap[ref]
-        if inst then
+        if inst and not engineServices[inst] then
             for pName, pVal in pairs(data.props) do
                 if not RBXL_SKIP_PROPS[pName] then
                     pcall(function()
@@ -3221,6 +3355,23 @@ local function applyDeserializedTree(parsed, targetFolder, onProgress)
                     end)
                 end
             end
+
+            -- Pastikan semua BasePart ter-anchor
+            if inst:IsA("BasePart") then
+                pcall(function()
+                    inst.Anchored = true
+                    inst.Velocity = Vector3.zero
+                    inst.RotVelocity = Vector3.zero
+                    inst.AssemblyLinearVelocity = Vector3.zero
+                    inst.AssemblyAngularVelocity = Vector3.zero
+                end)
+            end
+
+            -- Recreate Script as native Studio Lite Script
+            if inst:IsA("LuaSourceContainer") then
+                local src = data.props["Source"] or ""
+                recreateScriptAsNative(inst, src)
+            end
         end
         done = done + 1
         if onProgress and done % 100 == 0 then
@@ -3234,12 +3385,18 @@ local function applyDeserializedTree(parsed, targetFolder, onProgress)
     table.sort(sortedRefs)
 
     done = 0
+    local playerGui = LP:FindFirstChild("PlayerGui")
     for _, ref in ipairs(sortedRefs) do
         local inst = instMap[ref]
-        if inst then
+        if inst and not engineServices[inst] then
             local pRef = parsed.instances[ref].parent
             if pRef ~= nil and pRef ~= -1 and instMap[pRef] then
-                pcall(function() inst.Parent = instMap[pRef] end)
+                local parentObj = instMap[pRef]
+                pcall(function() inst.Parent = parentObj end)
+                -- Jika ScreenGui masuk ke StarterGui, tampilkan juga di PlayerGui agar kelihatan
+                if parentObj == game:GetService("StarterGui") and playerGui and inst:IsA("ScreenGui") then
+                    pcall(function() inst:Clone().Parent = playerGui end)
+                end
             else
                 pcall(function() inst.Parent = targetFolder end)
             end
@@ -3253,7 +3410,7 @@ local function applyDeserializedTree(parsed, targetFolder, onProgress)
     -- Phase 4: Deferred ref props
     for ref, data in pairs(parsed.instances) do
         local inst = instMap[ref]
-        if inst then
+        if inst and not engineServices[inst] then
             for pName, pVal in pairs(data.props) do
                 if type(pVal) == "table" and pVal._ref then
                     local target = instMap[pVal._ref]
@@ -3264,7 +3421,9 @@ local function applyDeserializedTree(parsed, targetFolder, onProgress)
     end
 
     local count = 0
-    for _ in pairs(instMap) do count = count + 1 end
+    for _, inst in pairs(instMap) do
+        if not engineServices[inst] then count = count + 1 end
+    end
     return instMap, count
 end
 
@@ -3319,9 +3478,16 @@ local function parseRbxlxXml(xmlData, targetFolder)
         local mat = propsBlock:match('<token%s+name="Material"%s*>([^<]+)</token>')
         if mat then pcall(function() inst.Material = tonumber(mat) or 256 end) end
 
-        -- Anchored
-        local anch = propsBlock:match('<bool%s+name="Anchored"%s*>([^<]+)</bool>')
-        if anch then pcall(function() inst.Anchored=(anch=="true") end) end
+        -- Anchored (Auto-Anchored untuk mobile / Studio Lite)
+        if inst:IsA("BasePart") then
+            pcall(function()
+                inst.Anchored = true
+                inst.Velocity = Vector3.zero
+                inst.RotVelocity = Vector3.zero
+                inst.AssemblyLinearVelocity = Vector3.zero
+                inst.AssemblyAngularVelocity = Vector3.zero
+            end)
+        end
 
         -- Script Source (CDATA)
         if className=="Script" or className=="LocalScript" or className=="ModuleScript" then
@@ -3437,6 +3603,23 @@ local function insertRbxlObjects(objects, sourceMap)
                     pcall(function()
                         item.Parent = workspace
                         pcall(applyStudioLiteProps, item)
+                        -- AUTO ANCHOR SEMUA PART DI WORKSPACE
+                        if item:IsA("BasePart") then
+                            item.Anchored = true
+                            item.Velocity = Vector3.zero
+                            item.RotVelocity = Vector3.zero
+                            item.AssemblyLinearVelocity = Vector3.zero
+                            item.AssemblyAngularVelocity = Vector3.zero
+                        end
+                        for _, desc in ipairs(item:GetDescendants()) do
+                            if desc:IsA("BasePart") then
+                                desc.Anchored = true
+                                desc.Velocity = Vector3.zero
+                                desc.RotVelocity = Vector3.zero
+                                desc.AssemblyLinearVelocity = Vector3.zero
+                                desc.AssemblyAngularVelocity = Vector3.zero
+                            end
+                        end
                         pcall(loadAssetsToSLServer, item)
                         if item:IsA("LuaSourceContainer") then
                             recreateScriptAsNative(item, sourceMap[item.Name])
@@ -3444,13 +3627,55 @@ local function insertRbxlObjects(objects, sourceMap)
                         count = count + 1
                     end)
                 end
+            elseif sName == "Lighting" or sClass == "Lighting" then
+                local lgt = game:GetService("Lighting")
+                for _, item in ipairs(sChildren) do
+                    pcall(function()
+                        item.Parent = lgt
+                        count = count + 1
+                    end)
+                end
+            elseif sName == "StarterGui" or sClass == "StarterGui" then
+                local sg = game:GetService("StarterGui")
+                local pg = LP:FindFirstChild("PlayerGui")
+                for _, item in ipairs(sChildren) do
+                    pcall(function()
+                        item.Parent = sg
+                        if pg and (item:IsA("ScreenGui") or item:IsA("GuiObject")) then
+                            pcall(function() item:Clone().Parent = pg end)
+                        end
+                        count = count + 1
+                    end)
+                end
+            elseif sName == "ReplicatedStorage" or sClass == "ReplicatedStorage" then
+                local rs = game:GetService("ReplicatedStorage")
+                for _, item in ipairs(sChildren) do
+                    pcall(function()
+                        item.Parent = rs
+                        count = count + 1
+                    end)
+                end
+            elseif sName == "SoundService" or sClass == "SoundService" then
+                local ss = game:GetService("SoundService")
+                for _, item in ipairs(sChildren) do
+                    pcall(function()
+                        item.Parent = ss
+                        count = count + 1
+                    end)
+                end
+            elseif sName == "StarterPack" or sClass == "StarterPack" then
+                local sp = game:GetService("StarterPack")
+                for _, item in ipairs(sChildren) do
+                    pcall(function()
+                        item.Parent = sp
+                        count = count + 1
+                    end)
+                end
             else
-                -- Layanan non-Workspace: distribusikan ke service aslinya!
+                -- Layanan non-Workspace lainnya (ServerScriptService/ServerStorage dll)
                 local target = resolveServiceTarget(sName) or resolveServiceTarget(sClass)
 
                 if not target then
-                    -- Jika service diproteksi di client (seperti ServerScriptService/ServerStorage),
-                    -- buatkan Folder rapi dengan nama service tersebut
                     local f = workspace:FindFirstChild(sName)
                     if not f then
                         f = Instance.new("Folder")
@@ -3459,8 +3684,6 @@ local function insertRbxlObjects(objects, sourceMap)
                     end
                     target = f
                 end
-
-                print(string.format("[MCHLERN RBXL]    -> Memindahkan %d item ke service: %s", #sChildren, target.Name))
 
                 for _, item in ipairs(sChildren) do
                     pcall(function()
@@ -3520,11 +3743,16 @@ local function smartInsertRbxlFull(filePath, fileName)
             if okA and aid then
                 local ok2, objsOrErr = pcall(function() return game:GetObjects(aid) end)
                 if ok2 and objsOrErr and #objsOrErr > 0 then
-                    totalInserted = insertRbxlObjects(objsOrErr, sourceMap)
-                    insertOk = true
-                    statusMsg = "Native C++ Load: " .. totalInserted .. " objek"
-                    print("[MCHLERN RBXL] Method 1 Berhasil via: " .. tostring(p))
-                    break
+                    local cnt = insertRbxlObjects(objsOrErr, sourceMap)
+                    if cnt > 0 then
+                        totalInserted = cnt
+                        insertOk = true
+                        statusMsg = "Native C++ Load: " .. totalInserted .. " objek"
+                        print("[MCHLERN RBXL] Method 1 Berhasil: " .. totalInserted .. " objek")
+                        break
+                    else
+                        warn("[MCHLERN RBXL] Method 1: GetObjects mengembalikan container kosong (0 objek), mencoba fallback selanjutnya...")
+                    end
                 else
                     warn("[MCHLERN RBXL] GetObjects failed on " .. tostring(p) .. ": " .. tostring(objsOrErr))
                 end
@@ -3543,9 +3771,12 @@ local function smartInsertRbxlFull(filePath, fileName)
             if aid then
                 local ok2, objs = pcall(function() return game:GetObjects(aid) end)
                 if ok2 and objs and #objs > 0 then
-                    totalInserted = insertRbxlObjects(objs, sourceMap)
-                    insertOk = true
-                    statusMsg = "Bridge Mount OK (" .. totalInserted .. " objek)"
+                    local cnt = insertRbxlObjects(objs, sourceMap)
+                    if cnt > 0 then
+                        totalInserted = cnt
+                        insertOk = true
+                        statusMsg = "Bridge Mount OK (" .. totalInserted .. " objek)"
+                    end
                 end
             end
             pcall(function() if delfile then delfile(tmp) end end)
@@ -3559,9 +3790,12 @@ local function smartInsertRbxlFull(filePath, fileName)
         pcall(function()
             local ok3, objs = pcall(function() return game:GetObjects("rbxasset://" .. filePath) end)
             if ok3 and objs and #objs > 0 then
-                totalInserted = insertRbxlObjects(objs, sourceMap)
-                insertOk = true
-                statusMsg = "rbxasset OK (" .. totalInserted .. " objek)"
+                local cnt = insertRbxlObjects(objs, sourceMap)
+                if cnt > 0 then
+                    totalInserted = cnt
+                    insertOk = true
+                    statusMsg = "rbxasset OK (" .. totalInserted .. " objek)"
+                end
             end
         end)
     end
