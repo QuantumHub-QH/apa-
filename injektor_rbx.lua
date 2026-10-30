@@ -2876,251 +2876,281 @@ local function initRbxlPage()
         return result
     end
 
-    -- FORKT IMPORT RBXL CORE LOGIC
-    local function smartInsertRbxl(filePath, fileName)
-        updateInlineRbxlProgress(15, "[1/5] MEMBACA FILE RBXL...")
-        task.wait(0.2)
+    -- FORKT IMPORT RBXL CORE LOGIC (PORTED 1:1 FROM FORKT ENGINE)
+    -- Referensi: runProtected11, runProtected12, runProtected13, runProtected14
+    --            createFolder, transformValue7 dari FORKT Importer v3.8
 
+    -- [A] Helper: sanitize nama file (transformValue7 FORKT)
+    local function sanitizeName(raw)
+        raw = tostring(raw or "Imported")
+        raw = raw:gsub('[\\/:*?"<>|]', "_")
+        raw = raw:gsub("^%s+", ""):gsub("%s+$", "")
+        return #raw > 0 and raw or "Imported"
+    end
+
+    -- [B] Safe parent setter (runProtected12 FORKT)
+    local function safeSetParent(inst, target)
+        if not inst or not target then return false end
+        local ok = pcall(function() inst.Parent = target end)
+        return ok and inst.Parent == target
+    end
+
+    -- [C] Setup item: SL_Anchored + MeshPart loader (runProtected11 FORKT)
+    local function setupFORKTItem(item, parsedSrcs, idx)
+        if not item then return end
+        pcall(function()
+            -- Anchoring (SL_Anchored) - persis seperti FORKT
+            if item:IsA("BasePart") then
+                local anchored   = item.Anchored
+                local canCollide = item.CanCollide
+                item.Anchored = true
+                if item:GetAttribute("SL_Anchored") == nil then
+                    item:SetAttribute("SL_Anchored", anchored)
+                    item:SetAttribute("SL_CanCollide", canCollide)
+                end
+            end
+            -- MeshPart runtime loader - persis seperti FORKT
+            if item:IsA("MeshPart") then
+                local meshNum = tostring(item.MeshId):match("%d+")
+                if meshNum and serverFuncs then
+                    pcall(function()
+                        serverFuncs:InvokeServer("LoadMeshToRuntimeMeshes", tonumber(meshNum))
+                    end)
+                end
+                local texNum = tostring(item.TextureID):match("%d+")
+                if texNum and serverFuncs then
+                    pcall(function()
+                        serverFuncs:InvokeServer("LoadMeshToRuntimeMeshes", tonumber(texNum))
+                    end)
+                end
+            end
+            -- Script recovery dari parsed sources
+            if item:IsA("LuaSourceContainer") then
+                local src = nil
+                if parsedSrcs then
+                    src = parsedSrcs[item.ClassName .. ":" .. item.Name]
+                        or parsedSrcs[item.Name]
+                    if not src then
+                        for k, v in pairs(parsedSrcs) do
+                            if k:find(item.Name, 1, true) then src = v; break end
+                        end
+                    end
+                end
+                if not src then pcall(function() src = item.Source end) end
+                recreateScriptAsNative(item, stripRichText(src or "-- Script"))
+            end
+        end)
+        -- Anti-lag yield tiap 100 item (persis FORKT: Heartbeat:Wait tiap 100)
+        if idx and idx % 100 == 0 then
+            pcall(function() game:GetService("RunService").Heartbeat:Wait() end)
+        end
+    end
+
+    -- [D] Distribute service ke game (runProtected13 FORKT)
+    --     Pindahkan semua children dari service source ke service target
+    local function distributeService(serviceNode, targetService, parsedSrcs)
+        if not serviceNode or not targetService then return 0 end
+        local ok, children = pcall(function() return serviceNode:GetChildren() end)
+        if not ok or type(children) ~= "table" then return 0 end
+        local count = 0
+        for i, child in ipairs(children) do
+            local moved = safeSetParent(child, targetService)
+            if moved then
+                setupFORKTItem(child, parsedSrcs, i)
+                -- Setup semua descendants juga
+                local ok2, descs = pcall(function() return child:GetDescendants() end)
+                if ok2 and descs then
+                    for j, d in ipairs(descs) do
+                        setupFORKTItem(d, parsedSrcs, j)
+                    end
+                end
+                count = count + 1
+            end
+            if i % 100 == 0 then
+                pcall(function() game:GetService("RunService").Heartbeat:Wait() end)
+            end
+        end
+        return count
+    end
+
+    -- [E] Handle DataModel hasil GetObjects (runProtected14 FORKT)
+    --     Jika obj adalah DataModel: distribute ke services
+    --     Jika bukan: taruh di placeFolder workspace
+    local function handleGetObjectsResult(objs, placeFolder, serviceMap, parsedSrcs)
+        local totalLoaded = 0
+        for _, obj in ipairs(objs) do
+            if obj then
+            local isDataModel = false
+            pcall(function() isDataModel = obj:IsA("DataModel") end)
+            if isDataModel then
+                -- DataModel: distribute tiap service ke game service yang tepat
+                local ok, svcs = pcall(function() return obj:GetChildren() end)
+                if ok and svcs then
+                    for _, svcNode in ipairs(svcs) do
+                        local cn = svcNode.ClassName
+                        local nm = svcNode.Name
+                        local target = serviceMap[cn] or serviceMap[nm]
+                        if target then
+                            if target == workspace then
+                                -- Workspace items -> masuk placeFolder
+                                local ok2, kids = pcall(function() return svcNode:GetChildren() end)
+                                if ok2 and kids then
+                                    for i, child in ipairs(kids) do
+                                        local moved = safeSetParent(child, placeFolder)
+                                        if moved then
+                                            setupFORKTItem(child, parsedSrcs, i)
+                                            local ok3, descs = pcall(function() return child:GetDescendants() end)
+                                            if ok3 and descs then
+                                                for j, d in ipairs(descs) do
+                                                    setupFORKTItem(d, parsedSrcs, j)
+                                                end
+                                            end
+                                            totalLoaded = totalLoaded + 1
+                                        end
+                                        if i % 100 == 0 then
+                                            pcall(function() game:GetService("RunService").Heartbeat:Wait() end)
+                                        end
+                                    end
+                                end
+                            else
+                                -- Non-workspace service -> distribute langsung ke game service
+                                local n = distributeService(svcNode, target, parsedSrcs)
+                                totalLoaded = totalLoaded + n
+                            end
+                        else
+                            -- Service tidak dikenal -> taruh di placeFolder juga
+                            local moved = safeSetParent(svcNode, placeFolder)
+                            if moved then
+                                setupFORKTItem(svcNode, parsedSrcs, 1)
+                                totalLoaded = totalLoaded + 1
+                            end
+                        end
+                        task.wait()
+                    end
+                end
+            else
+                -- Bukan DataModel: langsung masuk placeFolder
+                local moved = safeSetParent(obj, placeFolder)
+                if moved then
+                    setupFORKTItem(obj, parsedSrcs, 1)
+                    local ok2, descs = pcall(function() return obj:GetDescendants() end)
+                    if ok2 and descs then
+                        for j, d in ipairs(descs) do
+                            setupFORKTItem(d, parsedSrcs, j)
+                        end
+                    end
+                    totalLoaded = totalLoaded + 1
+                end
+            end
+        end -- if obj
+        end
+        return totalLoaded
+    end
+
+    -- [F] Main insert function - pakai logic FORKT createFolder + runProtected16 flow
+    local function smartInsertRbxl(filePath, fileName)
+        updateInlineRbxlProgress(10, "[1/5] MEMBACA FILE .RBXL...")
+        task.wait(0.1)
+
+        -- Parse script sources dulu (seperti FORKT bi(d, a.path))
         local data = safeReadFile(filePath)
-        local parsedSources = {}
+        local parsedSrcs = {}
         if data and #data > 0 then
-            updateInlineRbxlProgress(35, "[2/5] PARSING SCRIPT & METADATA...")
-            parsedSources = parseAllSources(data)
-            for k, v in pairs(parsedSources) do
-                storeScriptSource(k, stripRichText(v))
+            updateInlineRbxlProgress(25, "[2/5] PARSING SCRIPT SOURCES...")
+            task.wait(0.05)
+            local ok, res = pcall(function() return parseAllSources(data) end)
+            if ok and res then
+                parsedSrcs = res
+                for k, v in pairs(parsedSrcs) do
+                    storeScriptSource(k, stripRichText(v))
+                end
             end
         end
 
-        updateInlineRbxlProgress(60, "[3/5] MEMUAT PLACE INSTANCE...")
-        task.wait(0.2)
+        updateInlineRbxlProgress(40, "[3/5] LOADING INSTANCES (GetObjects)...")
+        task.wait(0.1)
 
-        local urls = {
-            "rbxasset://" .. tostring(filePath):gsub("\\", "/")
+        -- Coba load dengan game:GetObjects - FORKT juga pakai ini sebagai primary
+        local loadedObjs = nil
+        local tryURLs = {
+            "rbxasset://" .. tostring(filePath):gsub("\\", "/"),
         }
-        if customAsset then
+        -- Coba getcustomasset jika ada (FORKT: customAsset fallback)
+        if getcustomasset then
             pcall(function()
-                local u = customAsset(filePath)
-                if u then table.insert(urls, 1, u) end
+                local cu = getcustomasset(filePath)
+                if cu then table.insert(tryURLs, 1, cu) end
             end)
         end
-
-        local loadedObjs = nil
-        for _, url in ipairs(urls) do
+        -- Coba setiap URL
+        for _, url in ipairs(tryURLs) do
             local ok, res = pcall(function() return game:GetObjects(url) end)
             if ok and res and #res > 0 then
                 loadedObjs = res
                 break
             end
+            task.wait(0.25)
+        end
+        -- Fallback: tulis ke tmp lalu load (FORKT fallback writefile)
+        if not loadedObjs and data and writefile and getcustomasset then
+            pcall(function()
+                local tmpName = "Delta/workspace/mchlern_tmp_rbxl.rbxl"
+                writefile(tmpName, data)
+                local cu = getcustomasset(tmpName)
+                if cu then
+                    local ok2, res2 = pcall(function() return game:GetObjects(cu) end)
+                    if ok2 and res2 and #res2 > 0 then loadedObjs = res2 end
+                end
+                pcall(function() if delfile then delfile(tmpName) end end)
+            end)
         end
 
         if not loadedObjs or #loadedObjs == 0 then
-            if data and writefile and customAsset then
-                pcall(function()
-                    local tmpName = "mchlern_tmp_" .. fileName
-                    writefile(tmpName, data)
-                    local urlTmp = customAsset(tmpName)
-                    if urlTmp then
-                        local okT, resT = pcall(function() return game:GetObjects(urlTmp) end)
-                        if okT and resT and #resT > 0 then loadedObjs = resT end
-                    end
-                    pcall(function() if delfile then delfile(tmpName) end end)
-                end)
-            end
+            updateInlineRbxlProgress(100, "[ERR] GAGAL LOAD - game:GetObjects() tidak support file ini")
+            return false, "game:GetObjects() gagal. Pastikan file .rbxl valid."
         end
 
-        if not loadedObjs or #loadedObjs == 0 then
-            updateInlineRbxlProgress(100, "[ERR] GAGAL MEMUAT PLACE INSTANCE")
-            return false, "game:GetObjects gagal memuat instance dari file .rbxl"
-        end
+        updateInlineRbxlProgress(60, "[4/5] DISTRIBUSI KE SERVICES (FORKT mode)...")
+        task.wait(0.1)
 
-        updateInlineRbxlProgress(80, "[4/5] DISTRIBUSI KE SERVICES...")
-        task.wait(0.2)
-
+        -- Map services (persis seperti ba = da dari FORKT)
         local serviceMap = {
-            Workspace = workspace,
-            ReplicatedStorage = ReplicatedStorage,
-            Lighting = game:GetService("Lighting"),
-            SoundService = game:GetService("SoundService"),
-            StarterGui = game:GetService("StarterGui"),
-            StarterPack = game:GetService("StarterPack"),
-            StarterPlayer = game:GetService("StarterPlayer"),
-            Teams = game:GetService("Teams"),
-            Chat = game:GetService("Chat")
+            Workspace         = workspace,
+            workspace         = workspace,
+            ReplicatedStorage = game:GetService("ReplicatedStorage"),
+            Lighting          = game:GetService("Lighting"),
+            SoundService      = game:GetService("SoundService"),
+            StarterGui        = game:GetService("StarterGui"),
+            StarterPack       = game:GetService("StarterPack"),
+            StarterPlayer     = game:GetService("StarterPlayer"),
+            Teams             = game:GetService("Teams"),
+            Chat              = game:GetService("Chat"),
         }
 
-        local cleanName = fileName:gsub("%.[^%.]+$", ""):gsub('[\\/:*?<>|]', "_")
+        -- createFolder FORKT: sanitize nama, cek duplicate, set attribute
+        local baseName = sanitizeName(fileName:gsub("%.[^%.]+$", ""))
+        local folderName = baseName
+        local dup = 1
+        while workspace:FindFirstChild(folderName) do
+            dup = dup + 1
+            folderName = baseName .. "_" .. tostring(dup)
+        end
         local placeFolder = Instance.new("Folder")
-        placeFolder.Name = cleanName .. "_Map"
+        placeFolder.Name = folderName
         placeFolder.Parent = workspace
         pcall(function()
             placeFolder:SetAttribute("MCHLERN_RBXL_IMPORT", true)
             placeFolder:SetAttribute("SourceFile", tostring(filePath))
         end)
 
-        local function setupImportedItem(item)
-            pcall(function()
-                if item:IsA("BasePart") then
-                    item.Anchored = true
-                    item.Velocity = Vector3.new(0, 0, 0)
-                    if item:GetAttribute("SL_Anchored") == nil then
-                        item:SetAttribute("SL_Anchored", true)
-                        item:SetAttribute("SL_CanCollide", item.CanCollide)
-                    end
-                end
-                if item:IsA("MeshPart") then
-                    local num = tostring(item.MeshId):match("%d+")
-                    if num and serverFuncs then
-                        pcall(function()
-                            serverFuncs:InvokeServer("LoadMeshToRuntimeMeshes", tonumber(num))
-                        end)
-                    end
-                end
-                if item:IsA("LuaSourceContainer") then
-                    local path = item.ClassName .. ":" .. item.Name
-                    local src = parsedSources[path] or parsedSources[item.Name]
-                    if not src then
-                        for k, v in pairs(parsedSources) do
-                            if k:sub(-#item.Name) == item.Name or k:find(item.Name, 1, true) then
-                                src = v; break
-                            end
-                        end
-                    end
-                    if not src then
-                        pcall(function() src = item.Source end)
-                    end
-                    src = stripRichText(src or "-- Script Source")
-                    recreateScriptAsNative(item, src)
-                end
-                for _, d in ipairs(item:GetDescendants()) do
-                    if d:IsA("BasePart") then
-                        d.Anchored = true
-                        d.Velocity = Vector3.new(0, 0, 0)
-                        if d:GetAttribute("SL_Anchored") == nil then
-                            d:SetAttribute("SL_Anchored", true)
-                            d:SetAttribute("SL_CanCollide", d.CanCollide)
-                        end
-                    end
-                    if d:IsA("MeshPart") then
-                        local num = tostring(d.MeshId):match("%d+")
-                        if num and serverFuncs then
-                            pcall(function()
-                                serverFuncs:InvokeServer("LoadMeshToRuntimeMeshes", tonumber(num))
-                            end)
-                        end
-                    end
-                    if d:IsA("LuaSourceContainer") then
-                        local path = d.ClassName .. ":" .. d.Name
-                        local src = parsedSources[path] or parsedSources[d.Name]
-                        if not src then
-                            for k, v in pairs(parsedSources) do
-                                if k:sub(-#d.Name) == d.Name or k:find(d.Name, 1, true) then
-                                    src = v; break
-                                end
-                            end
-                        end
-                        if not src then
-                            pcall(function() src = d.Source end)
-                        end
-                        src = stripRichText(src or "-- Script Source")
-                        recreateScriptAsNative(d, src)
-                    end
-                end
-            end)
-        end
+        -- Distribute semua objects (handleGetObjectsResult = runProtected14 FORKT)
+        local totalLoaded = handleGetObjectsResult(loadedObjs, placeFolder, serviceMap, parsedSrcs)
 
-        local loadedCount = 0
-        for _, obj in ipairs(loadedObjs) do
-            if obj:IsA("DataModel") then
-                for _, service in ipairs(obj:GetChildren()) do
-                    local target = serviceMap[service.ClassName] or serviceMap[service.Name]
-                    if target and target ~= workspace then
-                        for _, child in ipairs(service:GetChildren()) do
-                            pcall(function() child.Parent = target end)
-                            setupImportedItem(child)
-                            loadedCount = loadedCount + 1
-                        end
-                    else
-                        for _, child in ipairs(service:GetChildren()) do
-                            pcall(function() child.Parent = placeFolder end)
-                            setupImportedItem(child)
-                            loadedCount = loadedCount + 1
-                        end
-                    end
-                end
-            else
-                pcall(function() obj.Parent = placeFolder end)
-                setupImportedItem(obj)
-                loadedCount = loadedCount + 1
-            end
-        end
-
-        updateInlineRbxlProgress(100, string.format("[5/5] SUKSES! %d OBJEK TERDISTRIBUSI", loadedCount))
-        return true, string.format("Sukses import place (%d objek dimuat)!", loadedCount)
+        updateInlineRbxlProgress(100, string.format(
+            "[DONE] %d instance dimuat ke '%s'", totalLoaded, folderName
+        ))
+        return true, string.format("%d objects inserted", totalLoaded)
     end
-
-    local function renderRbxlCards()
-        for _, c in ipairs(RbxlScroll:GetChildren()) do if c:IsA("Frame") then c:Destroy() end end
-        renderedRbxlCards = {}
-        RbxlInsertPct.Text = "[.] Scanning..."
-        local files = getAllRbxlFiles()
-        RbxlEmpty.Visible = (#files == 0)
-        if #files == 0 then
-            RbxlInsertPct.Text = not listfilesFn and "[!] listfiles() tidak support" or "[!] Tidak ada file .rbxl"
-            return
-        end
-        RbxlInsertPct.Text = string.format("[OK] %d file ditemukan", #files)
-        for _, file in ipairs(files) do
-            local card = Instance.new("Frame")
-            table.insert(renderedRbxlCards, { card = card, name = file.name, path = file.path })
-            card.Size = UDim2.new(1, -12, 0, 50); card.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
-            card.BorderSizePixel = 0; card.Parent = RbxlScroll; makeCorner(card, 7); makeStroke(card, Color3.fromRGB(255, 255, 255), 1, 0.85)
-
-            local fileIcon = Instance.new("TextLabel")
-            fileIcon.Size = UDim2.new(0, 36, 0, 36); fileIcon.Position = UDim2.new(0, 5, 0.5, -18)
-            fileIcon.BackgroundColor3 = Color3.fromRGB(28, 28, 34); fileIcon.Text = ".rbxl"
-            fileIcon.Font = Enum.Font.GothamBold; fileIcon.TextSize = 7.5
-            fileIcon.TextColor3 = Color3.fromRGB(120, 255, 170); fileIcon.Parent = card; makeCorner(fileIcon, 6)
-
-            local nameLbl = Instance.new("TextLabel")
-            nameLbl.Size = UDim2.new(1, -195, 0, 18); nameLbl.Position = UDim2.new(0, 48, 0, 7)
-            nameLbl.BackgroundTransparency = 1; nameLbl.Text = file.name
-            nameLbl.Font = Enum.Font.GothamBold; nameLbl.TextSize = 11
-            nameLbl.TextColor3 = Color3.fromRGB(255, 255, 255); nameLbl.TextXAlignment = Enum.TextXAlignment.Left
-            nameLbl.TextTruncate = Enum.TextTruncate.AtEnd; nameLbl.ZIndex = 15; nameLbl.Parent = card
-
-            local pathLbl = Instance.new("TextLabel")
-            pathLbl.Size = UDim2.new(1, -195, 0, 14); pathLbl.Position = UDim2.new(0, 48, 0, 26)
-            pathLbl.BackgroundTransparency = 1; pathLbl.Text = file.path
-            pathLbl.Font = Enum.Font.Code; pathLbl.TextSize = 8.5
-            pathLbl.TextColor3 = Color3.fromRGB(140, 140, 150); pathLbl.TextXAlignment = Enum.TextXAlignment.Left
-            pathLbl.TextTruncate = Enum.TextTruncate.AtEnd; pathLbl.ZIndex = 15; pathLbl.Parent = card
-
-            local insertBtn = Instance.new("TextButton")
-            insertBtn.Size = UDim2.new(0, 96, 0, 28); insertBtn.Position = UDim2.new(1, -102, 0.5, -14)
-            insertBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255); insertBtn.Text = "IMPORT PLACE"
-            insertBtn.Font = Enum.Font.GothamBold; insertBtn.TextSize = 9.5; insertBtn.TextColor3 = Color3.fromRGB(0, 0, 0)
-            insertBtn.Active = true; insertBtn.ZIndex = 16; insertBtn.Parent = card; makeCorner(insertBtn, 6)
-
-            local capturedFile = file
-            insertBtn.MouseButton1Click:Connect(function()
-                insertBtn.Text = "LOADING..."
-                insertBtn.BackgroundColor3 = Color3.fromRGB(200, 200, 200)
-                task.spawn(function()
-                    local ok, msg = smartInsertRbxl(capturedFile.path, capturedFile.name)
-                    insertBtn.Text = ok and "BERHASIL!" or "[!] GAGAL"
-                    insertBtn.BackgroundColor3 = ok and Color3.fromRGB(80, 200, 120) or Color3.fromRGB(240, 70, 70)
-                    task.delay(2.5, function()
-                        if insertBtn and insertBtn.Parent then
-                            insertBtn.Text = "IMPORT PLACE"
-                            insertBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-                        end
-                    end)
-                end)
-            end)
-        end
-        filterRbxlList()
-    end
-
     RbxlScanBtn.MouseButton1Click:Connect(function()
         task.spawn(renderRbxlCards)
     end)
