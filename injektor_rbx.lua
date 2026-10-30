@@ -16,8 +16,29 @@ local CoreGui            = game:GetService("CoreGui")
 local Players            = game:GetService("Players")
 local ReplicatedStorage  = game:GetService("ReplicatedStorage")
 
+if not game:IsLoaded() then
+    pcall(function() game.Loaded:Wait() end)
+end
+
 local LP = Players.LocalPlayer
-local ParentGui = (gethui and gethui()) or CoreGui or LP:WaitForChild("PlayerGui")
+if not LP then
+    pcall(function()
+        LP = Players.PlayerAdded:Wait()
+    end)
+    LP = LP or Players.LocalPlayer
+end
+
+local ParentGui = nil
+if gethui then
+    pcall(function() ParentGui = gethui() end)
+end
+if not ParentGui then
+    local okCore = pcall(function() return CoreGui.Name end)
+    if okCore then ParentGui = CoreGui end
+end
+if not ParentGui and LP then
+    pcall(function() ParentGui = LP:FindFirstChild("PlayerGui") or LP:WaitForChild("PlayerGui", 5) end)
+end
 
 local httpRequest  = request or http_request or (syn and syn.request) or (http and http.request)
 local clipFn       = setclipboard or toclipboard or (Clipboard and Clipboard.set)
@@ -219,17 +240,30 @@ end)
 -- =====================================================
 -- GUI CREATION
 -- =====================================================
-if ParentGui:FindFirstChild("BLUExCrownV5") then
-    ParentGui.BLUExCrownV5:Destroy()
-end
+pcall(function()
+    if ParentGui then
+        local old = ParentGui:FindFirstChild("BLUExCrownV5")
+        if old then old:Destroy() end
+    end
+end)
 
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "BLUExCrownV5"
 ScreenGui.ResetOnSpawn = false
 ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 ScreenGui.DisplayOrder = 9999
-ScreenGui.IgnoreGuiInset = true -- 100% TRUE FULLSCREEN EDGE-TO-EDGE
-ScreenGui.Parent = ParentGui
+pcall(function() ScreenGui.IgnoreGuiInset = true end)
+
+local parentedOk = false
+if ParentGui then
+    parentedOk = pcall(function() ScreenGui.Parent = ParentGui end)
+end
+if not parentedOk or not ScreenGui.Parent then
+    pcall(function()
+        local pg = LP and (LP:FindFirstChild("PlayerGui") or LP:WaitForChild("PlayerGui", 5))
+        if pg then ScreenGui.Parent = pg end
+    end)
+end
 
 local function makeCorner(parent, radius)
     local c = Instance.new("UICorner", parent)
@@ -884,7 +918,7 @@ local StatsLbl = Instance.new("TextLabel")
 StatsLbl.Size = UDim2.new(1, -16, 1, -168)
 StatsLbl.Position = UDim2.new(0, 8, 0, 162)
 StatsLbl.BackgroundTransparency = 1
-StatsLbl.Text = "UserID: "..tostring(LP.UserId).."\nBLUExCrown ENGINE\nv5.6 — Perfect Edition"
+StatsLbl.Text = "UserID: "..tostring(LP.UserId).."\nBLUExCrown ENGINE\nv5.6 -- Perfect Edition"
 StatsLbl.Font = Enum.Font.Gotham
 StatsLbl.TextSize = 9
 StatsLbl.TextColor3 = Color3.fromRGB(130, 130, 140)
@@ -998,7 +1032,7 @@ makeMenuCard(MenuArea, 172, "[3D]", "GENE TEXT 3D", "Buat teks 3D (3D extruded p
     showPage(PageText3D)
 end)
 
-makeMenuCard(MenuArea, 248, "[⟲]", "REPLACER TOOLS", "Ganti banyak objek target di map dengan 1 model/part pilihan", function()
+makeMenuCard(MenuArea, 248, "[[REP]]", "REPLACER TOOLS", "Ganti banyak objek target di map dengan 1 model/part pilihan", function()
     showPage(PageReplacer)
 end)
 
@@ -1390,7 +1424,7 @@ RbxmSearchBox.BackgroundTransparency = 1
 RbxmSearchBox.Font = Enum.Font.Gotham
 RbxmSearchBox.TextSize = 10
 RbxmSearchBox.TextColor3 = Color3.fromRGB(255, 255, 255)
-RbxmSearchBox.PlaceholderText = "🔍 Cari nama file .rbxm di sini..."
+RbxmSearchBox.PlaceholderText = "[?] Cari nama file .rbxm di sini..."
 RbxmSearchBox.PlaceholderColor3 = Color3.fromRGB(140, 140, 150)
 RbxmSearchBox.TextXAlignment = Enum.TextXAlignment.Left
 RbxmSearchBox.ClearTextOnFocus = false
@@ -2685,7 +2719,7 @@ end)
 -- Layout Split: Kiri Realtime Viewport Preview, Kanan Kontrol & Warna Kotak-Kotak
 -- =====================================================
 
--- ── 5x7 BITMAP FONT MATRIX ───────────────────────────
+-- ---- 5x7 BITMAP FONT MATRIX ------------------------------------------------------
 local FONT_5X7 = {
     ["A"] = {"01110","10001","10001","11111","10001","10001","10001"},
     ["B"] = {"11110","10001","10001","11110","10001","10001","11110"},
@@ -2846,7 +2880,7 @@ local function generate3DText(inputText, scale, depth, chosenColor, chosenMateri
     return true, "Sukses membuat 3D Text (" .. partCount .. " parts)!", model
 end
 
--- ── UI PAGE TEXT 3D BUILDER (SPLIT VIEW) ─────────────
+-- ---- UI PAGE TEXT 3D BUILDER (SPLIT VIEW) --------------------------
 local T3dHeader = Instance.new("Frame")
 T3dHeader.Size = UDim2.new(1, 0, 0, 32); T3dHeader.BackgroundTransparency = 1
 T3dHeader.ZIndex = 13; T3dHeader.Parent = PageText3D
@@ -2877,7 +2911,7 @@ local PreviewTitle = Instance.new("TextLabel")
 PreviewTitle.Size = UDim2.new(1, -16, 0, 22); PreviewTitle.Position = UDim2.new(0, 8, 0, 6)
 PreviewTitle.BackgroundTransparency = 1; PreviewTitle.Font = Enum.Font.GothamBold
 PreviewTitle.TextSize = 10; PreviewTitle.TextColor3 = Color3.fromRGB(0, 240, 255)
-PreviewTitle.TextXAlignment = Enum.TextXAlignment.Left; PreviewTitle.Text = "● REALTIME 3D PREVIEW"
+PreviewTitle.TextXAlignment = Enum.TextXAlignment.Left; PreviewTitle.Text = "[*] REALTIME 3D PREVIEW"
 PreviewTitle.ZIndex = 14; PreviewTitle.Parent = T3dLeftCard
 
 local T3dViewport = Instance.new("ViewportFrame")
@@ -3235,7 +3269,7 @@ local ReplacerTitleLbl = Instance.new("TextLabel")
 ReplacerTitleLbl.Size = UDim2.new(1, -90, 1, 0); ReplacerTitleLbl.Position = UDim2.new(0, 8, 0, 0)
 ReplacerTitleLbl.BackgroundTransparency = 1; ReplacerTitleLbl.Font = Enum.Font.GothamBold
 ReplacerTitleLbl.TextSize = 13; ReplacerTitleLbl.TextColor3 = Color3.fromRGB(255, 255, 255)
-ReplacerTitleLbl.TextXAlignment = Enum.TextXAlignment.Left; ReplacerTitleLbl.Text = "[⟲] OBJECT & MODEL REPLACER TOOLS"
+ReplacerTitleLbl.TextXAlignment = Enum.TextXAlignment.Left; ReplacerTitleLbl.Text = "[[REP]] OBJECT & MODEL REPLACER TOOLS"
 ReplacerTitleLbl.ZIndex = 14; ReplacerTitleLbl.Parent = ReplacerHeader
 
 makeBackBtn(ReplacerHeader, function() showPage(PageSplash) end)
@@ -3285,7 +3319,7 @@ local ScanTargetBtn = Instance.new("TextButton")
 ScanTargetBtn.Size = UDim2.new(0, 100, 0, 30); ScanTargetBtn.Position = UDim2.new(1, -108, 0, 28)
 ScanTargetBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 40); ScanTargetBtn.Font = Enum.Font.GothamBold
 ScanTargetBtn.TextSize = 9.5; ScanTargetBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-ScanTargetBtn.Text = "🔍 SCAN TARGET"
+ScanTargetBtn.Text = "[?] SCAN TARGET"
 ScanTargetBtn.ZIndex = 15; ScanTargetBtn.Parent = Card1
 makeCorner(ScanTargetBtn, 5)
 
@@ -3304,7 +3338,7 @@ local PickSelBtn = Instance.new("TextButton")
 PickSelBtn.Size = UDim2.new(0, 100, 0, 30); PickSelBtn.Position = UDim2.new(1, -108, 0, 28)
 PickSelBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 40); PickSelBtn.Font = Enum.Font.GothamBold
 PickSelBtn.TextSize = 9.5; PickSelBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-PickSelBtn.Text = "📌 PILIH TARGET"
+PickSelBtn.Text = "[+] PILIH TARGET"
 PickSelBtn.ZIndex = 15; PickSelBtn.Parent = Card2
 makeCorner(PickSelBtn, 5)
 
@@ -3330,14 +3364,14 @@ local function makeToggleBtn(parent, posX, posY, text, optKey)
     local btn = Instance.new("TextButton")
     btn.Size = UDim2.new(0.48, -4, 0, 20); btn.Position = UDim2.new(posX, 0, posY, 0)
     btn.BackgroundColor3 = rep_options[optKey] and Color3.fromRGB(0, 160, 100) or Color3.fromRGB(40, 40, 50)
-    btn.Text = (rep_options[optKey] and "[✓] " or "[ ] ") .. text
+    btn.Text = (rep_options[optKey] and "[X] " or "[ ] ") .. text
     btn.Font = Enum.Font.GothamBold; btn.TextSize = 8.5; btn.TextColor3 = Color3.fromRGB(255, 255, 255)
     btn.ZIndex = 15; btn.Parent = parent; makeCorner(btn, 4)
 
     btn.MouseButton1Click:Connect(function()
         rep_options[optKey] = not rep_options[optKey]
         btn.BackgroundColor3 = rep_options[optKey] and Color3.fromRGB(0, 160, 100) or Color3.fromRGB(40, 40, 50)
-        btn.Text = (rep_options[optKey] and "[✓] " or "[ ] ") .. text
+        btn.Text = (rep_options[optKey] and "[X] " or "[ ] ") .. text
     end)
     return btn
 end
@@ -3386,7 +3420,7 @@ end)
 
 local ExecReplaceBtn = Instance.new("TextButton")
 ExecReplaceBtn.Size = UDim2.new(1, 0, 0, 36); ExecReplaceBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-ExecReplaceBtn.Text = "[⟲] EKSEKUSI REPLACE SEMUA TARGET"
+ExecReplaceBtn.Text = "[[REP]] EKSEKUSI REPLACE SEMUA TARGET"
 ExecReplaceBtn.Font = Enum.Font.GothamBold; ExecReplaceBtn.TextSize = 10.5; ExecReplaceBtn.TextColor3 = Color3.fromRGB(0, 0, 0)
 ExecReplaceBtn.ZIndex = 16; ExecReplaceBtn.Active = true; ExecReplaceBtn.Parent = ReplacerScroll
 makeCorner(ExecReplaceBtn, 7)
@@ -3414,7 +3448,7 @@ ExecReplaceBtn.MouseButton1Click:Connect(function()
         end
         task.delay(2.0, function()
             if ExecReplaceBtn and ExecReplaceBtn.Parent then
-                ExecReplaceBtn.Text = "[⟲] EKSEKUSI REPLACE SEMUA TARGET"
+                ExecReplaceBtn.Text = "[[REP]] EKSEKUSI REPLACE SEMUA TARGET"
             end
         end)
     end)
