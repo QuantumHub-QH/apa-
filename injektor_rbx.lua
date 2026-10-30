@@ -2714,6 +2714,10 @@ end)
 -- =====================================================
 -- =====================================================
 -- =====================================================
+-- =====================================================
+-- PAGE 4: 3D TEXT GENERATOR (GENE TEXT 3D) [MODULAR SCOPE]
+-- =====================================================
+local function initText3DPage()
 -- PAGE 4: 3D TEXT GENERATOR (GENE TEXT 3D)
 -- Fitur pembuat teks 3D kustom langsung di map (Extruded Parts)
 -- Layout Split: Kiri Realtime Viewport Preview, Kanan Kontrol & Warna Kotak-Kotak
@@ -3161,6 +3165,14 @@ end)
 
 
 -- =====================================================
+
+end
+initText3DPage()
+
+-- =====================================================
+-- PAGE 5: REPLACER TOOLS [MODULAR SCOPE]
+-- =====================================================
+local function initReplacerPage()
 -- PAGE 5: REPLACER TOOLS (OBJECT & MODEL REPLACER)
 -- Plugin Pengganti Objek / Model Massal di Workspace
 -- Mengganti semua target dengan 1 model/part template
@@ -3453,5 +3465,9 @@ ExecReplaceBtn.MouseButton1Click:Connect(function()
         end)
     end)
 end)
+
+
+end
+initReplacerPage()
 
 print("[BLUExCrown] ENGINE MCHLERN ENGINE v7.1 LOADED")
