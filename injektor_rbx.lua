@@ -465,7 +465,7 @@ local MainFrame = Instance.new("Frame")
 MainFrame.Name = "MainFrame"
 MainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
 MainFrame.Position = UDim2.fromScale(0.5, 0.5)
-MainFrame.Size = UDim2.new(0, 640, 0, 360)
+MainFrame.Size = UDim2.new(0, 720, 0, 420)
 MainFrame.BackgroundColor3 = Color3.fromRGB(12, 12, 15)
 MainFrame.BorderSizePixel = 0
 MainFrame.ClipsDescendants = true
@@ -477,8 +477,8 @@ makeStroke(MainFrame, Color3.fromRGB(255,255,255), 1.4)
 
 -- TOP BAR
 local TopBar = Instance.new("Frame")
-TopBar.Size = UDim2.new(1, -12, 0, 32)
-TopBar.Position = UDim2.new(0, 6, 0, 6)
+TopBar.Size = UDim2.new(1, -16, 0, 38)
+TopBar.Position = UDim2.new(0, 8, 0, 6)
 TopBar.BackgroundColor3 = Color3.fromRGB(20, 20, 24)
 TopBar.BorderSizePixel = 0
 TopBar.Active = true
@@ -781,8 +781,8 @@ end)
 -- 5. PAGES & NAVIGATION (100% INSTANT HITBOX)
 -- =====================================================
 local Content = Instance.new("Frame")
-Content.Size = UDim2.new(1, -12, 1, -46)
-Content.Position = UDim2.new(0, 6, 0, 42)
+Content.Size = UDim2.new(1, -16, 1, -52)
+Content.Position = UDim2.new(0, 8, 0, 48)
 Content.BackgroundTransparency = 1
 Content.ZIndex = 11
 Content.Parent = MainFrame
@@ -790,9 +790,9 @@ Content.Parent = MainFrame
 local PageSplash  = Instance.new("Frame")
 local PageToolbox = Instance.new("Frame")
 local PageRBXM    = Instance.new("Frame")
-local PageRBXL    = Instance.new("Frame")
+local PageText3D  = Instance.new("Frame")
 
-for _, pg in ipairs({PageSplash, PageToolbox, PageRBXM, PageRBXL}) do
+for _, pg in ipairs({PageSplash, PageToolbox, PageRBXM, PageText3D}) do
     pg.Size = UDim2.fromScale(1, 1)
     pg.BackgroundTransparency = 1
     pg.Visible = false
@@ -805,7 +805,7 @@ local function showPage(target)
     PageSplash.Visible  = false
     PageToolbox.Visible = false
     PageRBXM.Visible    = false
-    PageRBXL.Visible    = false
+    PageText3D.Visible  = false
     target.Visible = true
 end
 
@@ -992,8 +992,8 @@ makeMenuCard(MenuArea, 108, "[R]", "INSERT RBXM FILE", "Scan & insert file .rbxm
     showPage(PageRBXM)
 end)
 
-makeMenuCard(MenuArea, 188, "[L]", "INSERT RBXL PLACE", "Scan & insert file .rbxl (full place) ke Workspace", function()
-    showPage(PageRBXL)
+makeMenuCard(MenuArea, 188, "[3D]", "GENE TEXT 3D", "Buat teks 3D (3D extruded parts) kustom langsung di map", function()
+    showPage(PageText3D)
 end)
 
 local function makeBackBtn(parent, onBack)
@@ -2486,15 +2486,35 @@ end)
 
 local function queryMarketplace(catId, query)
     local enc = HttpService:UrlEncode(query)
-    local urls = {
-        ("https://apis.roproxy.com/toolbox-service/v1/marketplace/%d?keyword=%s&limit=30"):format(catId, enc),
-        ("https://apis.roblox.com/toolbox-service/v1/marketplace/%d?keyword=%s&limit=30"):format(catId, enc),
+    local baseUrls = {
+        "https://apis.roproxy.com/toolbox-service/v1/marketplace/%d?keyword=%s&limit=30",
+        "https://apis.roblox.com/toolbox-service/v1/marketplace/%d?keyword=%s&limit=30",
     }
-    for _, url in ipairs(urls) do
-        local s, r = pcall(function() return httpRequest({Url=url,Method="GET",Headers={["User-Agent"]="RobloxStudio/WinInet"}}) end)
+    for _, bUrl in ipairs(baseUrls) do
+        local url1 = bUrl:format(catId, enc)
+        local s, r = pcall(function() return httpRequest({Url=url1,Method="GET",Headers={["User-Agent"]="RobloxStudio/WinInet"}}) end)
         if s and r and r.StatusCode == 200 then
             local ds, parsed = pcall(function() return HttpService:JSONDecode(r.Body) end)
-            if ds and parsed and parsed.data and #parsed.data > 0 then return parsed.data end
+            if ds and parsed and parsed.data and #parsed.data > 0 then
+                local allItems = {}
+                for _, item in ipairs(parsed.data) do table.insert(allItems, item) end
+                
+                -- AUTO MULTI-FETCH: Ambil halaman ke-2 otomatis jika cursor tersedia (Total 60 aset!)
+                if parsed.nextPageCursor and tostring(parsed.nextPageCursor) ~= "" then
+                    pcall(function()
+                        local url2 = (bUrl .. "&cursor=%s"):format(catId, enc, HttpService:UrlEncode(tostring(parsed.nextPageCursor)))
+                        local s2, r2 = pcall(function() return httpRequest({Url=url2,Method="GET",Headers={["User-Agent"]="RobloxStudio/WinInet"}}) end)
+                        if s2 and r2 and r2.StatusCode == 200 then
+                            local ds2, parsed2 = pcall(function() return HttpService:JSONDecode(r2.Body) end)
+                            if ds2 and parsed2 and parsed2.data and #parsed2.data > 0 then
+                                for _, item2 in ipairs(parsed2.data) do table.insert(allItems, item2) end
+                            end
+                        end
+                    end)
+                end
+                
+                return allItems
+            end
         end
     end
     return nil
@@ -2601,1428 +2621,401 @@ end)
 
 
 -- =====================================================
--- PAGE RBXL: INSERT RBXL PLACE FILE
--- Format identik dengan Page RBXM — scan .rbxl, extract
--- per-service (Workspace, SSS, StarterPack, StarterGui, dll)
--- lalu insert tiap item ke Studio Lite workspace
+-- =====================================================
+-- PAGE 4: 3D TEXT GENERATOR (GENE TEXT 3D)
+-- Fitur pembuat teks 3D kustom langsung di map (Extruded Parts)
+-- 100% Pure Luau, Auto-Anchored, dan spawn tepat di depan kamera
 -- =====================================================
 
--- ─── RBXL HEADER ────────────────────────────────────────
-local RbxlHeader = Instance.new("Frame")
-RbxlHeader.Size = UDim2.new(1, 0, 0, 28); RbxlHeader.BackgroundTransparency = 1
-RbxlHeader.ZIndex = 13; RbxlHeader.Parent = PageRBXL
-
-local RbxlTitleLbl = Instance.new("TextLabel")
-RbxlTitleLbl.Size = UDim2.new(1, -32, 1, 0); RbxlTitleLbl.Position = UDim2.new(0, 32, 0, 0)
-RbxlTitleLbl.BackgroundTransparency = 1; RbxlTitleLbl.Font = Enum.Font.GothamBold
-RbxlTitleLbl.TextSize = 11; RbxlTitleLbl.TextColor3 = Color3.fromRGB(255,255,255)
-RbxlTitleLbl.TextXAlignment = Enum.TextXAlignment.Left
-RbxlTitleLbl.Text = "INSERT RBXL PLACE FILE"; RbxlTitleLbl.ZIndex = 14; RbxlTitleLbl.Parent = RbxlHeader
-
-makeBackBtn(RbxlHeader, function() showPage(PageSplash) end)
-
--- ─── RBXL TOOLBAR (Scan + Inline Progress) ──────────────
-local RbxlToolbar = Instance.new("Frame")
-RbxlToolbar.Size = UDim2.new(1, 0, 0, 28); RbxlToolbar.Position = UDim2.new(0, 0, 0, 32)
-RbxlToolbar.BackgroundTransparency = 1; RbxlToolbar.ZIndex = 13; RbxlToolbar.Parent = PageRBXL
-
-local RbxlScanBtn = Instance.new("TextButton")
-RbxlScanBtn.Size = UDim2.new(0, 84, 0, 24); RbxlScanBtn.BackgroundColor3 = Color3.fromRGB(255,255,255)
-RbxlScanBtn.Text = "SCAN FILES"; RbxlScanBtn.Font = Enum.Font.GothamBold; RbxlScanBtn.TextSize = 10
-RbxlScanBtn.TextColor3 = Color3.fromRGB(0,0,0)
-RbxlScanBtn.Active = true; RbxlScanBtn.ZIndex = 15; RbxlScanBtn.Parent = RbxlToolbar
-makeCorner(RbxlScanBtn, 6); makeStroke(RbxlScanBtn, Color3.fromRGB(0,0,0), 1)
-
--- INLINE PROGRESS (sejajar scan btn, di sebelah kanan)
-local RbxlProgressFrame = Instance.new("Frame")
-RbxlProgressFrame.Size = UDim2.new(1, -92, 1, 0)
-RbxlProgressFrame.Position = UDim2.new(0, 92, 0, 0)
-RbxlProgressFrame.BackgroundTransparency = 1
-RbxlProgressFrame.ZIndex = 14; RbxlProgressFrame.Parent = RbxlToolbar
-
-local RbxlInsertStatus = Instance.new("TextLabel")
-RbxlInsertStatus.Size = UDim2.new(0.68, 0, 0, 14); RbxlInsertStatus.Position = UDim2.new(0, 4, 0, 0)
-RbxlInsertStatus.BackgroundTransparency = 1; RbxlInsertStatus.Font = Enum.Font.Code
-RbxlInsertStatus.TextSize = 9; RbxlInsertStatus.TextColor3 = Color3.fromRGB(180,180,195)
-RbxlInsertStatus.TextXAlignment = Enum.TextXAlignment.Left
-RbxlInsertStatus.Text = "[.] Klik SCAN FILES"; RbxlInsertStatus.ZIndex = 15; RbxlInsertStatus.Parent = RbxlProgressFrame
-
-local RbxlInsertPct = Instance.new("TextLabel")
-RbxlInsertPct.Size = UDim2.new(0.32, -4, 0, 14); RbxlInsertPct.Position = UDim2.new(0.68, 0, 0, 0)
-RbxlInsertPct.BackgroundTransparency = 1; RbxlInsertPct.Font = Enum.Font.Code
-RbxlInsertPct.TextSize = 9; RbxlInsertPct.TextColor3 = Color3.fromRGB(255,255,255)
-RbxlInsertPct.TextXAlignment = Enum.TextXAlignment.Right
-RbxlInsertPct.Text = ""; RbxlInsertPct.ZIndex = 15; RbxlInsertPct.Parent = RbxlProgressFrame
-
-local RbxlBarBg = Instance.new("Frame")
-RbxlBarBg.Size = UDim2.new(1, -8, 0, 6); RbxlBarBg.Position = UDim2.new(0, 4, 0, 17)
-RbxlBarBg.BackgroundColor3 = Color3.fromRGB(25,25,30); RbxlBarBg.BorderSizePixel = 0
-RbxlBarBg.ZIndex = 15; RbxlBarBg.Parent = RbxlProgressFrame
-makeCorner(RbxlBarBg, 3)
-
-local RbxlBarFill = Instance.new("Frame")
-RbxlBarFill.Size = UDim2.new(0, 0, 1, 0)
-RbxlBarFill.BackgroundColor3 = Color3.fromRGB(255,255,255)
-RbxlBarFill.BorderSizePixel = 0; RbxlBarFill.ZIndex = 16; RbxlBarFill.Parent = RbxlBarBg
-makeCorner(RbxlBarFill, 3)
-
--- ─── RBXL SCROLL ────────────────────────────────────────
-local RbxlScroll = Instance.new("ScrollingFrame")
-RbxlScroll.Size = UDim2.new(1, -12, 1, -66); RbxlScroll.Position = UDim2.new(0, 6, 0, 62)
-RbxlScroll.BackgroundColor3 = Color3.fromRGB(17,17,22); RbxlScroll.BorderSizePixel = 0
-RbxlScroll.ScrollBarThickness = 3; RbxlScroll.ScrollBarImageColor3 = Color3.fromRGB(255,255,255)
-RbxlScroll.ZIndex = 14; RbxlScroll.Parent = PageRBXL
-makeCorner(RbxlScroll, 8); makeStroke(RbxlScroll, Color3.fromRGB(255,255,255), 1, 0.78)
-
-local RbxlList = Instance.new("UIListLayout")
-RbxlList.Padding = UDim.new(0, 5); RbxlList.SortOrder = Enum.SortOrder.LayoutOrder; RbxlList.Parent = RbxlScroll
-local RbxlPad = Instance.new("UIPadding")
-RbxlPad.PaddingTop = UDim.new(0, 6); RbxlPad.PaddingLeft = UDim.new(0, 6)
-RbxlPad.PaddingRight = UDim.new(0, 6); RbxlPad.Parent = RbxlScroll
-
-local RbxlEmpty = Instance.new("TextLabel")
-RbxlEmpty.Size = UDim2.new(1, 0, 0, 40); RbxlEmpty.BackgroundTransparency = 1
-RbxlEmpty.Text = "Belum ada file .rbxl ditemukan. Klik SCAN FILES."
-RbxlEmpty.Font = Enum.Font.Gotham; RbxlEmpty.TextSize = 10
-RbxlEmpty.TextColor3 = Color3.fromRGB(140,140,150)
-RbxlEmpty.ZIndex = 15; RbxlEmpty.Parent = RbxlScroll
-
--- ─── INLINE PROGRESS HELPERS ────────────────────────────
-local function updateRbxlProgress(pct, statusText)
-    RbxlInsertStatus.Text = statusText
-    RbxlInsertStatus.TextColor3 = Color3.fromRGB(255,255,255)
-    RbxlInsertPct.Text = tostring(math.floor(pct)) .. "%"
-    TweenService:Create(RbxlBarFill, TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-        Size = UDim2.new(pct / 100, 0, 1, 0)
-    }):Play()
-end
-
-local function resetRbxlProgress(fileCount)
-    task.delay(1.8, function()
-        pcall(function()
-            TweenService:Create(RbxlBarFill, TweenInfo.new(0.4), {Size = UDim2.new(0, 0, 1, 0)}):Play()
-            RbxlInsertStatus.Text = "READY | RBXL SOURCE: ON"
-            RbxlInsertStatus.TextColor3 = Color3.fromRGB(160, 225, 160)
-            RbxlInsertPct.Text = tostring(fileCount or 0) .. " files found"
-        end)
-    end)
-end
-
-
--- =====================================================
-
--- =====================================================
--- MCHLERN RBXL/RBXM FULL BINARY DESERIALIZER v2.0
--- Verified against rojo.space/binary spec
--- Pure math float decode — NO string.pack/unpack needed
--- Luau/Delta Android safe
--- =====================================================
-
--- ── PURE MATH: u32 bits → IEEE 754 float ─────────────────────
--- No ffi, no buffer, no string.pack — works on ALL Delta versions
-local function uint32_to_float(u)
-    if u == 0 then return 0.0 end
-    local sign = 1
-    if u >= 0x80000000 then
-        sign = -1
-        u = u - 0x80000000
-    end
-    local exp  = math.floor(u / 0x800000)  -- bits [30..23]
-    local mant = u % 0x800000              -- bits [22..0]
-    if exp == 255 then
-        return sign * (mant == 0 and math.huge or 0/0)
-    elseif exp == 0 then
-        -- denormalized
-        return sign * (2 ^ -126) * (mant / 0x800000)
-    else
-        return sign * (2 ^ (exp - 127)) * (1 + mant / 0x800000)
-    end
-end
-
--- Roblox rfloat32: big-endian u32 with sign bit rotated to LSB
--- Decode: un-rotate right 1 bit, then interpret as IEEE 754
-local function decode_rfloat32_bytes(b1, b2, b3, b4)
-    local raw     = (b1 or 0)*16777216 + (b2 or 0)*65536 + (b3 or 0)*256 + (b4 or 0)
-    local lsb     = raw % 2
-    local unrot   = math.floor(raw / 2) + lsb * 0x80000000
-    return uint32_to_float(unrot)
-end
-
--- ── INTERLEAVE DECODE ────────────────────────────────────────
--- Roblox stores N 4-byte values as: [all byte0][all byte1][all byte2][all byte3]
--- (column-wise, big-endian per element)
--- deinterleave_u32: data is count*4 bytes, returns count u32 values
-local function deinterleave_u32(data, count)
-    local out = {}
-    for i = 1, count do
-        -- byte j of element i is at index: (j-1)*count + i
-        local b1 = data:byte(i)           or 0
-        local b2 = data:byte(i + count)   or 0
-        local b3 = data:byte(i + count*2) or 0
-        local b4 = data:byte(i + count*3) or 0
-        out[i] = b1*16777216 + b2*65536 + b3*256 + b4
-    end
-    return out
-end
-
--- Zigzag decode unsigned→signed: even→n/2, odd→-(n+1)/2
-local function zigzag32(n)
-    if n % 2 == 0 then
-        return math.floor(n / 2)
-    else
-        return -math.floor((n + 1) / 2)
-    end
-end
-
--- Deinterleave + zigzag: for Int32 arrays
-local function deinterleave_i32(data, count)
-    local raw = deinterleave_u32(data, count)
-    local out = {}
-    for i = 1, count do
-        out[i] = zigzag32(raw[i])
-    end
-    return out
-end
-
--- Delta-decode (cumulative sum)
-local function delta_decode(arr)
-    local out = {}
-    local acc = 0
-    for i = 1, #arr do
-        acc = acc + arr[i]
-        out[i] = acc
-    end
-    return out
-end
-
--- Deinterleave + rfloat32 decode: for Float32 arrays
-local function deinterleave_rfloat32(data, count)
-    local out = {}
-    for i = 1, count do
-        local b1 = data:byte(i)           or 0
-        local b2 = data:byte(i + count)   or 0
-        local b3 = data:byte(i + count*2) or 0
-        local b4 = data:byte(i + count*3) or 0
-        out[i] = decode_rfloat32_bytes(b1, b2, b3, b4)
-    end
-    return out
-end
-
--- ── LZ4 CHUNK DECOMPRESSOR ───────────────────────────────────
--- Uses outer lz4Decompress if available, otherwise pure Lua fallback
-local function mchlern_lz4_decompress(compressed, outputSize)
-    if not compressed or #compressed == 0 then return "" end
-
-    -- Check for Zstandard magic header: 0x28 0xB5 0x2F 0xFD
-    if #compressed >= 4 and compressed:byte(1) == 0x28 and compressed:byte(2) == 0xB5 and compressed:byte(3) == 0x2F and compressed:byte(4) == 0xFD then
-        local zfn = zstddecompress or zstd_decompress or (syn and syn.zstddecompress) or (crypt and crypt.zstddecompress)
-        if zfn then
-            local ok, r = pcall(zfn, compressed)
-            if ok and r and #r > 0 then return r end
-        end
-    end
-
-    -- Try all executor UNC native LZ4 functions (Delta supports lz4decompress)
-    local lzfn = lz4decompress or lz4_decompress or lz4Decompress or (syn and syn.lz4decompress) or (crypt and crypt.lz4decompress)
-    if lzfn then
-        local ok, r = pcall(lzfn, compressed, outputSize)
-        if ok and r and #r > 0 then return r end
-        if #compressed > 4 then
-            local ok4, r4 = pcall(lzfn, compressed:sub(5), outputSize)
-            if ok4 and r4 and #r4 > 0 then return r4 end
-        end
-        if #compressed > 12 then
-            local ok12, r12 = pcall(lzfn, compressed:sub(13), outputSize)
-            if ok12 and r12 and #r12 > 0 then return r12 end
-        end
-    end
-
-    -- Pure Lua LZ4 Block decompressor fallback
-    local pos = 1
-    local out = {}
-    local written = 0
-    local function rb() local b = compressed:byte(pos) or 0; pos=pos+1; return b end
-    local function ru16() local a,b=compressed:byte(pos,pos+1); pos=pos+2; return (a or 0)+(b or 0)*256 end
-    while pos <= #compressed do
-        local token = rb()
-        local litLen = math.floor(token / 16)
-        local matLen = token % 16
-        if litLen == 15 then repeat local e=rb(); litLen=litLen+e until e~=255 end
-        for _=1,litLen do out[#out+1]=string.char(rb()); written=written+1 end
-        if pos > #compressed then break end
-        local offset = ru16()
-        if offset == 0 then break end
-        if matLen == 15 then repeat local e=rb(); matLen=matLen+e until e~=255 end
-        matLen = matLen + 4
-        local matchStart = written - offset
-        for j=1,matLen do
-            local idx = matchStart + j
-            out[#out+1] = (idx>=1 and idx<=#out) and out[idx] or " "
-            written = written + 1
-        end
-    end
-    return table.concat(out)
-end
-
--- ── CFRAME SPECIAL ROTATION TABLE ───────────────────────────
--- 24 canonical axis-aligned CFrame rotations (rojo spec, id 0x02..0x20)
-local CF_SPECIAL = {
-    [0x02] = CFrame.new(0,0,0, 1,0,0, 0,1,0, 0,0,1),
-    [0x03] = CFrame.new(0,0,0, 1,0,0, 0,0,-1, 0,1,0),
-    [0x05] = CFrame.new(0,0,0, 1,0,0, 0,-1,0, 0,0,-1),
-    [0x06] = CFrame.new(0,0,0, 1,0,0, 0,0,1, 0,-1,0),
-    [0x07] = CFrame.new(0,0,0, 0,1,0, -1,0,0, 0,0,1),
-    [0x09] = CFrame.new(0,0,0, 0,0,1, 0,1,0, -1,0,0),
-    [0x0A] = CFrame.new(0,0,0, 0,-1,0, 1,0,0, 0,0,1),
-    [0x0C] = CFrame.new(0,0,0, 0,0,-1, 0,1,0, 1,0,0),
-    [0x0E] = CFrame.new(0,0,0, -1,0,0, 0,1,0, 0,0,-1),
-    [0x10] = CFrame.new(0,0,0, -1,0,0, 0,0,1, 0,1,0),
-    [0x11] = CFrame.new(0,0,0, -1,0,0, 0,-1,0, 0,0,1),
-    [0x14] = CFrame.new(0,0,0, -1,0,0, 0,0,-1, 0,-1,0),
-    [0x15] = CFrame.new(0,0,0, 0,1,0, 1,0,0, 0,0,-1),
-    [0x17] = CFrame.new(0,0,0, 0,0,-1, 1,0,0, 0,-1,0),
-    [0x18] = CFrame.new(0,0,0, 0,-1,0, -1,0,0, 0,0,-1),
-    [0x1A] = CFrame.new(0,0,0, 0,0,1, -1,0,0, 0,-1,0),
-    [0x1C] = CFrame.new(0,0,0, 0,1,0, 0,0,1, 1,0,0),
-    [0x1D] = CFrame.new(0,0,0, 0,0,-1, 0,1,0, -1,0,0),
-    [0x1F] = CFrame.new(0,0,0, 0,-1,0, 0,0,-1, 1,0,0),
-    [0x20] = CFrame.new(0,0,0, 0,0,1, 0,-1,0, 1,0,0),
+-- ── 5x7 BITMAP FONT MATRIX ───────────────────────────
+local FONT_5X7 = {
+    ["A"] = {"01110","10001","10001","11111","10001","10001","10001"},
+    ["B"] = {"11110","10001","10001","11110","10001","10001","11110"},
+    ["C"] = {"01111","10000","10000","10000","10000","10000","01111"},
+    ["D"] = {"11110","10001","10001","10001","10001","10001","11110"},
+    ["E"] = {"11111","10000","10000","11110","10000","10000","11111"},
+    ["F"] = {"11111","10000","10000","11110","10000","10000","10000"},
+    ["G"] = {"01111","10000","10000","10111","10001","10001","01111"},
+    ["H"] = {"10001","10001","10001","11111","10001","10001","10001"},
+    ["I"] = {"11111","00100","00100","00100","00100","00100","11111"},
+    ["J"] = {"00111","00010","00010","00010","00010","10010","01100"},
+    ["K"] = {"10001","10010","10100","11000","10100","10010","10001"},
+    ["L"] = {"10000","10000","10000","10000","10000","10000","11111"},
+    ["M"] = {"10001","11011","10101","10001","10001","10001","10001"},
+    ["N"] = {"10001","11001","10101","10011","10001","10001","10001"},
+    ["O"] = {"01110","10001","10001","10001","10001","10001","01110"},
+    ["P"] = {"11110","10001","10001","11110","10000","10000","10000"},
+    ["Q"] = {"01110","10001","10001","10001","10101","10010","01101"},
+    ["R"] = {"11110","10001","10001","11110","10100","10010","10001"},
+    ["S"] = {"01111","10000","10000","01110","00001","00001","11110"},
+    ["T"] = {"11111","00100","00100","00100","00100","00100","00100"},
+    ["U"] = {"10001","10001","10001","10001","10001","10001","01110"},
+    ["V"] = {"10001","10001","10001","10001","10001","01010","00100"},
+    ["W"] = {"10001","10001","10001","10101","10101","11011","10001"},
+    ["X"] = {"10001","10001","01010","00100","01010","10001","10001"},
+    ["Y"] = {"10001","10001","01010","00100","00100","00100","00100"},
+    ["Z"] = {"11111","00001","00010","00100","01000","10000","11111"},
+    ["0"] = {"01110","10011","10101","11001","10001","10001","01110"},
+    ["1"] = {"00100","01100","00100","00100","00100","00100","01110"},
+    ["2"] = {"01110","10001","00001","00110","01000","10000","11111"},
+    ["3"] = {"11110","00001","00001","01110","00001","00001","11110"},
+    ["4"] = {"10001","10001","10001","11111","00001","00001","00001"},
+    ["5"] = {"11111","10000","10000","11110","00001","00001","11110"},
+    ["6"] = {"01110","10000","10000","11110","10001","10001","01110"},
+    ["7"] = {"11111","00001","00010","00100","01000","01000","01000"},
+    ["8"] = {"01110","10001","10001","01110","10001","10001","01110"},
+    ["9"] = {"01110","10001","10001","01111","00001","00001","01110"},
+    [" "] = {"00000","00000","00000","00000","00000","00000","00000"},
+    ["-"] = {"00000","00000","00000","11111","00000","00000","00000"},
+    ["+"] = {"00000","00100","00100","11111","00100","00100","00000"},
+    ["="] = {"00000","00000","11111","00000","11111","00000","00000"},
+    [":"] = {"00000","00100","00000","00000","00100","00000","00000"},
+    ["."] = {"00000","00000","00000","00000","00000","01100","01100"},
+    ["!"] = {"00100","00100","00100","00100","00100","00000","00100"},
+    ["?"] = {"01110","10001","00001","00010","00100","00000","00100"},
+    ["_"] = {"00000","00000","00000","00000","00000","00000","11111"},
 }
 
--- Read one raw (non-interleaved) rfloat32 from stream position
-local function read_raw_rfloat32(data, pos)
-    -- data is non-interleaved: big-endian 4 bytes
-    local b1,b2,b3,b4 = data:byte(pos, pos+3)
-    return decode_rfloat32_bytes(b1,b2,b3,b4), pos+4
-end
-
--- ── SAFE CLASS WHITELIST ────────────────────────────────────
-local RBXL_SAFE_CLASSES = {
-    -- Geometry
-    Part=true, WedgePart=true, CornerWedgePart=true, TrussPart=true,
-    SpawnLocation=true, MeshPart=true, SpecialMesh=true, BlockMesh=true,
-    CylinderMesh=true, FileMesh=true,
-    UnionOperation=true, NegateOperation=true,
-    -- Structure
-    Model=true, Folder=true, Accessory=true, Tool=true,
-    -- Physics
-    Weld=true, WeldConstraint=true, Motor6D=true, HingeConstraint=true,
-    BallSocketConstraint=true, RodConstraint=true, RopeConstraint=true,
-    SpringConstraint=true, TorsionSpringConstraint=true,
-    -- Textures/Decals
-    Texture=true, Decal=true, SelectionBox=true, SelectionSphere=true,
-    -- Lighting & Atmosphere
-    PointLight=true, SpotLight=true, SurfaceLight=true,
-    Sky=true, Atmosphere=true, BloomEffect=true, BlurEffect=true,
-    ColorCorrectionEffect=true, SunRaysEffect=true, DepthOfFieldEffect=true,
-    -- Scripts
-    Script=true, LocalScript=true, ModuleScript=true,
-    -- GUI (Full Set)
-    ScreenGui=true, BillboardGui=true, SurfaceGui=true,
-    Frame=true, ScrollingFrame=true, CanvasGroup=true,
-    TextLabel=true, TextButton=true, ImageLabel=true, ImageButton=true, TextBox=true,
-    VideoFrame=true, ViewportFrame=true,
-    UICorner=true, UIStroke=true, UIGradient=true, UIPadding=true,
-    UIAspectRatioConstraint=true, UISizeConstraint=true, UITextSizeConstraint=true,
-    UIListLayout=true, UIGridLayout=true, UIPageLayout=true, UITableLayout=true,
-    -- Values
-    IntValue=true, StringValue=true, BoolValue=true, NumberValue=true,
-    Vector3Value=true, CFrameValue=true, Color3Value=true, ObjectValue=true,
-    -- Config/Networking
-    Configuration=true, RemoteEvent=true, RemoteFunction=true,
-    BindableEvent=true, BindableFunction=true,
-    -- FX
-    Sound=true, SoundGroup=true, ParticleEmitter=true, Smoke=true, Fire=true, Sparkles=true,
-    Trail=true, Attachment=true, Beam=true, Highlight=true,
-    -- Animation
-    Animation=true, Animator=true, Humanoid=true, HumanoidDescription=true,
-    -- Place Services Whitelist (Mapped directly in applyDeserializedTree)
-    Workspace=true, Lighting=true, ReplicatedStorage=true, StarterGui=true,
-    ServerScriptService=true, ServerStorage=true, SoundService=true, StarterPack=true,
-}
-
--- Properties to skip (read-only / protected / crash-causing)
-local RBXL_SKIP_PROPS = {
-    UniqueId=true, HistoryId=true, SourceAssetId=true,
-    AttributesSerialize=true, Tags=true, Capabilities=true,
-    Parent=true,  -- handled separately
-}
-
--- ── MAIN BINARY DESERIALIZER ─────────────────────────────────
-local function deserializeRbxBinary(fileData)
-    local result = {
-        instances = {},  -- [ref] = {class, props={}, parent=nil}
-        errors    = {},
-    }
-
-    if not fileData or #fileData < 32 then
-        result.errors[1] = "File terlalu kecil"; return result
+-- Algoritma Greedy 2D Box Merger (Meminimalkan jumlah part)
+local function greedyMeshChar(charStr)
+    local pat = FONT_5X7[charStr] or FONT_5X7["?"]
+    local grid = {}
+    for r = 1, 7 do
+        grid[r] = {}
+        local rowStr = pat[r] or "00000"
+        for c = 1, 5 do
+            grid[r][c] = (rowStr:sub(c, c) == "1") and 1 or 0
+        end
     end
 
-    -- Validate magic
-    if fileData:sub(1,8) ~= "<roblox!" then
-        result.errors[1] = "Bukan binary RBXL/RBXM (magic salah)"; return result
-    end
-
-    local fileLen = #fileData
-    -- Header: 8 magic + 6 sig + 2 version + 4 numClass + 4 numInst + 8 reserved = 32
-    local pos = 33
-
-    local classMap   = {}  -- [classId] = {name, refs[]}
-    local sharedStrs = {}  -- [idx] = string (from SSTR)
-
-    -- ── CHUNK LOOP ──────────────────────────────────────────
-    while pos <= fileLen - 16 do
-        local tag = fileData:sub(pos, pos+3)
-        -- Chunk header: 4 tag + 4 compLen LE + 4 rawLen LE + 4 reserved
-        local cB = {fileData:byte(pos+4, pos+7)}
-        local rB = {fileData:byte(pos+8, pos+11)}
-        local compLen = (cB[1] or 0) + (cB[2] or 0)*256 + (cB[3] or 0)*65536 + (cB[4] or 0)*16777216
-        local rawLen  = (rB[1] or 0) + (rB[2] or 0)*256 + (rB[3] or 0)*65536 + (rB[4] or 0)*16777216
-        pos = pos + 16
-
-        if tag == "END " then break end
-
-        -- Get chunk data
-        local chunk
-        if compLen == 0 then
-            chunk = fileData:sub(pos, pos + rawLen - 1)
-            pos = pos + rawLen
-        else
-            local comp = fileData:sub(pos, pos + compLen - 1)
-            local ok2, dc = pcall(mchlern_lz4_decompress, comp, rawLen)
-            chunk = (ok2 and dc) or comp
-            pos = pos + compLen
-        end
-
-        if chunk and #chunk > 0 then
-        local cp = 1  -- chunk position
-
-        -- helper: read bytes from chunk
-        local function cb(n)
-            local s = chunk:sub(cp, cp+n-1); cp=cp+n; return s
-        end
-        local function cu32le()
-            local a,b,c,d = chunk:byte(cp,cp+3); cp=cp+4
-            return (a or 0)+(b or 0)*256+(c or 0)*65536+(d or 0)*16777216
-        end
-        local function cstr()
-            local n=cu32le(); local s=chunk:sub(cp,cp+n-1); cp=cp+n; return s
-        end
-        local function cbyte()
-            local b=chunk:byte(cp) or 0; cp=cp+1; return b
-        end
-
-        -- ── SSTR ──────────────────────────────────────────
-        if tag == "SSTR" then
-            cu32le() -- version
-            local cnt = cu32le()
-            for i = 0, cnt-1 do
-                cb(16) -- MD5 hash
-                sharedStrs[i] = cstr()
-            end
-
-        -- ── INST ──────────────────────────────────────────
-        elseif tag == "INST" then
-            local classId   = cu32le()
-            local className = cstr()
-            local objFmt    = cbyte()   -- 0=normal, 1=service
-            local cnt       = cu32le()
-
-            -- Referents: interleaved zigzag i32, then delta-decode
-            local rawRefs = cb(cnt * 4)
-            local refs = delta_decode(deinterleave_i32(rawRefs, cnt))
-
-            classMap[classId] = { name=className, refs=refs }
-
-            for _, ref in ipairs(refs) do
-                result.instances[ref] = {
-                    class  = className,
-                    props  = {},
-                    parent = nil,
-                }
-            end
-
-        -- ── PROP ──────────────────────────────────────────
-        elseif tag == "PROP" then
-            local classId  = cu32le()
-            local propName = cstr()
-            local typeId   = cbyte()
-
-            local cls = classMap[classId]
-            if cls and cls.refs and #cls.refs > 0 then
-            local refs = cls.refs
-            local cnt  = #refs
-
-            -- Read values based on typeId
-            local function setAll(vals)
-                for i, ref in ipairs(refs) do
-                    if result.instances[ref] then
-                        result.instances[ref].props[propName] = vals[i]
-                    end
+    local boxes = {}
+    for r = 1, 7 do
+        for c = 1, 5 do
+            if grid[r][c] == 1 then
+                local w = 1
+                while c + w <= 5 and grid[r][c + w] == 1 do
+                    w = w + 1
                 end
-            end
 
-            -- 0x01 String
-            if typeId == 0x01 then
-                local vals = {}
-                for i=1,cnt do vals[i]=cstr() end
-                setAll(vals)
-
-            -- 0x02 Bool
-            elseif typeId == 0x02 then
-                local vals = {}
-                for i=1,cnt do vals[i]=(cbyte()~=0) end
-                setAll(vals)
-
-            -- 0x03 Int32 interleaved zigzag
-            elseif typeId == 0x03 then
-                setAll(deinterleave_i32(cb(cnt*4), cnt))
-
-            -- 0x04 Float32 interleaved rfloat32
-            elseif typeId == 0x04 then
-                setAll(deinterleave_rfloat32(cb(cnt*4), cnt))
-
-            -- 0x05 Float64 LE (8 bytes, approximate via string ops)
-            elseif typeId == 0x05 then
-                local vals = {}
-                for i=1,cnt do
-                    local raw8 = cb(8)
-                    -- Approximate: extract the double via Lua 5.3 string.unpack if available
-                    local ok2, v = pcall(string.unpack, "<d", raw8)
-                    vals[i] = ok2 and v or 0
-                end
-                setAll(vals)
-
-            -- 0x06 UDim
-            elseif typeId == 0x06 then
-                local scales  = deinterleave_rfloat32(cb(cnt*4), cnt)
-                local offsets = deinterleave_i32(cb(cnt*4), cnt)
-                local vals = {}
-                for i=1,cnt do vals[i] = UDim.new(scales[i] or 0, offsets[i] or 0) end
-                setAll(vals)
-
-            -- 0x07 UDim2
-            elseif typeId == 0x07 then
-                local xS = deinterleave_rfloat32(cb(cnt*4), cnt)
-                local yS = deinterleave_rfloat32(cb(cnt*4), cnt)
-                local xO = deinterleave_i32(cb(cnt*4), cnt)
-                local yO = deinterleave_i32(cb(cnt*4), cnt)
-                local vals = {}
-                for i=1,cnt do vals[i]=UDim2.new(xS[i] or 0,xO[i] or 0,yS[i] or 0,yO[i] or 0) end
-                setAll(vals)
-
-            -- 0x0B BrickColor
-            elseif typeId == 0x0B then
-                local raw = deinterleave_u32(cb(cnt*4), cnt)
-                local vals = {}
-                for i=1,cnt do
-                    local ok2,bc = pcall(BrickColor.new, raw[i] or 194)
-                    vals[i] = ok2 and bc or BrickColor.new("Medium stone grey")
-                end
-                setAll(vals)
-
-            -- 0x0C Color3 (3 rfloat32 interleaved arrays: R, G, B)
-            elseif typeId == 0x0C then
-                local vR = deinterleave_rfloat32(cb(cnt*4), cnt)
-                local vG = deinterleave_rfloat32(cb(cnt*4), cnt)
-                local vB = deinterleave_rfloat32(cb(cnt*4), cnt)
-                local vals = {}
-                for i=1,cnt do
-                    vals[i] = Color3.new(math.clamp(vR[i] or 0,0,1), math.clamp(vG[i] or 0,0,1), math.clamp(vB[i] or 0,0,1))
-                end
-                setAll(vals)
-
-            -- 0x0D Vector2
-            elseif typeId == 0x0D then
-                local vX = deinterleave_rfloat32(cb(cnt*4), cnt)
-                local vY = deinterleave_rfloat32(cb(cnt*4), cnt)
-                local vals = {}
-                for i=1,cnt do vals[i]=Vector2.new(vX[i] or 0,vY[i] or 0) end
-                setAll(vals)
-
-            -- 0x0E Vector3 (X,Y,Z each as interleaved rfloat32 array)
-            elseif typeId == 0x0E then
-                local vX = deinterleave_rfloat32(cb(cnt*4), cnt)
-                local vY = deinterleave_rfloat32(cb(cnt*4), cnt)
-                local vZ = deinterleave_rfloat32(cb(cnt*4), cnt)
-                local vals = {}
-                for i=1,cnt do vals[i]=Vector3.new(vX[i] or 0,vY[i] or 0,vZ[i] or 0) end
-                setAll(vals)
-
-            -- 0x10 CFrame
-            -- Layout: [rotToken * cnt], then for token==0: [9 rfloat32 inline per instance],
-            -- then [posX * cnt interleaved], [posY * cnt interleaved], [posZ * cnt interleaved]
-            elseif typeId == 0x10 then
-                -- 1. Read rotation tokens
-                local rotTokens = {}
-                for i=1,cnt do rotTokens[i]=cbyte() end
-
-                -- 2. Read inline rotation matrices for token==0 instances
-                local rotMats = {}
-                for i=1,cnt do
-                    if rotTokens[i] == 0x00 then
-                        -- 9 raw rfloat32 (NOT interleaved here, stored inline)
-                        local m = {}
-                        for j=1,9 do
-                            local b1,b2,b3,b4 = chunk:byte(cp,cp+3); cp=cp+4
-                            m[j] = decode_rfloat32_bytes(b1,b2,b3,b4)
+                local h = 1
+                while r + h <= 7 do
+                    local fullRow = true
+                    for dc = 0, w - 1 do
+                        if grid[r + h][c + dc] ~= 1 then
+                            fullRow = false
+                            break
                         end
-                        rotMats[i] = m
                     end
-                end
-
-                -- 3. Read position arrays (interleaved rfloat32)
-                local pX = deinterleave_rfloat32(cb(cnt*4), cnt)
-                local pY = deinterleave_rfloat32(cb(cnt*4), cnt)
-                local pZ = deinterleave_rfloat32(cb(cnt*4), cnt)
-
-                -- 4. Reconstruct CFrames
-                local vals = {}
-                for i=1,cnt do
-                    local x,y,z = pX[i] or 0, pY[i] or 0, pZ[i] or 0
-                    local tok = rotTokens[i]
-                    local cf
-                    if tok == 0x00 then
-                        local m = rotMats[i]
-                        if m then
-                            local ok2,built = pcall(CFrame.new, x,y,z, m[1],m[2],m[3], m[4],m[5],m[6], m[7],m[8],m[9])
-                            cf = ok2 and built or CFrame.new(x,y,z)
-                        else
-                            cf = CFrame.new(x,y,z)
-                        end
+                    if fullRow then
+                        h = h + 1
                     else
-                        local specialRot = CF_SPECIAL[tok]
-                        if specialRot then
-                            cf = CFrame.new(x,y,z) * specialRot
-                        else
-                            cf = CFrame.new(x,y,z)
-                        end
-                    end
-                    vals[i] = cf
-                end
-                setAll(vals)
-
-            -- 0x12 Enum/Token (interleaved u32)
-            elseif typeId == 0x12 then
-                local raw = deinterleave_u32(cb(cnt*4), cnt)
-                local vals = {}
-                for i=1,cnt do vals[i] = {_enum=raw[i]} end
-                setAll(vals)
-
-            -- 0x13 Referent (interleaved zigzag delta i32)
-            elseif typeId == 0x13 then
-                local refs2 = delta_decode(deinterleave_i32(cb(cnt*4), cnt))
-                local vals = {}
-                for i=1,cnt do vals[i] = {_ref=refs2[i]} end
-                setAll(vals)
-
-            -- 0x1A Color3uint8
-            elseif typeId == 0x1A then
-                local allR = cb(cnt); local allG = cb(cnt); local allB = cb(cnt)
-                local vals = {}
-                for i=1,cnt do
-                    vals[i] = Color3.fromRGB(allR:byte(i) or 0, allG:byte(i) or 0, allB:byte(i) or 0)
-                end
-                setAll(vals)
-
-            -- 0x1C SharedString
-            elseif typeId == 0x1C then
-                local idxs = deinterleave_u32(cb(cnt*4), cnt)
-                local vals = {}
-                for i=1,cnt do vals[i] = sharedStrs[idxs[i]] or "" end
-                setAll(vals)
-            end
-            -- Unknown types: gracefully skip (don't break parsing)
-            end
-
-        -- ── PRNT ──────────────────────────────────────────
-        elseif tag == "PRNT" then
-            cbyte()           -- version (always 0)
-            local cnt = cu32le()
-
-            -- BOTH child and parent refs: interleaved zigzag i32 + delta-decode
-            local childRefs  = delta_decode(deinterleave_i32(cb(cnt*4), cnt))
-            local parentRefs = delta_decode(deinterleave_i32(cb(cnt*4), cnt))
-
-            for i=1,cnt do
-                local cRef = childRefs[i]
-                local pRef = parentRefs[i]
-                if result.instances[cRef] then
-                    result.instances[cRef].parent = pRef  -- -1 = root
-                end
-            end
-        end
-
-                end
-    end
-
-    return result
-end
-
--- ── APPLY TREE: Instance.new + set props + set parents ───────
-local function applyDeserializedTree(parsed, targetFolder, onProgress)
-    local instMap = {}
-    local total = 0
-    for _ in pairs(parsed.instances) do total = total + 1 end
-    local done = 0
-
-    local engineServices = {
-        [workspace] = true,
-        [game:GetService("Lighting")] = true,
-        [game:GetService("ReplicatedStorage")] = true,
-        [game:GetService("StarterGui")] = true,
-        [game:GetService("SoundService")] = true,
-        [game:GetService("StarterPack")] = true,
-    }
-
-    -- Phase 1: Create instances & Map Services Direct
-    for ref, data in pairs(parsed.instances) do
-        local className = data.class
-        local inst = nil
-
-        -- Service Mapping Langsung ke Engine Studio Lite
-        if className == "Workspace" then
-            inst = workspace
-        elseif className == "Lighting" then
-            inst = game:GetService("Lighting")
-        elseif className == "ReplicatedStorage" then
-            inst = game:GetService("ReplicatedStorage")
-        elseif className == "StarterGui" then
-            inst = game:GetService("StarterGui")
-        elseif className == "SoundService" then
-            inst = game:GetService("SoundService")
-        elseif className == "StarterPack" then
-            inst = game:GetService("StarterPack")
-        elseif className == "ServerScriptService" or className == "ServerStorage" then
-            inst = resolveServiceTarget(className)
-            if not inst then
-                local f = workspace:FindFirstChild(className)
-                if not f then
-                    f = Instance.new("Folder")
-                    f.Name = className
-                    f.Parent = workspace
-                end
-                inst = f
-            end
-        elseif RBXL_SAFE_CLASSES[className] then
-            local ok2, i = pcall(Instance.new, className)
-            if ok2 and i then
-                inst = i
-                -- CRITICAL: Prevent parts from falling into the void on mobile
-                if inst:IsA("BasePart") then
-                    pcall(function()
-                        inst.Anchored = true
-                        inst.Velocity = Vector3.zero
-                        inst.RotVelocity = Vector3.zero
-                        inst.AssemblyLinearVelocity = Vector3.zero
-                        inst.AssemblyAngularVelocity = Vector3.zero
-                    end)
-                end
-            end
-        end
-
-        if not inst then
-            -- Placeholder folder for unsupported classes
-            local ok2, f = pcall(Instance.new, "Folder")
-            if ok2 and f then f.Name = "[" .. className .. "]"; inst = f end
-        end
-
-        if inst then instMap[ref] = inst end
-        done = done + 1
-        if onProgress and done % 100 == 0 then
-            onProgress(done/total*0.45, "Creating " .. done .. "/" .. total)
-        end
-    end
-
-    -- Phase 2: Set properties (Skip root engine services)
-    done = 0
-    for ref, data in pairs(parsed.instances) do
-        local inst = instMap[ref]
-        if inst and not engineServices[inst] then
-            for pName, pVal in pairs(data.props) do
-                if not RBXL_SKIP_PROPS[pName] then
-                    pcall(function()
-                        if type(pVal) == "table" then
-                            if pVal._enum then
-                                inst[pName] = pVal._enum  -- try set as number
-                            elseif pVal._ref then
-                                -- deferred
-                            end
-                        else
-                            inst[pName] = pVal
-                        end
-                    end)
-                end
-            end
-
-            -- Pastikan semua BasePart ter-anchor
-            if inst:IsA("BasePart") then
-                pcall(function()
-                    inst.Anchored = true
-                    inst.Velocity = Vector3.zero
-                    inst.RotVelocity = Vector3.zero
-                    inst.AssemblyLinearVelocity = Vector3.zero
-                    inst.AssemblyAngularVelocity = Vector3.zero
-                end)
-            end
-
-            -- Recreate Script as native Studio Lite Script
-            if inst:IsA("LuaSourceContainer") then
-                local src = data.props["Source"] or ""
-                recreateScriptAsNative(inst, src)
-            end
-        end
-        done = done + 1
-        if onProgress and done % 100 == 0 then
-            onProgress(0.45 + done/total*0.35, "Props " .. done .. "/" .. total)
-        end
-    end
-
-    -- Phase 3: Build hierarchy
-    local sortedRefs = {}
-    for ref in pairs(parsed.instances) do table.insert(sortedRefs, ref) end
-    table.sort(sortedRefs)
-
-    done = 0
-    local playerGui = LP:FindFirstChild("PlayerGui")
-    for _, ref in ipairs(sortedRefs) do
-        local inst = instMap[ref]
-        if inst and not engineServices[inst] then
-            local pRef = parsed.instances[ref].parent
-            if pRef ~= nil and pRef ~= -1 and instMap[pRef] then
-                local parentObj = instMap[pRef]
-                pcall(function() inst.Parent = parentObj end)
-                -- Jika ScreenGui masuk ke StarterGui, tampilkan juga di PlayerGui agar kelihatan
-                if parentObj == game:GetService("StarterGui") and playerGui and inst:IsA("ScreenGui") then
-                    pcall(function() inst:Clone().Parent = playerGui end)
-                end
-            else
-                pcall(function() inst.Parent = targetFolder end)
-            end
-        end
-        done = done + 1
-        if onProgress and done % 100 == 0 then
-            onProgress(0.8 + done/total*0.18, "Hierarchy " .. done .. "/" .. total)
-        end
-    end
-
-    -- Phase 4: Deferred ref props
-    for ref, data in pairs(parsed.instances) do
-        local inst = instMap[ref]
-        if inst and not engineServices[inst] then
-            for pName, pVal in pairs(data.props) do
-                if type(pVal) == "table" and pVal._ref then
-                    local target = instMap[pVal._ref]
-                    if target then pcall(function() inst[pName] = target end) end
-                end
-            end
-        end
-    end
-
-    local count = 0
-    for _, inst in pairs(instMap) do
-        if not engineServices[inst] then count = count + 1 end
-    end
-    return instMap, count
-end
-
--- ── RBXLX XML PARSER (fallback for .rbxlx format) ───────────
-local function parseRbxlxXml(xmlData, targetFolder)
-    local created = 0
-    local stack = {targetFolder}
-
-    -- Extract all <Item class="...">...</Item> blocks (non-nested parse)
-    for className, propsBlock in xmlData:gmatch('<Item%s+class="([^"]+)"[^>]*>%s*<Properties>(.-)</Properties>') do
-        local inst
-        if RBXL_SAFE_CLASSES[className] then
-            local ok2, i = pcall(Instance.new, className)
-            if ok2 then inst = i end
-        end
-        if not inst then
-            local ok2, f = pcall(Instance.new, "Folder")
-            if ok2 then f.Name = "[" .. className .. "]"; inst = f end
-        end
-        if inst then
-        -- Name
-        local name = propsBlock:match('<string%s+name="Name"%s*>([^<]+)</string>')
-        if name then pcall(function() inst.Name = name end) end
-
-        -- Size (Vector3)
-        local sXml = propsBlock:match('<Vector3%s+name="Size"%s*>(.-)</Vector3>')
-        if sXml then
-            local x,y,z = tonumber(sXml:match("<X>([^<]+)</X>")),tonumber(sXml:match("<Y>([^<]+)</Y>")),tonumber(sXml:match("<Z>([^<]+)</Z>"))
-            pcall(function() if x then inst.Size=Vector3.new(x,y or 0,z or 0) end end)
-        end
-
-        -- CFrame
-        local cfXml = propsBlock:match('<CoordinateFrame%s+name="CFrame"%s*>(.-)</CoordinateFrame>')
-        if cfXml then
-            local function n(t) return tonumber(cfXml:match('<'..t..'>([^<]+)</'..t..'>')) or 0 end
-            pcall(function() inst.CFrame = CFrame.new(n"X",n"Y",n"Z",n"R00",n"R01",n"R02",n"R10",n"R11",n"R12",n"R20",n"R21",n"R22") end)
-        end
-
-        -- BrickColor
-        local bc = propsBlock:match('<BrickColor%s+name="BrickColor"%s*>([^<]+)</BrickColor>')
-        if bc then pcall(function() inst.BrickColor=BrickColor.new(tonumber(bc)) end) end
-
-        -- Color
-        local colXml = propsBlock:match('<Color3uint8%s+name="Color"%s*>([^<]+)</Color3uint8>')
-        if colXml then
-            local cv = tonumber(colXml) or 0
-            local r,g,b = math.floor(cv/65536)%256, math.floor(cv/256)%256, cv%256
-            pcall(function() inst.Color=Color3.fromRGB(r,g,b) end)
-        end
-
-        -- Material (enum value)
-        local mat = propsBlock:match('<token%s+name="Material"%s*>([^<]+)</token>')
-        if mat then pcall(function() inst.Material = tonumber(mat) or 256 end) end
-
-        -- Anchored (Auto-Anchored untuk mobile / Studio Lite)
-        if inst:IsA("BasePart") then
-            pcall(function()
-                inst.Anchored = true
-                inst.Velocity = Vector3.zero
-                inst.RotVelocity = Vector3.zero
-                inst.AssemblyLinearVelocity = Vector3.zero
-                inst.AssemblyAngularVelocity = Vector3.zero
-            end)
-        end
-
-        -- Script Source (CDATA)
-        if className=="Script" or className=="LocalScript" or className=="ModuleScript" then
-            local src = propsBlock:match('<ProtectedString%s+name="Source"%s*>%s*<!%[CDATA%[(.-)]%]>%s*</ProtectedString>')
-                     or propsBlock:match('<string%s+name="Source"%s*>([^<]+)</string>')
-            if src and #src > 0 then
-                src = stripRichText(src)
-                pcall(function() inst.Source = src end)
-                storeScriptSource(name or className, src)
-                recreateScriptAsNative(inst, src)
-            end
-        end
-
-        pcall(function() inst.Parent = targetFolder end)
-        created = created + 1
-        end
-    end
-    return created
-end
-
--- ── SMART INSERT RBXL FULL v2 ────────────────────────────────
--- =====================================================
--- STUDIO LITE SERVICE RESOLVER & RBXL DISTRIBUTOR
--- Mendistribusikan isi .rbxl ke service masing-masing:
--- Workspace -> workspace
--- StarterGui -> StarterGui (UI)
--- ServerScriptService -> ServerScriptService (Scripts)
--- ReplicatedStorage -> ReplicatedStorage
--- Lighting -> Lighting (Skybox, Atmosphere)
--- SoundService -> SoundService
--- =====================================================
-local function resolveServiceTarget(serviceName)
-    if not serviceName or serviceName == "" then return nil end
-
-    -- 1. Cari container Ugc (lokasi virtual services di Studio Lite)
-    for _, container in ipairs({workspace, game, ReplicatedStorage}) do
-        if container then
-            local ugc = container:FindFirstChild("Ugc")
-            if ugc then
-                local svc = ugc:FindFirstChild(serviceName)
-                if svc then return svc end
-            end
-        end
-    end
-
-    -- 2. Cari di dalam hierarki workspace/ReplicatedStorage yang bernama serviceName
-    for _, inst in ipairs(workspace:GetDescendants()) do
-        if inst.Name == serviceName and inst.Parent and inst.Parent.Name == "Ugc" then
-            return inst
-        end
-    end
-    for _, inst in ipairs(ReplicatedStorage:GetDescendants()) do
-        if inst.Name == serviceName and inst.Parent and inst.Parent.Name == "Ugc" then
-            return inst
-        end
-    end
-
-    -- 3. Cek service engine resmi via game:GetService (jika bisa ditulis di client)
-    local ok, realSvc = pcall(game.GetService, game, serviceName)
-    if ok and realSvc then
-        local writable = pcall(function()
-            local probe = Instance.new("Folder")
-            probe.Parent = realSvc
-            probe:Destroy()
-        end)
-        if writable then return realSvc end
-    end
-
-    -- 4. Cek StudioLiteFolder
-    local slFolder = ReplicatedStorage:FindFirstChild("StudioLiteFolder")
-    if slFolder then
-        local slSvc = slFolder:FindFirstChild(serviceName)
-        if slSvc then return slSvc end
-    end
-
-    -- 5. Fallback ke Folder dedicated agar Explorer tetap rapi dan tidak ditumpuk
-    local existingFolder = workspace:FindFirstChild(serviceName)
-    if existingFolder and existingFolder:IsA("Folder") then
-        return existingFolder
-    end
-
-    return nil
-end
-
-local function insertRbxlObjects(objects, sourceMap)
-    local count = 0
-    sourceMap = sourceMap or {}
-
-    print("[MCHLERN RBXL] Mendistribusikan " .. #objects .. " root object ke service Studio Lite...")
-
-    for i, obj in ipairs(objects) do
-        local objClass = tostring(obj.ClassName)
-        local objName  = tostring(obj.Name)
-        local children = obj:GetChildren()
-
-        print(string.format("[MCHLERN RBXL] Obj #%d: Class=%s, Name=%s, Anak=%d", i, objClass, objName, #children))
-
-        -- Cek apakah objek merupakan container DataModel / Game / Place root
-        local isPlaceContainer = (objClass == "DataModel" or objName == "Game" or (#children > 0 and (obj:FindFirstChild("Workspace") or obj:FindFirstChild("Lighting"))))
-
-        local serviceContainers = isPlaceContainer and children or {obj}
-
-        for _, svcOrGroup in ipairs(serviceContainers) do
-            local sName  = tostring(svcOrGroup.Name)
-            local sClass = tostring(svcOrGroup.ClassName)
-            local sChildren = svcOrGroup:GetChildren()
-
-            print(string.format("[MCHLERN RBXL] -> Rute Service: %s (%s) [%d items]", sName, sClass, #sChildren))
-
-            if sName == "Workspace" or sClass == "Workspace" then
-                -- Bagian Workspace: masuk ke live workspace (3D Viewport)
-                for _, item in ipairs(sChildren) do
-                    pcall(function()
-                        item.Parent = workspace
-                        pcall(applyStudioLiteProps, item)
-                        -- AUTO ANCHOR SEMUA PART DI WORKSPACE
-                        if item:IsA("BasePart") then
-                            item.Anchored = true
-                            item.Velocity = Vector3.zero
-                            item.RotVelocity = Vector3.zero
-                            item.AssemblyLinearVelocity = Vector3.zero
-                            item.AssemblyAngularVelocity = Vector3.zero
-                        end
-                        for _, desc in ipairs(item:GetDescendants()) do
-                            if desc:IsA("BasePart") then
-                                desc.Anchored = true
-                                desc.Velocity = Vector3.zero
-                                desc.RotVelocity = Vector3.zero
-                                desc.AssemblyLinearVelocity = Vector3.zero
-                                desc.AssemblyAngularVelocity = Vector3.zero
-                            end
-                        end
-                        pcall(loadAssetsToSLServer, item)
-                        if item:IsA("LuaSourceContainer") then
-                            recreateScriptAsNative(item, sourceMap[item.Name])
-                        end
-                        count = count + 1
-                    end)
-                end
-            elseif sName == "Lighting" or sClass == "Lighting" then
-                local lgt = game:GetService("Lighting")
-                for _, item in ipairs(sChildren) do
-                    pcall(function()
-                        item.Parent = lgt
-                        count = count + 1
-                    end)
-                end
-            elseif sName == "StarterGui" or sClass == "StarterGui" then
-                local sg = game:GetService("StarterGui")
-                local pg = LP:FindFirstChild("PlayerGui")
-                for _, item in ipairs(sChildren) do
-                    pcall(function()
-                        item.Parent = sg
-                        if pg and (item:IsA("ScreenGui") or item:IsA("GuiObject")) then
-                            pcall(function() item:Clone().Parent = pg end)
-                        end
-                        count = count + 1
-                    end)
-                end
-            elseif sName == "ReplicatedStorage" or sClass == "ReplicatedStorage" then
-                local rs = game:GetService("ReplicatedStorage")
-                for _, item in ipairs(sChildren) do
-                    pcall(function()
-                        item.Parent = rs
-                        count = count + 1
-                    end)
-                end
-            elseif sName == "SoundService" or sClass == "SoundService" then
-                local ss = game:GetService("SoundService")
-                for _, item in ipairs(sChildren) do
-                    pcall(function()
-                        item.Parent = ss
-                        count = count + 1
-                    end)
-                end
-            elseif sName == "StarterPack" or sClass == "StarterPack" then
-                local sp = game:GetService("StarterPack")
-                for _, item in ipairs(sChildren) do
-                    pcall(function()
-                        item.Parent = sp
-                        count = count + 1
-                    end)
-                end
-            else
-                -- Layanan non-Workspace lainnya (ServerScriptService/ServerStorage dll)
-                local target = resolveServiceTarget(sName) or resolveServiceTarget(sClass)
-
-                if not target then
-                    local f = workspace:FindFirstChild(sName)
-                    if not f then
-                        f = Instance.new("Folder")
-                        f.Name = sName
-                        f.Parent = workspace
-                    end
-                    target = f
-                end
-
-                for _, item in ipairs(sChildren) do
-                    pcall(function()
-                        item.Parent = target
-                        pcall(applyStudioLiteProps, item)
-                        pcall(loadAssetsToSLServer, item)
-                        if item:IsA("LuaSourceContainer") then
-                            recreateScriptAsNative(item, sourceMap[item.Name])
-                        end
-                        count = count + 1
-                    end)
-                end
-            end
-        end
-    end
-
-    print("[MCHLERN RBXL] Berhasil mendistribusikan total " .. count .. " objek ke service masing-masing!")
-    return count
-end
-
-
-local function smartInsertRbxlFull(filePath, fileName)
-    local insertOk = false
-    local statusMsg = ""
-    local totalInserted = 0
-
-    updateRbxlProgress(15, "[1/5] MEMBACA FILE PLACE...")
-    task.wait(0.2)
-
-    local rawData = safeReadFile(filePath)
-    if (not rawData or #rawData < 16) and fileName then
-        -- Try reading directly by filename in workspace
-        rawData = safeReadFile(fileName) or safeReadFile("workspace/" .. fileName)
-    end
-
-    if not rawData or #rawData < 16 then
-        warn("[MCHLERN RBXL] File tidak bisa dibaca: " .. tostring(filePath))
-        updateRbxlProgress(0, "[ERR] File kosong atau tidak bisa dibaca")
-        return false, "Gagal baca file"
-    end
-    print("[MCHLERN RBXL] Berhasil membaca file: " .. fileName .. " (" .. #rawData .. " bytes)")
-
-    local sourceMap = {}
-    pcall(function()
-        sourceMap = parseRBXMSources(rawData)
-    end)
-
-    -- Method 1: getcustomasset (Primary for Delta Android)
-    updateRbxlProgress(35, "[2/5] NATIVE C++ ENGINE...")
-    task.wait(0.2)
-
-    if customAsset then
-        local pathsToTry = { filePath, fileName, "workspace/" .. fileName, filePath:gsub("^%./", "") }
-        for _, p in ipairs(pathsToTry) do
-            if insertOk then break end
-            local okA, aid = pcall(customAsset, p)
-            if okA and aid then
-                local ok2, objsOrErr = pcall(function() return game:GetObjects(aid) end)
-                if ok2 and objsOrErr and #objsOrErr > 0 then
-                    local cnt = insertRbxlObjects(objsOrErr, sourceMap)
-                    if cnt > 0 then
-                        totalInserted = cnt
-                        insertOk = true
-                        statusMsg = "Native C++ Load: " .. totalInserted .. " objek"
-                        print("[MCHLERN RBXL] Method 1 Berhasil: " .. totalInserted .. " objek")
                         break
-                    else
-                        warn("[MCHLERN RBXL] Method 1: GetObjects mengembalikan container kosong (0 objek), mencoba fallback selanjutnya...")
-                    end
-                else
-                    warn("[MCHLERN RBXL] GetObjects failed on " .. tostring(p) .. ": " .. tostring(objsOrErr))
-                end
-            end
-        end
-    end
-
-    -- Method 2: Temporary .rbxm Bridge Mount
-    if not insertOk and writefile and customAsset then
-        updateRbxlProgress(50, "[3/5] BRIDGE MOUNT ENGINE...")
-        task.wait(0.2)
-        pcall(function()
-            local tmp = "tmp_place_" .. tick() .. ".rbxm"
-            writefile(tmp, rawData)
-            local aid = customAsset(tmp)
-            if aid then
-                local ok2, objs = pcall(function() return game:GetObjects(aid) end)
-                if ok2 and objs and #objs > 0 then
-                    local cnt = insertRbxlObjects(objs, sourceMap)
-                    if cnt > 0 then
-                        totalInserted = cnt
-                        insertOk = true
-                        statusMsg = "Bridge Mount OK (" .. totalInserted .. " objek)"
                     end
                 end
-            end
-            pcall(function() if delfile then delfile(tmp) end end)
-        end)
-    end
 
-    -- Method 3: rbxasset:// internal path
-    if not insertOk then
-        updateRbxlProgress(65, "[4/5] RBXASSET MOUNT...")
-        task.wait(0.15)
-        pcall(function()
-            local ok3, objs = pcall(function() return game:GetObjects("rbxasset://" .. filePath) end)
-            if ok3 and objs and #objs > 0 then
-                local cnt = insertRbxlObjects(objs, sourceMap)
-                if cnt > 0 then
-                    totalInserted = cnt
-                    insertOk = true
-                    statusMsg = "rbxasset OK (" .. totalInserted .. " objek)"
+                for dr = 0, h - 1 do
+                    for dc = 0, w - 1 do
+                        grid[r + dr][c + dc] = 0
+                    end
                 end
-            end
-        end)
-    end
 
-    -- Method 4: XML DOM Fallback
-    local head8 = rawData:sub(1, 8)
-    local isXml = (head8:sub(1,5) == "<?xml") or (head8:sub(1,8) == "<roblox ")
-    if not insertOk and isXml then
-        updateRbxlProgress(80, "[5/5] XML DESERIALIZER...")
-        task.wait(0.2)
-        local okXml, cnt = pcall(parseRbxlxXml, rawData, workspace)
-        if okXml and cnt and cnt > 0 then
-            totalInserted = cnt
-            insertOk = true
-            statusMsg = "XML DOM OK (" .. totalInserted .. " objek)"
-        end
-    end
-
-    -- Method 5: Pure Binary Fallback
-    if not insertOk then
-        updateRbxlProgress(85, "[5/5] BINARY RECONSTRUCT...")
-        task.wait(0.2)
-        local okBin, parsed = pcall(deserializeRbxBinary, rawData)
-        if okBin and parsed and next(parsed.instances) then
-            local _, cnt = applyDeserializedTree(parsed, workspace, function(pct, msg)
-                updateRbxlProgress(85 + pct * 12, "[5/5] " .. msg)
-            end)
-            if cnt and cnt > 0 then
-                totalInserted = cnt
-                insertOk = true
-                statusMsg = "Binary Rebuilt OK (" .. totalInserted .. " objek)"
+                table.insert(boxes, { col = c, row = r, w = w, h = h })
             end
         end
     end
-
-    if insertOk and totalInserted > 0 then
-        updateRbxlProgress(100, "[5/5] SUKSES! " .. totalInserted .. " objek masuk ke Studio Lite")
-        resetRbxlProgress(totalInserted)
-        return true, statusMsg
-    else
-        updateRbxlProgress(0, "[ERR] Gagal memuat objek place")
-        resetRbxlProgress(0)
-        return false, "Semua metode load gagal"
-    end
+    return boxes
 end
 
+-- Core Generator Function
+local function generate3DText(inputText, scale, depth, chosenColor, chosenMaterial)
+    if not inputText or inputText == "" then return false, "Teks tidak boleh kosong" end
+    scale = scale or 1.0
+    depth = depth or 1.2
+    chosenColor = chosenColor or Color3.fromRGB(0, 240, 255)
+    chosenMaterial = chosenMaterial or Enum.Material.Neon
 
-local function renderRbxlCards()
-    -- Clear old cards
-    for _, c in ipairs(RbxlScroll:GetChildren()) do
-        if c:IsA("Frame") or c:IsA("TextButton") then c:Destroy() end
-    end
+    local model = Instance.new("Model")
+    model.Name = "3DText_" .. inputText:sub(1, 15)
 
-    RbxlInsertStatus.Text = "[.] Scanning .rbxl files..."
-    RbxlInsertStatus.TextColor3 = Color3.fromRGB(200,200,215)
-    RbxlInsertPct.Text = ""
+    local upperText = inputText:upper()
+    local charSpacing = 1.0 * scale
+    local cursorX = 0
+    local partCount = 0
 
-    local files = {}
-    local searchDirs = {
-        ".", "./", "./workspace/", "./saves/",
-        "rbxl/", "place/", "files/",
-        (writefile and "." or nil),
-    }
+    for i = 1, #upperText do
+        local ch = upperText:sub(i, i)
+        if ch == " " then
+            cursorX = cursorX + 4 * scale
+        else
+            local boxes = greedyMeshChar(ch)
+            for _, b in ipairs(boxes) do
+                local part = Instance.new("Part")
+                part.Name = ch .. "_" .. b.col .. "_" .. b.row
+                part.Anchored = true
+                part.CanCollide = true
+                part.Material = chosenMaterial
+                part.Color = chosenColor
+                part.TopSurface = Enum.SurfaceType.Smooth
+                part.BottomSurface = Enum.SurfaceType.Smooth
 
-    -- Collect .rbxl files using listfiles
-    if listfilesFn then
-        for _, dir in ipairs(searchDirs) do
-            if dir then
-                local ok, entries = pcall(listfilesFn, dir)
-                if ok and entries then
-                    for _, entry in ipairs(entries) do
-                        local lw = tostring(entry):lower()
-                        if lw:find("%.rbxl$") or lw:find("%.rbxlx$") then
-                            local name = entry:match("([^/\\]+)$") or entry
-                            local dup = false
-                            for _, f in ipairs(files) do if f.path == entry then dup = true; break end end
-                            if not dup then
-                                table.insert(files, {path = entry, name = name})
-                            end
-                        end
-                    end
-                end
+                local pw = b.w * scale
+                local ph = b.h * scale
+                part.Size = Vector3.new(pw, ph, depth)
+
+                -- Hitung koordinat (baris 1 adalah paling atas)
+                local posX = cursorX + (b.col - 1 + b.w / 2) * scale
+                local posY = (7 - b.row - b.h / 2 + 0.5) * scale
+                part.CFrame = CFrame.new(posX, posY, 0)
+                part.Parent = model
+                partCount = partCount + 1
             end
+            cursorX = cursorX + (5 * scale) + charSpacing
         end
     end
 
-    -- Also check workspace folder files
-    if #files == 0 and readfile then
-        -- If Delta provides a file list via different API
-        local ok2, entries2 = pcall(function()
-            return listfiles and listfiles("") or {}
-        end)
-        if ok2 and entries2 then
-            for _, entry in ipairs(entries2) do
-                local lw = tostring(entry):lower()
-                if lw:find("%.rbxl") then
-                    local name = entry:match("([^/\\]+)$") or entry
-                    table.insert(files, {path = entry, name = name})
-                end
-            end
-        end
+    if partCount == 0 then
+        model:Destroy()
+        return false, "Tidak ada karakter yang valid dibuat"
     end
 
-    if #files == 0 then
-        RbxlEmpty.Parent = RbxlScroll
-        RbxlInsertStatus.Text = "[!] Tidak ada .rbxl ditemukan"
-        RbxlInsertStatus.TextColor3 = Color3.fromRGB(255, 120, 120)
-        RbxlInsertPct.Text = "0 files"
+    model.Parent = workspace
+    pcall(applyStudioLiteProps, model)
+    positionAndAnchorAsset(model)
+
+    return true, "Sukses membuat 3D Text (" .. partCount .. " parts)!", model
+end
+
+-- ── UI PAGE TEXT 3D BUILDER ──────────────────────────
+local T3dHeader = Instance.new("Frame")
+T3dHeader.Size = UDim2.new(1, 0, 0, 32); T3dHeader.BackgroundTransparency = 1
+T3dHeader.ZIndex = 13; T3dHeader.Parent = PageText3D
+
+local T3dTitleLbl = Instance.new("TextLabel")
+T3dTitleLbl.Size = UDim2.new(1, -90, 1, 0); T3dTitleLbl.Position = UDim2.new(0, 8, 0, 0)
+T3dTitleLbl.BackgroundTransparency = 1; T3dTitleLbl.Font = Enum.Font.GothamBold
+T3dTitleLbl.TextSize = 13; T3dTitleLbl.TextColor3 = Color3.fromRGB(255, 255, 255)
+T3dTitleLbl.TextXAlignment = Enum.TextXAlignment.Left; T3dTitleLbl.Text = "[3D] GENERATOR TEKS 3D (EXTRUDED)"
+T3dTitleLbl.ZIndex = 14; T3dTitleLbl.Parent = T3dHeader
+
+makeBackBtn(T3dHeader, function() showPage(PageSplash) end)
+
+local T3dScroll = Instance.new("ScrollingFrame")
+T3dScroll.Size = UDim2.new(1, 0, 1, -40); T3dScroll.Position = UDim2.new(0, 0, 0, 38)
+T3dScroll.BackgroundColor3 = Color3.fromRGB(16, 16, 20); T3dScroll.BorderSizePixel = 0
+T3dScroll.ScrollBarThickness = 5; T3dScroll.CanvasSize = UDim2.new(0, 0, 0, 330)
+T3dScroll.ZIndex = 13; T3dScroll.Parent = PageText3D
+makeCorner(T3dScroll, 8)
+makeStroke(T3dScroll, Color3.fromRGB(255, 255, 255), 1, 0.85)
+
+local T3dList = Instance.new("UIListLayout")
+T3dList.Padding = UDim.new(0, 8); T3dList.SortOrder = Enum.SortOrder.LayoutOrder; T3dList.Parent = T3dScroll
+
+local T3dPad = Instance.new("UIPadding")
+T3dPad.PaddingTop = UDim.new(0, 10); T3dPad.PaddingBottom = UDim.new(0, 10)
+T3dPad.PaddingLeft = UDim.new(0, 10); T3dPad.PaddingRight = UDim.new(0, 10)
+T3dPad.Parent = T3dScroll
+
+-- State Variables
+local t3d_scale = 1.0
+local t3d_depth = 1.2
+local t3d_color = Color3.fromRGB(0, 240, 255)
+local t3d_material = Enum.Material.Neon
+
+-- 1. Input Box Section
+local InputCard = Instance.new("Frame")
+InputCard.Size = UDim2.new(1, 0, 0, 48); InputCard.BackgroundColor3 = Color3.fromRGB(22, 22, 28)
+InputCard.BorderSizePixel = 0; InputCard.ZIndex = 14; InputCard.Parent = T3dScroll
+makeCorner(InputCard, 7); makeStroke(InputCard, Color3.fromRGB(255, 255, 255), 1, 0.88)
+
+local T3dTextBox = Instance.new("TextBox")
+T3dTextBox.Size = UDim2.new(1, -16, 1, 0); T3dTextBox.Position = UDim2.new(0, 8, 0, 0)
+T3dTextBox.BackgroundTransparency = 1; T3dTextBox.Font = Enum.Font.GothamBold
+T3dTextBox.TextSize = 13; T3dTextBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+T3dTextBox.PlaceholderText = "Tulis teks di sini (Contoh: MCHLERN, SHOP, VIP, SPAWN)..."
+T3dTextBox.PlaceholderColor3 = Color3.fromRGB(130, 130, 145); T3dTextBox.Text = "MCHLERN"
+T3dTextBox.TextXAlignment = Enum.TextXAlignment.Left; T3dTextBox.ClearTextOnFocus = false
+T3dTextBox.ZIndex = 15; T3dTextBox.Parent = InputCard
+
+-- Helper: Row Label
+local function makeRowLabel(text, parent)
+    local lbl = Instance.new("TextLabel")
+    lbl.Size = UDim2.new(1, 0, 0, 18); lbl.BackgroundTransparency = 1
+    lbl.Font = Enum.Font.GothamBold; lbl.TextSize = 10; lbl.TextColor3 = Color3.fromRGB(200, 200, 215)
+    lbl.TextXAlignment = Enum.TextXAlignment.Left; lbl.Text = text; lbl.ZIndex = 14; lbl.Parent = parent
+    return lbl
+end
+
+-- 2. Size / Scale Selector
+makeRowLabel("PILIH UKURAN TEKS (SCALE):", T3dScroll)
+local ScaleRow = Instance.new("Frame")
+ScaleRow.Size = UDim2.new(1, 0, 0, 28); ScaleRow.BackgroundTransparency = 1; ScaleRow.ZIndex = 14; ScaleRow.Parent = T3dScroll
+local ScaleLayout = Instance.new("UIListLayout")
+ScaleLayout.FillDirection = Enum.FillDirection.Horizontal; ScaleLayout.Padding = UDim.new(0, 6); ScaleLayout.Parent = ScaleRow
+
+local scaleBtns = {}
+local scaleOptions = {
+    { label = "KECIL (0.6x)", val = 0.6 },
+    { label = "SEDANG (1.0x)", val = 1.0 },
+    { label = "BESAR (1.8x)", val = 1.8 },
+    { label = "RAKSASA (3.0x)", val = 3.0 },
+}
+
+for _, opt in ipairs(scaleOptions) do
+    local b = Instance.new("TextButton")
+    b.Size = UDim2.new(0.24, -4, 1, 0); b.BackgroundColor3 = (opt.val == t3d_scale) and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(30, 30, 38)
+    b.Text = opt.label; b.Font = Enum.Font.GothamBold; b.TextSize = 9
+    b.TextColor3 = (opt.val == t3d_scale) and Color3.fromRGB(0, 0, 0) or Color3.fromRGB(200, 200, 215)
+    b.ZIndex = 15; b.Parent = ScaleRow; makeCorner(b, 5)
+    scaleBtns[opt.val] = b
+
+    b.MouseButton1Click:Connect(function()
+        t3d_scale = opt.val
+        for v, btn in pairs(scaleBtns) do
+            btn.BackgroundColor3 = (v == t3d_scale) and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(30, 30, 38)
+            btn.TextColor3 = (v == t3d_scale) and Color3.fromRGB(0, 0, 0) or Color3.fromRGB(200, 200, 215)
+        end
+    end)
+end
+
+-- 3. Extrusion / Depth Selector
+makeRowLabel("KETEBALAN 3D (DEPTH / EXTRUSION):", T3dScroll)
+local DepthRow = Instance.new("Frame")
+DepthRow.Size = UDim2.new(1, 0, 0, 28); DepthRow.BackgroundTransparency = 1; DepthRow.ZIndex = 14; DepthRow.Parent = T3dScroll
+local DepthLayout = Instance.new("UIListLayout")
+DepthLayout.FillDirection = Enum.FillDirection.Horizontal; DepthLayout.Padding = UDim.new(0, 6); DepthLayout.Parent = DepthRow
+
+local depthBtns = {}
+local depthOptions = {
+    { label = "TIPIS (0.6s)", val = 0.6 },
+    { label = "SEDANG (1.2s)", val = 1.2 },
+    { label = "TEBAL (2.4s)", val = 2.4 },
+    { label = "EXTRA TEBAL (4s)", val = 4.0 },
+}
+
+for _, opt in ipairs(depthOptions) do
+    local b = Instance.new("TextButton")
+    b.Size = UDim2.new(0.24, -4, 1, 0); b.BackgroundColor3 = (opt.val == t3d_depth) and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(30, 30, 38)
+    b.Text = opt.label; b.Font = Enum.Font.GothamBold; b.TextSize = 9
+    b.TextColor3 = (opt.val == t3d_depth) and Color3.fromRGB(0, 0, 0) or Color3.fromRGB(200, 200, 215)
+    b.ZIndex = 15; b.Parent = DepthRow; makeCorner(b, 5)
+    depthBtns[opt.val] = b
+
+    b.MouseButton1Click:Connect(function()
+        t3d_depth = opt.val
+        for v, btn in pairs(depthBtns) do
+            btn.BackgroundColor3 = (v == t3d_depth) and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(30, 30, 38)
+            btn.TextColor3 = (v == t3d_depth) and Color3.fromRGB(0, 0, 0) or Color3.fromRGB(200, 200, 215)
+        end
+    end)
+end
+
+-- 4. Color Presets
+makeRowLabel("PILIH WARNA TEKS:", T3dScroll)
+local ColorRow = Instance.new("Frame")
+ColorRow.Size = UDim2.new(1, 0, 0, 26); ColorRow.BackgroundTransparency = 1; ColorRow.ZIndex = 14; ColorRow.Parent = T3dScroll
+local ColorLayout = Instance.new("UIListLayout")
+ColorLayout.FillDirection = Enum.FillDirection.Horizontal; ColorLayout.Padding = UDim.new(0, 6); ColorLayout.Parent = ColorRow
+
+local colorBtns = {}
+local colorOptions = {
+    { name = "CYAN", col = Color3.fromRGB(0, 240, 255) },
+    { name = "GOLD", col = Color3.fromRGB(255, 215, 0) },
+    { name = "MERAH", col = Color3.fromRGB(255, 45, 85) },
+    { name = "HIJAU", col = Color3.fromRGB(46, 213, 115) },
+    { name = "PURPLE", col = Color3.fromRGB(168, 85, 247) },
+    { name = "PUTIH", col = Color3.fromRGB(255, 255, 255) },
+    { name = "ORANGE", col = Color3.fromRGB(255, 120, 30) },
+}
+
+for _, opt in ipairs(colorOptions) do
+    local b = Instance.new("TextButton")
+    b.Size = UDim2.new(0.138, -4, 1, 0); b.BackgroundColor3 = opt.col
+    b.Text = opt.name; b.Font = Enum.Font.GothamBold; b.TextSize = 8
+    b.TextColor3 = Color3.fromRGB(0, 0, 0); b.ZIndex = 15; b.Parent = ColorRow; makeCorner(b, 5)
+    local st = makeStroke(b, Color3.fromRGB(255, 255, 255), (opt.col == t3d_color) and 2.2 or 0.8)
+    colorBtns[opt.name] = { btn = b, stroke = st, col = opt.col }
+
+    b.MouseButton1Click:Connect(function()
+        t3d_color = opt.col
+        for _, item in pairs(colorBtns) do
+            item.stroke.Thickness = (item.col == t3d_color) and 2.2 or 0.8
+        end
+    end)
+end
+
+-- 5. Material Presets
+makeRowLabel("PILIH MATERIAL / EFEK:", T3dScroll)
+local MatRow = Instance.new("Frame")
+MatRow.Size = UDim2.new(1, 0, 0, 26); MatRow.BackgroundTransparency = 1; MatRow.ZIndex = 14; MatRow.Parent = T3dScroll
+local MatLayout = Instance.new("UIListLayout")
+MatLayout.FillDirection = Enum.FillDirection.Horizontal; MatLayout.Padding = UDim.new(0, 6); MatLayout.Parent = MatRow
+
+local matBtns = {}
+local matOptions = {
+    { label = "NEON (GLOW)", mat = Enum.Material.Neon },
+    { label = "SMOOTH PLASTIC", mat = Enum.Material.SmoothPlastic },
+    { label = "METAL", mat = Enum.Material.Metal },
+    { label = "GLASS", mat = Enum.Material.Glass },
+    { label = "WOOD", mat = Enum.Material.Wood },
+}
+
+for _, opt in ipairs(matOptions) do
+    local b = Instance.new("TextButton")
+    b.Size = UDim2.new(0.195, -4, 1, 0); b.BackgroundColor3 = (opt.mat == t3d_material) and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(30, 30, 38)
+    b.Text = opt.label; b.Font = Enum.Font.GothamBold; b.TextSize = 8
+    b.TextColor3 = (opt.mat == t3d_material) and Color3.fromRGB(0, 0, 0) or Color3.fromRGB(200, 200, 215)
+    b.ZIndex = 15; b.Parent = MatRow; makeCorner(b, 5)
+    matBtns[opt.label] = { btn = b, mat = opt.mat }
+
+    b.MouseButton1Click:Connect(function()
+        t3d_material = opt.mat
+        for _, item in pairs(matBtns) do
+            item.btn.BackgroundColor3 = (item.mat == t3d_material) and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(30, 30, 38)
+            item.btn.TextColor3 = (item.mat == t3d_material) and Color3.fromRGB(0, 0, 0) or Color3.fromRGB(200, 200, 215)
+        end
+    end)
+end
+
+-- 6. Generate Button & Status
+local T3dStatusLbl = Instance.new("TextLabel")
+T3dStatusLbl.Size = UDim2.new(1, 0, 0, 18); T3dStatusLbl.BackgroundTransparency = 1
+T3dStatusLbl.Font = Enum.Font.Code; T3dStatusLbl.TextSize = 10; T3dStatusLbl.TextColor3 = Color3.fromRGB(160, 220, 160)
+T3dStatusLbl.TextXAlignment = Enum.TextXAlignment.Center; T3dStatusLbl.Text = "Status: Siap membuat teks 3D"
+T3dStatusLbl.ZIndex = 15; T3dStatusLbl.Parent = T3dScroll
+
+local T3dGenBtn = Instance.new("TextButton")
+T3dGenBtn.Size = UDim2.new(1, 0, 0, 36); T3dGenBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+T3dGenBtn.Text = "[+] GENERATE 3D TEXT KE WORKSPACE"
+T3dGenBtn.Font = Enum.Font.GothamBold; T3dGenBtn.TextSize = 11; T3dGenBtn.TextColor3 = Color3.fromRGB(0, 0, 0)
+T3dGenBtn.ZIndex = 16; T3dGenBtn.Active = true; T3dGenBtn.Parent = T3dScroll
+makeCorner(T3dGenBtn, 7)
+
+T3dGenBtn.MouseButton1Click:Connect(function()
+    local textToMake = T3dTextBox.Text
+    if not textToMake or textToMake == "" then
+        T3dStatusLbl.Text = "[ERR] Masukkan teks terlebih dahulu!"
+        T3dStatusLbl.TextColor3 = Color3.fromRGB(255, 100, 100)
         return
     end
 
-    RbxlEmpty.Parent = nil
-    RbxlInsertStatus.Text = "READY | " .. #files .. " place file(s)"
-    RbxlInsertStatus.TextColor3 = Color3.fromRGB(160, 225, 160)
-    RbxlInsertPct.Text = #files .. " files"
-
-    -- Render a card per .rbxl file
-    for i, file in ipairs(files) do
-        local card = Instance.new("Frame")
-        card.Size = UDim2.new(1, 0, 0, 50)
-        card.BackgroundColor3 = Color3.fromRGB(22, 22, 28)
-        card.BorderSizePixel = 0
-        card.LayoutOrder = i
-        card.ZIndex = 15
-        card.Parent = RbxlScroll
-        makeCorner(card, 7)
-        makeStroke(card, Color3.fromRGB(255,255,255), 1, 0.82)
-
-        -- Service icon badge "[L]"
-        local badge = Instance.new("TextLabel")
-        badge.Size = UDim2.new(0, 28, 0, 28)
-        badge.Position = UDim2.new(0, 8, 0.5, -14)
-        badge.BackgroundColor3 = Color3.fromRGB(255,255,255)
-        badge.Text = "[L]"; badge.Font = Enum.Font.GothamBold; badge.TextSize = 9
-        badge.TextColor3 = Color3.fromRGB(0,0,0)
-        badge.ZIndex = 16; badge.Parent = card
-        makeCorner(badge, 5)
-
-        -- File name
-        local nameLbl = Instance.new("TextLabel")
-        nameLbl.Size = UDim2.new(1, -155, 0, 18)
-        nameLbl.Position = UDim2.new(0, 44, 0, 6)
-        nameLbl.BackgroundTransparency = 1
-        nameLbl.Font = Enum.Font.GothamBold; nameLbl.TextSize = 10
-        nameLbl.TextColor3 = Color3.fromRGB(235, 235, 240)
-        nameLbl.TextXAlignment = Enum.TextXAlignment.Left
-        nameLbl.TextTruncate = Enum.TextTruncate.AtEnd
-        nameLbl.Text = file.name; nameLbl.ZIndex = 16; nameLbl.Parent = card
-
-        -- Path label
-        local pathLbl = Instance.new("TextLabel")
-        pathLbl.Size = UDim2.new(1, -155, 0, 14)
-        pathLbl.Position = UDim2.new(0, 44, 0, 26)
-        pathLbl.BackgroundTransparency = 1
-        pathLbl.Font = Enum.Font.Code; pathLbl.TextSize = 8
-        pathLbl.TextColor3 = Color3.fromRGB(120, 120, 135)
-        pathLbl.TextXAlignment = Enum.TextXAlignment.Left
-        pathLbl.TextTruncate = Enum.TextTruncate.AtEnd
-        pathLbl.Text = file.path; pathLbl.ZIndex = 16; pathLbl.Parent = card
-
-        -- EDIT button (open first script in editor)
-        local edBtn = Instance.new("TextButton")
-        edBtn.Size = UDim2.new(0, 50, 0, 30)
-        edBtn.Position = UDim2.new(1, -130, 0.5, -15)
-        edBtn.BackgroundColor3 = Color3.fromRGB(28,28,34)
-        edBtn.Text = "EDIT"; edBtn.Font = Enum.Font.GothamBold; edBtn.TextSize = 9
-        edBtn.TextColor3 = Color3.fromRGB(255,255,255)
-        edBtn.Active = true; edBtn.ZIndex = 16; edBtn.Parent = card
-        makeCorner(edBtn, 6); makeStroke(edBtn, Color3.fromRGB(255,255,255), 1, 0.7)
-
-        edBtn.Activated:Connect(function()
-            local raw = safeReadFile(file.path)
-            if not raw then openInEditor(file.name:gsub("%.rbxl.*",""), "-- Gagal baca file"); return end
-            local sources = {}
-            local ok3, s = pcall(parseRBXMSources, raw)
-            if ok3 and s then sources = s end
-            local firstCode = nil
-            for _, v in pairs(sources) do firstCode = v; break end
-            openInEditor(file.name:gsub("%.rbxl.*",""), firstCode or "-- Tidak ada script di file ini")
+    T3dGenBtn.Text = "GENERATING 3D TEXT..."
+    task.spawn(function()
+        local ok, msg = generate3DText(textToMake, t3d_scale, t3d_depth, t3d_color, t3d_material)
+        if ok then
+            T3dStatusLbl.Text = "[OK] " .. msg
+            T3dStatusLbl.TextColor3 = Color3.fromRGB(100, 255, 140)
+            T3dGenBtn.Text = "SUKSES! DIBUAT DI DEPAN KAMERA"
+        else
+            T3dStatusLbl.Text = "[ERR] " .. tostring(msg)
+            T3dStatusLbl.TextColor3 = Color3.fromRGB(255, 100, 100)
+            T3dGenBtn.Text = "[!] GAGAL MEMBUAT TEKS"
+        end
+        task.delay(2.0, function()
+            if T3dGenBtn and T3dGenBtn.Parent then
+                T3dGenBtn.Text = "[+] GENERATE 3D TEXT KE WORKSPACE"
+            end
         end)
-
-        -- INSERT button
-        local insertBtn = Instance.new("TextButton")
-        insertBtn.Size = UDim2.new(0, 65, 0, 30)
-        insertBtn.Position = UDim2.new(1, -72, 0.5, -15)
-        insertBtn.BackgroundColor3 = Color3.fromRGB(255,255,255)
-        insertBtn.Text = "INSERT"; insertBtn.Font = Enum.Font.GothamBold; insertBtn.TextSize = 9
-        insertBtn.TextColor3 = Color3.fromRGB(0,0,0)
-        insertBtn.Active = true; insertBtn.ZIndex = 16; insertBtn.Parent = card
-        makeCorner(insertBtn, 6); makeStroke(insertBtn, Color3.fromRGB(0,0,0), 1)
-
-        local capturedFile = file
-        insertBtn.Activated:Connect(function()
-            insertBtn.Text = "..."
-            insertBtn.BackgroundColor3 = Color3.fromRGB(60,60,70)
-            task.spawn(function()
-                -- Small delay so UI renders
-                task.wait(0.2)
-                local ok4, msg = smartInsertRbxlFull(capturedFile.path, capturedFile.name)
-                task.wait(1.5)
-                if insertBtn and insertBtn.Parent then
-                    insertBtn.Text = ok4 and "DONE!" or "FAIL"
-                    insertBtn.BackgroundColor3 = ok4
-                        and Color3.fromRGB(255,255,255)
-                        or Color3.fromRGB(200,60,60)
-                    task.delay(2, function()
-                        if insertBtn and insertBtn.Parent then
-                            insertBtn.Text = "INSERT"
-                            insertBtn.BackgroundColor3 = Color3.fromRGB(255,255,255)
-                        end
-                    end)
-                end
-            end)
-        end)
-    end
-
-    -- Update scroll canvas
-    RbxlList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-        RbxlScroll.CanvasSize = UDim2.new(0, 0, 0, RbxlList.AbsoluteContentSize.Y + 12)
     end)
-    RbxlScroll.CanvasSize = UDim2.new(0, 0, 0, RbxlList.AbsoluteContentSize.Y + 12)
-end
-
-RbxlScanBtn.Activated:Connect(renderRbxlCards)
-
--- =====================================================
--- END PAGE RBXL
--- =====================================================
+end)
 
 print("[BLUExCrown] ENGINE MCHLERN ENGINE v7.1 LOADED")
