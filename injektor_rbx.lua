@@ -3070,44 +3070,72 @@ local function initRbxlPage()
         updateInlineRbxlProgress(40, "[3/5] LOADING INSTANCES (GetObjects)...")
         task.wait(0.1)
 
-        -- Coba load dengan game:GetObjects - FORKT juga pakai ini sebagai primary
+        -- Coba load file lokal lewat customAsset seperti loader RBXM.
         local loadedObjs = nil
-        local tryURLs = {
-            "rbxasset://" .. tostring(filePath):gsub("\\", "/"),
-        }
-        -- Coba getcustomasset jika ada (FORKT: customAsset fallback)
-        if getcustomasset then
-            pcall(function()
-                local cu = getcustomasset(filePath)
-                if cu then table.insert(tryURLs, 1, cu) end
-            end)
+        local tryURLs = {}
+        local lastLoadError = nil
+
+        if customAsset then
+            local assetOk, assetUrl = pcall(customAsset, filePath)
+            if assetOk and type(assetUrl) == "string" and assetUrl ~= "" then
+                table.insert(tryURLs, assetUrl)
+            elseif not assetOk then
+                lastLoadError = tostring(assetUrl)
+            end
         end
-        -- Coba setiap URL
+
+        local normalizedPath = tostring(filePath):gsub("\\", "/")
+        table.insert(tryURLs, "rbxasset://" .. normalizedPath)
+
         for _, url in ipairs(tryURLs) do
-            local ok, res = pcall(function() return game:GetObjects(url) end)
-            if ok and res and #res > 0 then
+            local ok, res = pcall(function()
+                return game:GetObjects(url)
+            end)
+            if ok and type(res) == "table" and #res > 0 then
                 loadedObjs = res
                 break
+            elseif not ok then
+                lastLoadError = tostring(res)
             end
             task.wait(0.25)
         end
-        -- Fallback: tulis ke tmp lalu load (FORKT fallback writefile)
-        if not loadedObjs and data and writefile and getcustomasset then
-            pcall(function()
-                local tmpName = "Delta/workspace/mchlern_tmp_rbxl.rbxl"
-                writefile(tmpName, data)
-                local cu = getcustomasset(tmpName)
-                if cu then
-                    local ok2, res2 = pcall(function() return game:GetObjects(cu) end)
-                    if ok2 and res2 and #res2 > 0 then loadedObjs = res2 end
-                end
-                pcall(function() if delfile then delfile(tmpName) end end)
+
+        -- Fallback: salin file ke path sementara lalu load lewat customAsset.
+        if not loadedObjs and data and writefile and customAsset then
+            local tempPath = "Delta/workspace/mchlern_tmp_rbxl.rbxl"
+            local tempWritten = false
+            local writeOk, writeErr = pcall(function()
+                writefile(tempPath, data)
+                tempWritten = true
             end)
+            if not writeOk then
+                lastLoadError = tostring(writeErr)
+            end
+
+            if tempWritten then
+                local assetOk, assetUrl = pcall(customAsset, tempPath)
+                if assetOk and type(assetUrl) == "string" and assetUrl ~= "" then
+                    local loadOk, result = pcall(function()
+                        return game:GetObjects(assetUrl)
+                    end)
+                    if loadOk and type(result) == "table" and #result > 0 then
+                        loadedObjs = result
+                    elseif not loadOk then
+                        lastLoadError = tostring(result)
+                    end
+                elseif not assetOk then
+                    lastLoadError = tostring(assetUrl)
+                end
+
+                if delfile then
+                    pcall(delfile, tempPath)
+                end
+            end
         end
 
         if not loadedObjs or #loadedObjs == 0 then
-            updateInlineRbxlProgress(100, "[ERR] GAGAL LOAD - game:GetObjects() tidak support file ini")
-            return false, "game:GetObjects() gagal. Pastikan file .rbxl valid."
+            updateInlineRbxlProgress(100, "[ERR] FILE RBXL GAGAL DIMUAT")
+            return false, lastLoadError or "Tidak ada objek yang dikembalikan oleh game:GetObjects()."
         end
 
         updateInlineRbxlProgress(60, "[4/5] DISTRIBUSI KE SERVICES (FORKT mode)...")
@@ -3146,11 +3174,136 @@ local function initRbxlPage()
         -- Distribute semua objects (handleGetObjectsResult = runProtected14 FORKT)
         local totalLoaded = handleGetObjectsResult(loadedObjs, placeFolder, serviceMap, parsedSrcs)
 
+        if totalLoaded == 0 then
+            placeFolder:Destroy()
+            updateInlineRbxlProgress(100, "[ERR] RBXL TERBACA, TAPI TIDAK ADA INSTANCE YANG BISA DIPINDAHKAN")
+            return false, "Tidak ada instance yang berhasil dipindahkan dari file RBXL."
+        end
+
         updateInlineRbxlProgress(100, string.format(
             "[DONE] %d instance dimuat ke '%s'", totalLoaded, folderName
         ))
         return true, string.format("%d objects inserted", totalLoaded)
     end
+
+    local function renderRbxlCards()
+        for _, item in ipairs(renderedRbxlCards) do
+            if item.card and item.card.Parent then
+                item.card:Destroy()
+            end
+        end
+        table.clear(renderedRbxlCards)
+        RbxlEmpty.Visible = false
+        RbxlInsertPct.Text = "[.] SCANNING..."
+
+        local files = getAllRbxlFiles()
+        if #files == 0 then
+            RbxlEmpty.Visible = true
+            RbxlEmpty.Text = not listfilesFn and "[!] listfiles() tidak tersedia" or "[!] File .rbxl/.rbxlx tidak ditemukan"
+            RbxlInsertPct.Text = "0 files found"
+            RbxlScroll.CanvasSize = UDim2.new(0, 0, 0, RbxlList.AbsoluteContentSize.Y + 20)
+            return
+        end
+
+        for _, file in ipairs(files) do
+            local card = Instance.new("Frame")
+            card.Size = UDim2.new(1, -12, 0, 50)
+            card.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+            card.BorderSizePixel = 0
+            card.ZIndex = 15
+            card.Parent = RbxlScroll
+            makeCorner(card, 7)
+            makeStroke(card, Color3.fromRGB(255, 255, 255), 1, 0.85)
+
+            table.insert(renderedRbxlCards, {
+                card = card,
+                name = file.name,
+                path = file.path,
+            })
+
+            local fileIcon = Instance.new("TextLabel")
+            fileIcon.Size = UDim2.new(0, 36, 0, 36)
+            fileIcon.Position = UDim2.new(0, 5, 0.5, -18)
+            fileIcon.BackgroundColor3 = Color3.fromRGB(28, 28, 34)
+            fileIcon.Text = file.name:lower():match("%.rbxlx$") and ".rbxlx" or ".rbxl"
+            fileIcon.Font = Enum.Font.GothamBold
+            fileIcon.TextSize = 7
+            fileIcon.TextColor3 = Color3.fromRGB(200, 200, 210)
+            fileIcon.ZIndex = 16
+            fileIcon.Parent = card
+            makeCorner(fileIcon, 6)
+
+            local nameLabel = Instance.new("TextLabel")
+            nameLabel.Size = UDim2.new(1, -130, 0, 18)
+            nameLabel.Position = UDim2.new(0, 48, 0, 7)
+            nameLabel.BackgroundTransparency = 1
+            nameLabel.Text = file.name
+            nameLabel.Font = Enum.Font.GothamBold
+            nameLabel.TextSize = 10
+            nameLabel.TextColor3 = Color3.fromRGB(240, 240, 245)
+            nameLabel.TextXAlignment = Enum.TextXAlignment.Left
+            nameLabel.TextTruncate = Enum.TextTruncate.AtEnd
+            nameLabel.ZIndex = 16
+            nameLabel.Parent = card
+
+            local pathLabel = Instance.new("TextLabel")
+            pathLabel.Size = UDim2.new(1, -130, 0, 13)
+            pathLabel.Position = UDim2.new(0, 48, 0, 28)
+            pathLabel.BackgroundTransparency = 1
+            pathLabel.Text = file.path
+            pathLabel.Font = Enum.Font.Gotham
+            pathLabel.TextSize = 8
+            pathLabel.TextColor3 = Color3.fromRGB(130, 130, 140)
+            pathLabel.TextXAlignment = Enum.TextXAlignment.Left
+            pathLabel.TextTruncate = Enum.TextTruncate.AtEnd
+            pathLabel.ZIndex = 16
+            pathLabel.Parent = card
+
+            local insertButton = Instance.new("TextButton")
+            insertButton.Size = UDim2.new(0, 66, 0, 30)
+            insertButton.Position = UDim2.new(1, -72, 0.5, -15)
+            insertButton.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+            insertButton.Text = "INSERT"
+            insertButton.Font = Enum.Font.GothamBold
+            insertButton.TextSize = 9
+            insertButton.TextColor3 = Color3.fromRGB(0, 0, 0)
+            insertButton.Active = true
+            insertButton.ZIndex = 17
+            insertButton.Parent = card
+            makeCorner(insertButton, 6)
+
+            insertButton.Activated:Connect(function()
+                if insertButton.Text == "..." then
+                    return
+                end
+                insertButton.Text = "..."
+                task.spawn(function()
+                    local ok, message = smartInsertRbxl(file.path, file.name)
+                    if insertButton.Parent then
+                        insertButton.Text = ok and "OK!" or "GAGAL"
+                        insertButton.BackgroundColor3 = ok
+                            and Color3.fromRGB(180, 255, 180)
+                            or Color3.fromRGB(255, 180, 180)
+                        RbxlInsertStatus.TextColor3 = ok
+                            and Color3.fromRGB(160, 225, 160)
+                            or Color3.fromRGB(235, 75, 95)
+                        RbxlInsertStatus.Text = ok and "[DONE] " .. file.name or "[ERR] " .. tostring(message)
+                        task.delay(2.5, function()
+                            if insertButton.Parent then
+                                insertButton.Text = "INSERT"
+                                insertButton.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+                            end
+                        end)
+                    end
+                end)
+            end)
+        end
+
+        filterRbxlList()
+        RbxlInsertPct.Text = string.format("%d files found", #files)
+        RbxlScroll.CanvasSize = UDim2.new(0, 0, 0, RbxlList.AbsoluteContentSize.Y + 20)
+    end
+
     RbxlScanBtn.MouseButton1Click:Connect(function()
         task.spawn(renderRbxlCards)
     end)
