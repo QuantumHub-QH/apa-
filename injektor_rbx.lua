@@ -10166,7 +10166,7 @@ headless618263746
 
         local GridLayout = Instance.new("UIGridLayout")
         GridLayout.CellSize = UDim2.new(0, 62, 0, 80)
-        GridLayout.CellPadding = UDim.new(0, 5, 0, 5)
+        GridLayout.CellPadding = UDim2.new(0, 5, 0, 5)
         GridLayout.SortOrder = Enum.SortOrder.LayoutOrder
         GridLayout.Parent = GridScroll
 
@@ -11264,7 +11264,7 @@ headless618263746
 
         local FLayout = Instance.new("UIGridLayout")
         FLayout.CellSize = UDim2.new(0, 62, 0, 80)
-        FLayout.CellPadding = UDim.new(0, 5, 0, 5)
+        FLayout.CellPadding = UDim2.new(0, 5, 0, 5)
         FLayout.SortOrder = Enum.SortOrder.LayoutOrder
         FLayout.Parent = FScroll
 
