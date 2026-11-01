@@ -10390,7 +10390,7 @@ headless618263746
             fb.Font = Enum.Font.GothamB
             fb.TextSize = 8
             fb.TextColor3 = Color3.fromRGB(190, 190, 205)
-            fb.Parent = FilterScroll
+            fb.Parent = FilterRow
             makeCorner(fb, 5)
             table.insert(filterBtns, fb)
 
@@ -10398,7 +10398,7 @@ headless618263746
                 loadFilter(fName)
             end)
         end
-        FilterScroll.CanvasSize = UDim2.new(0, #filterPills * 53 + 10, 0, 0)
+        FilterRow.CanvasSize = UDim2.new(0, #filterPills * 50 + 10, 0, 0)
 
         -- TOMBOL MUAT LEBIH BANYAK DARI DATABASE 5.344 AVATAR
         LoadMoreBtn.Activated:Connect(function()
