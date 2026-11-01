@@ -827,8 +827,9 @@ local PageRBXM     = Instance.new("Frame")
 local PageRBXL     = Instance.new("Frame")
 local PageText3D   = Instance.new("Frame")
 local PageReplacer = Instance.new("Frame")
+local PageAvatar   = Instance.new("Frame")
 
-for _, pg in ipairs({PageSplash, PageToolbox, PageRBXM, PageRBXL, PageText3D, PageReplacer}) do
+for _, pg in ipairs({PageSplash, PageToolbox, PageRBXM, PageRBXL, PageText3D, PageReplacer, PageAvatar}) do
     pg.Size = UDim2.fromScale(1, 1)
     pg.BackgroundTransparency = 1
     pg.Visible = false
@@ -844,6 +845,7 @@ local function showPage(target)
     PageRBXL.Visible     = false
     PageText3D.Visible   = false
     PageReplacer.Visible = false
+    PageAvatar.Visible   = false
     target.Visible = true
 end
 
@@ -937,7 +939,7 @@ MenuArea.BackgroundTransparency = 1
 MenuArea.BorderSizePixel = 0
 MenuArea.ScrollBarThickness = 3
 MenuArea.ScrollBarImageColor3 = Color3.fromRGB(255, 255, 255)
-MenuArea.CanvasSize = UDim2.new(0, 0, 0, 400)
+MenuArea.CanvasSize = UDim2.new(0, 0, 0, 476)
 MenuArea.ZIndex = 13
 MenuArea.Parent = PageSplash
 
@@ -1034,6 +1036,10 @@ end)
 
 makeMenuCard(MenuArea, 314, "[[REP]]", "REPLACER TOOLS", "Ganti banyak objek target di map dengan 1 model/part pilihan", function()
     showPage(PageReplacer)
+end)
+
+makeMenuCard(MenuArea, 390, "[AVT]", "AVATAR CHANGER", "Salin & terapkan avatar dari player server, teman, atau username", function()
+    showPage(PageAvatar)
 end)
 
 local function makeBackBtn(parent, onBack)
@@ -3070,72 +3076,44 @@ local function initRbxlPage()
         updateInlineRbxlProgress(40, "[3/5] LOADING INSTANCES (GetObjects)...")
         task.wait(0.1)
 
-        -- Coba load file lokal lewat customAsset seperti loader RBXM.
+        -- Coba load dengan game:GetObjects - FORKT juga pakai ini sebagai primary
         local loadedObjs = nil
-        local tryURLs = {}
-        local lastLoadError = nil
-
-        if customAsset then
-            local assetOk, assetUrl = pcall(customAsset, filePath)
-            if assetOk and type(assetUrl) == "string" and assetUrl ~= "" then
-                table.insert(tryURLs, assetUrl)
-            elseif not assetOk then
-                lastLoadError = tostring(assetUrl)
-            end
-        end
-
-        local normalizedPath = tostring(filePath):gsub("\\", "/")
-        table.insert(tryURLs, "rbxasset://" .. normalizedPath)
-
-        for _, url in ipairs(tryURLs) do
-            local ok, res = pcall(function()
-                return game:GetObjects(url)
+        local tryURLs = {
+            "rbxasset://" .. tostring(filePath):gsub("\\", "/"),
+        }
+        -- Coba getcustomasset jika ada (FORKT: customAsset fallback)
+        if getcustomasset then
+            pcall(function()
+                local cu = getcustomasset(filePath)
+                if cu then table.insert(tryURLs, 1, cu) end
             end)
-            if ok and type(res) == "table" and #res > 0 then
+        end
+        -- Coba setiap URL
+        for _, url in ipairs(tryURLs) do
+            local ok, res = pcall(function() return game:GetObjects(url) end)
+            if ok and res and #res > 0 then
                 loadedObjs = res
                 break
-            elseif not ok then
-                lastLoadError = tostring(res)
             end
             task.wait(0.25)
         end
-
-        -- Fallback: salin file ke path sementara lalu load lewat customAsset.
-        if not loadedObjs and data and writefile and customAsset then
-            local tempPath = "Delta/workspace/mchlern_tmp_rbxl.rbxl"
-            local tempWritten = false
-            local writeOk, writeErr = pcall(function()
-                writefile(tempPath, data)
-                tempWritten = true
+        -- Fallback: tulis ke tmp lalu load (FORKT fallback writefile)
+        if not loadedObjs and data and writefile and getcustomasset then
+            pcall(function()
+                local tmpName = "Delta/workspace/mchlern_tmp_rbxl.rbxl"
+                writefile(tmpName, data)
+                local cu = getcustomasset(tmpName)
+                if cu then
+                    local ok2, res2 = pcall(function() return game:GetObjects(cu) end)
+                    if ok2 and res2 and #res2 > 0 then loadedObjs = res2 end
+                end
+                pcall(function() if delfile then delfile(tmpName) end end)
             end)
-            if not writeOk then
-                lastLoadError = tostring(writeErr)
-            end
-
-            if tempWritten then
-                local assetOk, assetUrl = pcall(customAsset, tempPath)
-                if assetOk and type(assetUrl) == "string" and assetUrl ~= "" then
-                    local loadOk, result = pcall(function()
-                        return game:GetObjects(assetUrl)
-                    end)
-                    if loadOk and type(result) == "table" and #result > 0 then
-                        loadedObjs = result
-                    elseif not loadOk then
-                        lastLoadError = tostring(result)
-                    end
-                elseif not assetOk then
-                    lastLoadError = tostring(assetUrl)
-                end
-
-                if delfile then
-                    pcall(delfile, tempPath)
-                end
-            end
         end
 
         if not loadedObjs or #loadedObjs == 0 then
-            updateInlineRbxlProgress(100, "[ERR] FILE RBXL GAGAL DIMUAT")
-            return false, lastLoadError or "Tidak ada objek yang dikembalikan oleh game:GetObjects()."
+            updateInlineRbxlProgress(100, "[ERR] GAGAL LOAD - game:GetObjects() tidak support file ini")
+            return false, "game:GetObjects() gagal. Pastikan file .rbxl valid."
         end
 
         updateInlineRbxlProgress(60, "[4/5] DISTRIBUSI KE SERVICES (FORKT mode)...")
@@ -3174,136 +3152,11 @@ local function initRbxlPage()
         -- Distribute semua objects (handleGetObjectsResult = runProtected14 FORKT)
         local totalLoaded = handleGetObjectsResult(loadedObjs, placeFolder, serviceMap, parsedSrcs)
 
-        if totalLoaded == 0 then
-            placeFolder:Destroy()
-            updateInlineRbxlProgress(100, "[ERR] RBXL TERBACA, TAPI TIDAK ADA INSTANCE YANG BISA DIPINDAHKAN")
-            return false, "Tidak ada instance yang berhasil dipindahkan dari file RBXL."
-        end
-
         updateInlineRbxlProgress(100, string.format(
             "[DONE] %d instance dimuat ke '%s'", totalLoaded, folderName
         ))
         return true, string.format("%d objects inserted", totalLoaded)
     end
-
-    local function renderRbxlCards()
-        for _, item in ipairs(renderedRbxlCards) do
-            if item.card and item.card.Parent then
-                item.card:Destroy()
-            end
-        end
-        table.clear(renderedRbxlCards)
-        RbxlEmpty.Visible = false
-        RbxlInsertPct.Text = "[.] SCANNING..."
-
-        local files = getAllRbxlFiles()
-        if #files == 0 then
-            RbxlEmpty.Visible = true
-            RbxlEmpty.Text = not listfilesFn and "[!] listfiles() tidak tersedia" or "[!] File .rbxl/.rbxlx tidak ditemukan"
-            RbxlInsertPct.Text = "0 files found"
-            RbxlScroll.CanvasSize = UDim2.new(0, 0, 0, RbxlList.AbsoluteContentSize.Y + 20)
-            return
-        end
-
-        for _, file in ipairs(files) do
-            local card = Instance.new("Frame")
-            card.Size = UDim2.new(1, -12, 0, 50)
-            card.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
-            card.BorderSizePixel = 0
-            card.ZIndex = 15
-            card.Parent = RbxlScroll
-            makeCorner(card, 7)
-            makeStroke(card, Color3.fromRGB(255, 255, 255), 1, 0.85)
-
-            table.insert(renderedRbxlCards, {
-                card = card,
-                name = file.name,
-                path = file.path,
-            })
-
-            local fileIcon = Instance.new("TextLabel")
-            fileIcon.Size = UDim2.new(0, 36, 0, 36)
-            fileIcon.Position = UDim2.new(0, 5, 0.5, -18)
-            fileIcon.BackgroundColor3 = Color3.fromRGB(28, 28, 34)
-            fileIcon.Text = file.name:lower():match("%.rbxlx$") and ".rbxlx" or ".rbxl"
-            fileIcon.Font = Enum.Font.GothamBold
-            fileIcon.TextSize = 7
-            fileIcon.TextColor3 = Color3.fromRGB(200, 200, 210)
-            fileIcon.ZIndex = 16
-            fileIcon.Parent = card
-            makeCorner(fileIcon, 6)
-
-            local nameLabel = Instance.new("TextLabel")
-            nameLabel.Size = UDim2.new(1, -130, 0, 18)
-            nameLabel.Position = UDim2.new(0, 48, 0, 7)
-            nameLabel.BackgroundTransparency = 1
-            nameLabel.Text = file.name
-            nameLabel.Font = Enum.Font.GothamBold
-            nameLabel.TextSize = 10
-            nameLabel.TextColor3 = Color3.fromRGB(240, 240, 245)
-            nameLabel.TextXAlignment = Enum.TextXAlignment.Left
-            nameLabel.TextTruncate = Enum.TextTruncate.AtEnd
-            nameLabel.ZIndex = 16
-            nameLabel.Parent = card
-
-            local pathLabel = Instance.new("TextLabel")
-            pathLabel.Size = UDim2.new(1, -130, 0, 13)
-            pathLabel.Position = UDim2.new(0, 48, 0, 28)
-            pathLabel.BackgroundTransparency = 1
-            pathLabel.Text = file.path
-            pathLabel.Font = Enum.Font.Gotham
-            pathLabel.TextSize = 8
-            pathLabel.TextColor3 = Color3.fromRGB(130, 130, 140)
-            pathLabel.TextXAlignment = Enum.TextXAlignment.Left
-            pathLabel.TextTruncate = Enum.TextTruncate.AtEnd
-            pathLabel.ZIndex = 16
-            pathLabel.Parent = card
-
-            local insertButton = Instance.new("TextButton")
-            insertButton.Size = UDim2.new(0, 66, 0, 30)
-            insertButton.Position = UDim2.new(1, -72, 0.5, -15)
-            insertButton.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-            insertButton.Text = "INSERT"
-            insertButton.Font = Enum.Font.GothamBold
-            insertButton.TextSize = 9
-            insertButton.TextColor3 = Color3.fromRGB(0, 0, 0)
-            insertButton.Active = true
-            insertButton.ZIndex = 17
-            insertButton.Parent = card
-            makeCorner(insertButton, 6)
-
-            insertButton.Activated:Connect(function()
-                if insertButton.Text == "..." then
-                    return
-                end
-                insertButton.Text = "..."
-                task.spawn(function()
-                    local ok, message = smartInsertRbxl(file.path, file.name)
-                    if insertButton.Parent then
-                        insertButton.Text = ok and "OK!" or "GAGAL"
-                        insertButton.BackgroundColor3 = ok
-                            and Color3.fromRGB(180, 255, 180)
-                            or Color3.fromRGB(255, 180, 180)
-                        RbxlInsertStatus.TextColor3 = ok
-                            and Color3.fromRGB(160, 225, 160)
-                            or Color3.fromRGB(235, 75, 95)
-                        RbxlInsertStatus.Text = ok and "[DONE] " .. file.name or "[ERR] " .. tostring(message)
-                        task.delay(2.5, function()
-                            if insertButton.Parent then
-                                insertButton.Text = "INSERT"
-                                insertButton.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-                            end
-                        end)
-                    end
-                end)
-            end)
-        end
-
-        filterRbxlList()
-        RbxlInsertPct.Text = string.format("%d files found", #files)
-        RbxlScroll.CanvasSize = UDim2.new(0, 0, 0, RbxlList.AbsoluteContentSize.Y + 20)
-    end
-
     RbxlScanBtn.MouseButton1Click:Connect(function()
         task.spawn(renderRbxlCards)
     end)
@@ -4065,5 +3918,555 @@ end)
 
 end
 initReplacerPage()
+
+-- =====================================================
+-- PAGE 6: AVATAR CHANGER [MODULAR SCOPE]
+-- =====================================================
+local function initAvatarPage()
+    -- === LAYOUT UTAMA ===
+    local AvHeader = Instance.new("Frame")
+    AvHeader.Size = UDim2.new(1, 0, 0, 28)
+    AvHeader.BackgroundTransparency = 1
+    AvHeader.ZIndex = 13
+    AvHeader.Parent = PageAvatar
+
+    local AvTitle = Instance.new("TextLabel")
+    AvTitle.Size = UDim2.new(1, -80, 1, 0)
+    AvTitle.BackgroundTransparency = 1
+    AvTitle.Font = Enum.Font.GothamBold
+    AvTitle.TextSize = 12
+    AvTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
+    AvTitle.TextXAlignment = Enum.TextXAlignment.Left
+    AvTitle.Text = "[AVT] AVATAR CHANGER"
+    AvTitle.ZIndex = 14
+    AvTitle.Parent = AvHeader
+    makeBackBtn(AvHeader, function() showPage(PageSplash) end)
+
+    -- === KIRI: SIDEBAR SUB-TABS ===
+    local AvSidebar = Instance.new("Frame")
+    AvSidebar.Size = UDim2.new(0, 70, 1, -34)
+    AvSidebar.Position = UDim2.new(0, 0, 0, 34)
+    AvSidebar.BackgroundColor3 = Color3.fromRGB(14, 14, 18)
+    AvSidebar.BorderSizePixel = 0
+    AvSidebar.ZIndex = 13
+    AvSidebar.Parent = PageAvatar
+    makeCorner(AvSidebar, 8)
+    makeStroke(AvSidebar, Color3.fromRGB(255, 255, 255), 1, 0.85)
+
+    local SUBTABS = {"AVATAR", "KARAKTER", "ANIMASI", "SEPATU", "FAVORIT", "DIPAKAI"}
+    local subTabBtns = {}
+    local activeSub = "AVATAR"
+
+    -- Panel konten tiap sub-tab
+    local AvCenter = Instance.new("Frame")
+    AvCenter.Size = UDim2.new(1, -160, 1, -34)
+    AvCenter.Position = UDim2.new(0, 76, 0, 34)
+    AvCenter.BackgroundColor3 = Color3.fromRGB(14, 14, 18)
+    AvCenter.BorderSizePixel = 0
+    AvCenter.ZIndex = 13
+    AvCenter.Parent = PageAvatar
+    makeCorner(AvCenter, 8)
+    makeStroke(AvCenter, Color3.fromRGB(255, 255, 255), 1, 0.82)
+
+    -- === KANAN: CERMIN PREVIEW ===
+    local AvMirror = Instance.new("Frame")
+    AvMirror.Size = UDim2.new(0, 78, 1, -34)
+    AvMirror.Position = UDim2.new(1, -80, 0, 34)
+    AvMirror.BackgroundColor3 = Color3.fromRGB(14, 14, 18)
+    AvMirror.BorderSizePixel = 0
+    AvMirror.ZIndex = 13
+    AvMirror.Parent = PageAvatar
+    makeCorner(AvMirror, 8)
+    makeStroke(AvMirror, Color3.fromRGB(255, 255, 255), 1, 0.82)
+
+    local AvMirrorLbl = Instance.new("TextLabel")
+    AvMirrorLbl.Size = UDim2.new(1, 0, 0, 18)
+    AvMirrorLbl.BackgroundTransparency = 1
+    AvMirrorLbl.Font = Enum.Font.GothamBold
+    AvMirrorLbl.TextSize = 9
+    AvMirrorLbl.TextColor3 = Color3.fromRGB(200, 200, 210)
+    AvMirrorLbl.Text = "CERMIN"
+    AvMirrorLbl.ZIndex = 15
+    AvMirrorLbl.Parent = AvMirror
+
+    local AvMirrorImg = Instance.new("ImageLabel")
+    AvMirrorImg.Size = UDim2.new(1, -8, 0, 110)
+    AvMirrorImg.Position = UDim2.new(0, 4, 0, 20)
+    AvMirrorImg.BackgroundColor3 = Color3.fromRGB(22, 22, 28)
+    AvMirrorImg.Image = ""
+    AvMirrorImg.ScaleType = Enum.ScaleType.Fit
+    AvMirrorImg.ZIndex = 15
+    AvMirrorImg.Parent = AvMirror
+    makeCorner(AvMirrorImg, 6)
+
+    local AvMirrorName = Instance.new("TextLabel")
+    AvMirrorName.Size = UDim2.new(1, -4, 0, 18)
+    AvMirrorName.Position = UDim2.new(0, 2, 0, 133)
+    AvMirrorName.BackgroundTransparency = 1
+    AvMirrorName.Font = Enum.Font.GothamBold
+    AvMirrorName.TextSize = 9
+    AvMirrorName.TextColor3 = Color3.fromRGB(255, 255, 255)
+    AvMirrorName.TextWrapped = true
+    AvMirrorName.Text = "-"
+    AvMirrorName.ZIndex = 15
+    AvMirrorName.Parent = AvMirror
+
+    local AvMirrorId = Instance.new("TextLabel")
+    AvMirrorId.Size = UDim2.new(1, -4, 0, 13)
+    AvMirrorId.Position = UDim2.new(0, 2, 0, 151)
+    AvMirrorId.BackgroundTransparency = 1
+    AvMirrorId.Font = Enum.Font.Code
+    AvMirrorId.TextSize = 8
+    AvMirrorId.TextColor3 = Color3.fromRGB(140, 140, 155)
+    AvMirrorId.Text = "ID: -"
+    AvMirrorId.ZIndex = 15
+    AvMirrorId.Parent = AvMirror
+
+    local AvApplyBtn = Instance.new("TextButton")
+    AvApplyBtn.Size = UDim2.new(1, -8, 0, 26)
+    AvApplyBtn.Position = UDim2.new(0, 4, 1, -32)
+    AvApplyBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    AvApplyBtn.Text = "[>] PAKAI"
+    AvApplyBtn.Font = Enum.Font.GothamBold
+    AvApplyBtn.TextSize = 9
+    AvApplyBtn.TextColor3 = Color3.fromRGB(0, 0, 0)
+    AvApplyBtn.Active = true
+    AvApplyBtn.ZIndex = 16
+    AvApplyBtn.Parent = AvMirror
+    makeCorner(AvApplyBtn, 6)
+
+    -- === STATE ===
+    local selectedUserId = nil
+    local selectedUsername = ""
+
+    local function setMirror(userId, username)
+        selectedUserId = userId
+        selectedUsername = username or "Unknown"
+        AvMirrorImg.Image = "rbxthumb://type=AvatarHeadShot&id=" .. tostring(userId) .. "&w=150&h=150"
+        AvMirrorName.Text = selectedUsername
+        AvMirrorId.Text = "ID: " .. tostring(userId)
+    end
+
+    -- === APPLY AVATAR ===
+    AvApplyBtn.Activated:Connect(function()
+        if not selectedUserId then
+            AvApplyBtn.Text = "[!] Pilih dulu!"
+            task.wait(1.2)
+            AvApplyBtn.Text = "[>] PAKAI"
+            return
+        end
+        AvApplyBtn.Text = "MEMUAT..."
+        task.spawn(function()
+            local char = Players.LocalPlayer.Character
+            if not char then
+                AvApplyBtn.Text = "[X] No Char"
+                task.wait(1.2)
+                AvApplyBtn.Text = "[>] PAKAI"
+                return
+            end
+            local hum = char:FindFirstChildOfClass("Humanoid")
+            if not hum then
+                AvApplyBtn.Text = "[X] No Hum"
+                task.wait(1.2)
+                AvApplyBtn.Text = "[>] PAKAI"
+                return
+            end
+            local ok, desc = pcall(function()
+                return Players:GetHumanoidDescriptionFromUserId(selectedUserId)
+            end)
+            if ok and desc then
+                local ok2 = pcall(function() hum:ApplyDescription(desc) end)
+                if ok2 then
+                    AvApplyBtn.Text = "[OK] BERHASIL!"
+                    task.wait(1.5)
+                    AvApplyBtn.Text = "[>] PAKAI"
+                else
+                    AvApplyBtn.Text = "[X] GAGAL APPLY"
+                    task.wait(1.5)
+                    AvApplyBtn.Text = "[>] PAKAI"
+                end
+            else
+                AvApplyBtn.Text = "[X] GAGAL LOAD"
+                task.wait(1.5)
+                AvApplyBtn.Text = "[>] PAKAI"
+            end
+        end)
+    end)
+
+    -- === CENTER: SEARCH BAR + FILTER TABS + GRID ===
+    local AvSearchRow = Instance.new("Frame")
+    AvSearchRow.Size = UDim2.new(1, -8, 0, 26)
+    AvSearchRow.Position = UDim2.new(0, 4, 0, 4)
+    AvSearchRow.BackgroundTransparency = 1
+    AvSearchRow.ZIndex = 14
+    AvSearchRow.Parent = AvCenter
+
+    local AvSearchBox = Instance.new("TextBox")
+    AvSearchBox.Size = UDim2.new(1, -66, 1, 0)
+    AvSearchBox.BackgroundColor3 = Color3.fromRGB(22, 22, 28)
+    AvSearchBox.PlaceholderText = "Username / nama / UserId..."
+    AvSearchBox.PlaceholderColor3 = Color3.fromRGB(110, 110, 120)
+    AvSearchBox.Text = ""
+    AvSearchBox.Font = Enum.Font.Gotham
+    AvSearchBox.TextSize = 9
+    AvSearchBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+    AvSearchBox.ClearTextOnFocus = false
+    AvSearchBox.ZIndex = 15
+    AvSearchBox.Parent = AvSearchRow
+    makeCorner(AvSearchBox, 5)
+    makeStroke(AvSearchBox, Color3.fromRGB(255, 255, 255), 1, 0.8)
+
+    local AvCariBtn = Instance.new("TextButton")
+    AvCariBtn.Size = UDim2.new(0, 40, 1, 0)
+    AvCariBtn.Position = UDim2.new(1, -62, 0, 0)
+    AvCariBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    AvCariBtn.Text = "CARI"
+    AvCariBtn.Font = Enum.Font.GothamBold
+    AvCariBtn.TextSize = 8
+    AvCariBtn.TextColor3 = Color3.fromRGB(0, 0, 0)
+    AvCariBtn.Active = true
+    AvCariBtn.ZIndex = 15
+    AvCariBtn.Parent = AvSearchRow
+    makeCorner(AvCariBtn, 5)
+
+    local AvAcakBtn = Instance.new("TextButton")
+    AvAcakBtn.Size = UDim2.new(0, 18, 1, 0)
+    AvAcakBtn.Position = UDim2.new(1, -20, 0, 0)
+    AvAcakBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 48)
+    AvAcakBtn.Text = "?"
+    AvAcakBtn.Font = Enum.Font.GothamBold
+    AvAcakBtn.TextSize = 10
+    AvAcakBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    AvAcakBtn.Active = true
+    AvAcakBtn.ZIndex = 15
+    AvAcakBtn.Parent = AvSearchRow
+    makeCorner(AvAcakBtn, 5)
+    makeStroke(AvAcakBtn, Color3.fromRGB(255, 255, 255), 1, 0.7)
+
+    -- Filter tabs: Semua, Server, Teman
+    local AvTabRow = Instance.new("Frame")
+    AvTabRow.Size = UDim2.new(1, -8, 0, 22)
+    AvTabRow.Position = UDim2.new(0, 4, 0, 34)
+    AvTabRow.BackgroundTransparency = 1
+    AvTabRow.ZIndex = 14
+    AvTabRow.Parent = AvCenter
+
+    local avTabs = {"SEMUA", "SERVER", "TEMAN"}
+    local avTabBtns = {}
+    local activeAvTab = "SEMUA"
+    local avTabUL = Instance.new("UIListLayout")
+    avTabUL.FillDirection = Enum.FillDirection.Horizontal
+    avTabUL.Padding = UDim.new(0, 4)
+    avTabUL.SortOrder = Enum.SortOrder.LayoutOrder
+    avTabUL.Parent = AvTabRow
+
+    -- Status label
+    local AvStatus = Instance.new("TextLabel")
+    AvStatus.Size = UDim2.new(1, -8, 0, 12)
+    AvStatus.Position = UDim2.new(0, 4, 0, 60)
+    AvStatus.BackgroundTransparency = 1
+    AvStatus.Font = Enum.Font.Code
+    AvStatus.TextSize = 8
+    AvStatus.TextColor3 = Color3.fromRGB(140, 140, 155)
+    AvStatus.TextXAlignment = Enum.TextXAlignment.Left
+    AvStatus.Text = "Pilih tab untuk memuat daftar avatar..."
+    AvStatus.ZIndex = 14
+    AvStatus.Parent = AvCenter
+
+    -- Grid hasil
+    local AvGrid = Instance.new("ScrollingFrame")
+    AvGrid.Size = UDim2.new(1, -8, 1, -78)
+    AvGrid.Position = UDim2.new(0, 4, 0, 74)
+    AvGrid.BackgroundTransparency = 1
+    AvGrid.ScrollBarThickness = 3
+    AvGrid.ScrollBarImageColor3 = Color3.fromRGB(255, 255, 255)
+    AvGrid.BorderSizePixel = 0
+    AvGrid.ZIndex = 14
+    AvGrid.Parent = AvCenter
+
+    local AvGridLayout = Instance.new("UIGridLayout")
+    AvGridLayout.CellSize = UDim2.new(0, 62, 0, 82)
+    AvGridLayout.CellPadding = UDim2.new(0, 5, 0, 5)
+    AvGridLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    AvGridLayout.Parent = AvGrid
+
+    -- === FUNGSI BUAT KARTU AVATAR ===
+    local function clearGrid()
+        for _, c in ipairs(AvGrid:GetChildren()) do
+            if c:IsA("Frame") or c:IsA("TextButton") then c:Destroy() end
+        end
+    end
+
+    local function makeAvatarCard(uid, uname, orderIdx)
+        local card = Instance.new("TextButton")
+        card.Size = UDim2.new(0, 62, 0, 82)
+        card.BackgroundColor3 = Color3.fromRGB(20, 20, 26)
+        card.BorderSizePixel = 0
+        card.Text = ""
+        card.Active = true
+        card.LayoutOrder = orderIdx
+        card.ZIndex = 15
+        card.Parent = AvGrid
+        makeCorner(card, 6)
+        makeStroke(card, Color3.fromRGB(255, 255, 255), 1, 0.82)
+
+        local img = Instance.new("ImageLabel")
+        img.Size = UDim2.new(1, -6, 0, 52)
+        img.Position = UDim2.new(0, 3, 0, 3)
+        img.BackgroundColor3 = Color3.fromRGB(28, 28, 34)
+        img.Image = "rbxthumb://type=AvatarHeadShot&id=" .. tostring(uid) .. "&w=150&h=150"
+        img.ScaleType = Enum.ScaleType.Fit
+        img.ZIndex = 16
+        img.Parent = card
+        makeCorner(img, 5)
+
+        local nameL = Instance.new("TextLabel")
+        nameL.Size = UDim2.new(1, -4, 0, 14)
+        nameL.Position = UDim2.new(0, 2, 0, 57)
+        nameL.BackgroundTransparency = 1
+        nameL.Font = Enum.Font.GothamBold
+        nameL.TextSize = 8
+        nameL.TextColor3 = Color3.fromRGB(240, 240, 255)
+        nameL.TextTruncate = Enum.TextTruncate.AtEnd
+        nameL.Text = uname
+        nameL.ZIndex = 16
+        nameL.Parent = card
+
+        local idL = Instance.new("TextLabel")
+        idL.Size = UDim2.new(1, -4, 0, 11)
+        idL.Position = UDim2.new(0, 2, 0, 70)
+        idL.BackgroundTransparency = 1
+        idL.Font = Enum.Font.Code
+        idL.TextSize = 7
+        idL.TextColor3 = Color3.fromRGB(120, 120, 135)
+        idL.Text = "ID:" .. tostring(uid)
+        idL.ZIndex = 16
+        idL.Parent = card
+
+        card.Activated:Connect(function()
+            -- Hilangkan highlight kartu lain
+            for _, c2 in ipairs(AvGrid:GetChildren()) do
+                if c2:IsA("TextButton") then
+                    makeStroke(c2, Color3.fromRGB(255, 255, 255), 1, 0.82)
+                end
+            end
+            makeStroke(card, Color3.fromRGB(255, 255, 255), 1.5, 0)
+            setMirror(uid, uname)
+        end)
+
+        return card
+    end
+
+    -- === LOAD PLAYER SERVER ===
+    local function loadServer()
+        clearGrid()
+        AvStatus.Text = "Memuat pemain server..."
+        local allPlayers = Players:GetPlayers()
+        AvStatus.Text = tostring(#allPlayers) .. " pemain di server"
+        for i, p in ipairs(allPlayers) do
+            makeAvatarCard(p.UserId, p.Name, i)
+            task.wait()
+        end
+        AvGrid.CanvasSize = UDim2.new(0, 0, 0, AvGridLayout.AbsoluteContentSize.Y + 10)
+    end
+
+    -- === LOAD FRIENDS ===
+    local function loadTeman()
+        clearGrid()
+        AvStatus.Text = "Memuat daftar teman..."
+        task.spawn(function()
+            local ok, pages = pcall(function()
+                return Players:GetFriendsAsync(Players.LocalPlayer.UserId)
+            end)
+            if not ok or not pages then
+                AvStatus.Text = "[X] Gagal ambil data teman"
+                return
+            end
+            local idx = 0
+            while true do
+                local items
+                local ok2
+                ok2, items = pcall(function() return pages:GetCurrentPage() end)
+                if not ok2 then break end
+                for _, friend in ipairs(items) do
+                    idx = idx + 1
+                    makeAvatarCard(friend.Id, friend.Username, idx)
+                    task.wait()
+                end
+                AvStatus.Text = tostring(idx) .. " teman dimuat..."
+                if pages.IsFinished then break end
+                local ok3 = pcall(function() pages:AdvanceToNextPageAsync() end)
+                if not ok3 then break end
+            end
+            AvGrid.CanvasSize = UDim2.new(0, 0, 0, AvGridLayout.AbsoluteContentSize.Y + 10)
+            AvStatus.Text = tostring(idx) .. " teman ditemukan"
+        end)
+    end
+
+    -- === LOAD SEMUA (Server + Teman digabung) ===
+    local function loadSemua()
+        clearGrid()
+        AvStatus.Text = "Memuat semua..."
+        local idx = 0
+        for _, p in ipairs(Players:GetPlayers()) do
+            idx = idx + 1
+            makeAvatarCard(p.UserId, p.Name, idx)
+            task.wait()
+        end
+        task.spawn(function()
+            local ok, pages = pcall(function()
+                return Players:GetFriendsAsync(Players.LocalPlayer.UserId)
+            end)
+            if ok and pages then
+                while true do
+                    local ok2, items = pcall(function() return pages:GetCurrentPage() end)
+                    if not ok2 then break end
+                    for _, friend in ipairs(items) do
+                        idx = idx + 1
+                        makeAvatarCard(friend.Id, friend.Username, idx)
+                        task.wait()
+                    end
+                    AvStatus.Text = tostring(idx) .. " player dimuat..."
+                    if pages.IsFinished then break end
+                    local ok3 = pcall(function() pages:AdvanceToNextPageAsync() end)
+                    if not ok3 then break end
+                end
+            end
+            AvGrid.CanvasSize = UDim2.new(0, 0, 0, AvGridLayout.AbsoluteContentSize.Y + 10)
+            AvStatus.Text = tostring(idx) .. " avatar tersedia"
+        end)
+    end
+
+    -- === TAB BUTTONS ===
+    local function setAvTab(name)
+        activeAvTab = name
+        for _, b in ipairs(avTabBtns) do
+            if b.Name == name then
+                b.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+                b.TextColor3 = Color3.fromRGB(0, 0, 0)
+            else
+                b.BackgroundColor3 = Color3.fromRGB(26, 26, 32)
+                b.TextColor3 = Color3.fromRGB(200, 200, 210)
+            end
+        end
+        if name == "SERVER" then
+            task.spawn(loadServer)
+        elseif name == "TEMAN" then
+            task.spawn(loadTeman)
+        else
+            task.spawn(loadSemua)
+        end
+    end
+
+    for tIdx, tName in ipairs(avTabs) do
+        local tb = Instance.new("TextButton")
+        tb.Name = tName
+        tb.Size = UDim2.new(0, 52, 1, 0)
+        tb.BackgroundColor3 = Color3.fromRGB(26, 26, 32)
+        tb.Text = tName
+        tb.Font = Enum.Font.GothamBold
+        tb.TextSize = 8
+        tb.TextColor3 = Color3.fromRGB(200, 200, 210)
+        tb.Active = true
+        tb.LayoutOrder = tIdx
+        tb.ZIndex = 15
+        tb.Parent = AvTabRow
+        makeCorner(tb, 5)
+        makeStroke(tb, Color3.fromRGB(255, 255, 255), 1, 0.7)
+        tb.Activated:Connect(function() setAvTab(tName) end)
+        table.insert(avTabBtns, tb)
+    end
+
+    -- === SEARCH / CARI ===
+    local function doSearch()
+        local query = AvSearchBox.Text:gsub("%s+", "")
+        if query == "" then return end
+        AvStatus.Text = "Mencari '" .. query .. "'..."
+        clearGrid()
+        task.spawn(function()
+            local uid = tonumber(query)
+            if not uid then
+                local ok, res = pcall(function()
+                    return Players:GetUserIdFromNameAsync(query)
+                end)
+                if ok and res then uid = res end
+            end
+            if uid then
+                local ok2, uname = pcall(function()
+                    return Players:GetNameFromUserIdAsync(uid)
+                end)
+                local name = (ok2 and uname) or query
+                makeAvatarCard(uid, name, 1)
+                setMirror(uid, name)
+                AvStatus.Text = "Ditemukan: " .. name
+                AvGrid.CanvasSize = UDim2.new(0, 0, 0, AvGridLayout.AbsoluteContentSize.Y + 10)
+            else
+                AvStatus.Text = "[X] User tidak ditemukan"
+            end
+        end)
+    end
+
+    AvCariBtn.Activated:Connect(doSearch)
+    AvSearchBox.FocusLost:Connect(function(enter)
+        if enter then doSearch() end
+    end)
+
+    -- Acak: pilih random player dari server
+    AvAcakBtn.Activated:Connect(function()
+        local ps = Players:GetPlayers()
+        if #ps == 0 then return end
+        local rnd = ps[math.random(1, #ps)]
+        setMirror(rnd.UserId, rnd.Name)
+        AvStatus.Text = "Acak: " .. rnd.Name
+    end)
+
+    -- === SIDEBAR SUB-TAB BUTTONS ===
+    local subTabUL = Instance.new("UIListLayout")
+    subTabUL.Padding = UDim.new(0, 4)
+    subTabUL.SortOrder = Enum.SortOrder.LayoutOrder
+    subTabUL.HorizontalAlignment = Enum.HorizontalAlignment.Center
+    subTabUL.Parent = AvSidebar
+    local subTabPad = Instance.new("UIPadding")
+    subTabPad.PaddingTop = UDim.new(0, 6)
+    subTabPad.Parent = AvSidebar
+
+    for si, sName in ipairs(SUBTABS) do
+        local sb = Instance.new("TextButton")
+        sb.Name = sName
+        sb.Size = UDim2.new(1, -8, 0, 28)
+        sb.BackgroundColor3 = Color3.fromRGB(22, 22, 28)
+        sb.Text = sName
+        sb.Font = Enum.Font.GothamBold
+        sb.TextSize = 7
+        sb.TextColor3 = Color3.fromRGB(180, 180, 195)
+        sb.TextWrapped = true
+        sb.Active = true
+        sb.LayoutOrder = si
+        sb.ZIndex = 15
+        sb.Parent = AvSidebar
+        makeCorner(sb, 5)
+        makeStroke(sb, Color3.fromRGB(255, 255, 255), 1, 0.8)
+        table.insert(subTabBtns, sb)
+
+        sb.Activated:Connect(function()
+            activeSub = sName
+            for _, b2 in ipairs(subTabBtns) do
+                if b2.Name == sName then
+                    b2.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+                    b2.TextColor3 = Color3.fromRGB(0, 0, 0)
+                else
+                    b2.BackgroundColor3 = Color3.fromRGB(22, 22, 28)
+                    b2.TextColor3 = Color3.fromRGB(180, 180, 195)
+                end
+            end
+            -- Notif sub-tab (expand fitur di versi berikutnya)
+            AvStatus.Text = "Sub-tab: " .. sName
+        end)
+    end
+
+    -- Set default tab saat masuk halaman
+    setAvTab("SEMUA")
+end
+initAvatarPage()
 
 print("[BLUExCrown] ENGINE MCHLERN ENGINE v7.1 LOADED")
