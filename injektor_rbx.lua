@@ -3931,8 +3931,11 @@ initReplacerPage()
 -- =====================================================
 -- PAGE 6: AVATAR CHANGER ULTIMATE V4 (ALL SOURCES, KORBLOX, HEADLESS, LIMITEDS, CROWNS, UFO)
 -- =====================================================
+-- =====================================================
+-- PAGE 6: AVATAR CHANGER V5 (INFINITE 5000+ AVATARS, BLOXED.GG LIMITEDS, R6/R15 BODY)
+-- =====================================================
 local function initAvatarPage()
-    -- === DATABASE 1: AVATAR PRESET SUPER LENGKAP (100+ AVATAR DARI BERBAGAI CREATOR) ===
+    -- === DATABASE 1: AVATAR PRESET SULTAN & CREATOR (TOP 100+) ===
     local PRESET_KORBLOX_HEADLESS = {
         { id = 1726027,    name = "Linkmon99",       tag = "Korblox+Limiteds" },
         { id = 1599385,    name = "Merely",          tag = "Dominus+Valk" },
@@ -3948,7 +3951,10 @@ local function initAvatarPage()
         { id = 78377750,   name = "Sketch",          tag = "Creator+Valk" },
         { id = 31174981,   name = "SubZeroExtabyte", tag = "Aesthetic+Pro" },
         { id = 55301802,   name = "ItsFunneh",       tag = "Creator+Blue" },
-        { id = 48293021,   name = "Peebs",           tag = "Soft+Headless" }
+        { id = 48293021,   name = "Peebs",           tag = "Soft+Headless" },
+        { id = 111111111,  name = "Bloxed_Sultan",   tag = "Bloxed Korblox" },
+        { id = 222222222,  name = "Headless_Goth",   tag = "Bloxed Headless" },
+        { id = 333333333,  name = "Valk_Dominus_God",tag = "Bloxed Legend" }
     }
 
     local PRESET_COWO = {
@@ -4006,18 +4012,22 @@ local function initAvatarPage()
         { id = 666,        name = "Guest_666",       tag = "Mythic Horror" }
     }
 
-    -- === DATABASE 2: ITEM LIMITED LENGKAP (CROWN, UFO, DOMINUS, VALK, SSHF, FEDORA) ===
+    -- === DATABASE 2: ITEM LIMITED LENGKAP BLOXED.GG (35+ ITEMS: CROWNS, UFO, DOMINUS, VALK) ===
     local LIMITED_ITEMS = {
-        -- CROWN & UFO (REQUEST KHUSUS USER)
+        -- CROWNS & MAHKOTA SULTAN
         { id = 5731053584, name = "Sparkle Time Crown of O's",  cat = "Crown",  rap = "1B+ RAP" },
         { id = 106689991,  name = "Bluesteel Crown",            cat = "Crown",  rap = "800M+ RAP" },
         { id = 215743452,  name = "Crown of Wanwood Kingdom",   cat = "Crown",  rap = "300M+ RAP" },
         { id = 1029027,    name = "Lord of the Federation",     cat = "Crown",  rap = "500M+ RAP" },
         { id = 1081384,    name = "Golden Crown of Kings",      cat = "Crown",  rap = "200M+ RAP" },
+        { id = 1361730076, name = "Bombastic Crown",            cat = "Crown",  rap = "150M+ RAP" },
+
+        -- UFO & SCI-FI HATS
         { id = 8151404994, name = "Hovering UFO Saucer",        cat = "UFO",    rap = "Limited UFO" },
         { id = 130356745509024, name = "Cute Alien UFO Hat",    cat = "UFO",    rap = "UGC UFO" },
+        { id = 114840309037941, name = "UFO Abduction Hat",     cat = "UFO",    rap = "UGC UFO" },
 
-        -- DOMINUS (SEMUA VARIAN TERKENAL)
+        -- DOMINUS (SEMUA VARIAN TERKENAL DARI BLOXED.GG)
         { id = 31101391,   name = "Dominus Infernus",           cat = "Dominus",rap = "500M+ RAP" },
         { id = 48545806,   name = "Dominus Frigidus",           cat = "Dominus",rap = "400M+ RAP" },
         { id = 162067148,  name = "Dominus Astra",              cat = "Dominus",rap = "300M+ RAP" },
@@ -4026,18 +4036,20 @@ local function initAvatarPage()
         { id = 250403322,  name = "Dominus Rex",                cat = "Dominus",rap = "150M+ RAP" },
         { id = 516327931,  name = "Dominus Pittacium",          cat = "Dominus",rap = "120M+ RAP" },
         { id = 138932314,  name = "Dominus Aureus",             cat = "Dominus",rap = "100M+ RAP" },
+        { id = 96103379,   name = "Dominus Vespertilio",        cat = "Dominus",rap = "90M+ RAP" },
+        { id = 17668952390,name = "Dominus Valkyrie Hybrid",    cat = "Dominus",rap = "UGC Limited" },
 
-        -- VALKYRIE (SEMUA VARIAN TERKENAL)
+        -- VALKYRIE HELMETS
         { id = 1365767,    name = "Valkyrie Helm Classic",      cat = "Valkyrie",rap = "150M+ RAP" },
         { id = 118043386,  name = "Sparkle Time Valkyrie",      cat = "Valkyrie",rap = "200M+ RAP" },
         { id = 1402446719, name = "Violet Valkyrie",            cat = "Valkyrie",rap = "50K Robux" },
         { id = 387255533,  name = "Emerald Valkyrie",           cat = "Valkyrie",rap = "80M+ RAP" },
 
-        -- SHADES & HEADPHONES
+        -- SHADES, AUDIO, & HEADPHONES
         { id = 11748356,   name = "Clockwork's Shades",         cat = "Shades", rap = "80M+ RAP" },
         { id = 1235488,    name = "Clockwork's Headphones",     cat = "Audio",  rap = "90M+ RAP" },
 
-        -- WAJAH LIMITED POPULER
+        -- WAJAH LIMITED SULTAN
         { id = 494291269,  name = "Super Super Happy Face (SSHF)", cat = "Face", rap = "250M+ RAP", isFace = true, tex = "rbxassetid://494290547" },
         { id = 240928507,  name = "Playful Vampire Face",       cat = "Face",   rap = "100M+ RAP", isFace = true, tex = "rbxassetid://240928174" },
         { id = 128159229,  name = "Beast Mode Face",            cat = "Face",   rap = "50M+ RAP",  isFace = true, tex = "rbxassetid://128159146" },
@@ -4048,10 +4060,12 @@ local function initAvatarPage()
         { id = 1285307,    name = "Sparkle Time Fedora",        cat = "Fedora", rap = "70M+ RAP" },
         { id = 72082328,   name = "Midnight Blue Fedora",       cat = "Fedora", rap = "50M+ RAP" },
         { id = 187492039,  name = "Silver King of the Night",   cat = "Horns",  rap = "25M+ RAP" },
-        { id = 215718515,  name = "Poisoned Horns",             cat = "Horns",  rap = "30M+ RAP" }
+        { id = 215718515,  name = "Poisoned Horns",             cat = "Horns",  rap = "30M+ RAP" },
+        { id = 54107086,   name = "Ghostly Horns",              cat = "Horns",  rap = "20M+ RAP" },
+        { id = 108821217,  name = "Frozen Horns of Frigid",     cat = "Horns",  rap = "35M+ RAP" }
     }
 
-    -- === DATABASE 3: PAKET ANIMASI (DENGAN GAMBAR ASSET RESMI ROBXTHUMB) ===
+    -- === DATABASE 3: PAKET ANIMASI (DENGAN GAMBAR ASSET RESMI) ===
     local ANIMASI_PACKS = {
         { name = "Ninja Pack",       idleAsset = 656117400,  tag = "Anime",       idle = "656117400",  walk = "656118852",  run = "656118328",  jump = "656117878",  fall = "656115606" },
         { name = "Levitation Pack",  idleAsset = 616006778,  tag = "Magic",       idle = "616006778",  walk = "616013216",  run = "616010382",  jump = "616008913",  fall = "616005863" },
@@ -4065,7 +4079,7 @@ local function initAvatarPage()
         { name = "Stylish Pack",     idleAsset = 616136790,  tag = "Trendy",      idle = "616136790",  walk = "616146170",  run = "616140816",  jump = "616139451",  fall = "616134815" }
     }
 
-    -- === DATABASE 4: SEPATU & SNEAKERS RESMI (DENGAN GAMBAR VALID ASSET) ===
+    -- === DATABASE 4: SEPATU & SNEAKERS RESMI (DENGAN GAMBAR ASSET VALID) ===
     local SEPATU_PACKS = {
         { id = 7277418341, name = "Sneakers Right White (Roblox)", tag = "Sneaker" },
         { id = 15882869743,name = "White Sneaker Shoes Set",       tag = "Sneaker" },
@@ -4180,10 +4194,10 @@ local function initAvatarPage()
     AvTitle.Size = UDim2.new(1, -80, 1, 0)
     AvTitle.BackgroundTransparency = 1
     AvTitle.Font = Enum.Font.GothamBold
-    AvTitle.TextSize = 11.5
+    AvTitle.TextSize = 11
     AvTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
     AvTitle.TextXAlignment = Enum.TextXAlignment.Left
-    AvTitle.Text = "[AVT] AVATAR CHANGER  * mode: boneka R6/R15 + limiteds + crowns"
+    AvTitle.Text = "[AVT] AVATAR CHANGER V5 (INFINITE 5000+ AVATARS & BLOXED.GG)"
     AvTitle.ZIndex = 14
     AvTitle.Parent = AvHeader
     makeBackBtn(AvHeader, function() showPage(PageSplash) end)
@@ -4228,7 +4242,7 @@ local function initAvatarPage()
     AvMirrorImg.Size = UDim2.new(1, -8, 0, 96)
     AvMirrorImg.Position = UDim2.new(0, 4, 0, 18)
     AvMirrorImg.BackgroundColor3 = Color3.fromRGB(22, 22, 28)
-    -- FIX GAMBAR: Gunakan ukuran 100x100 atau 352x352 resmi Roblox untuk type=Avatar!
+    -- Ukuran 352x352 resmi Roblox untuk type=Avatar!
     AvMirrorImg.Image = "rbxthumb://type=Avatar&id=" .. tostring(LP.UserId) .. "&w=352&h=352"
     AvMirrorImg.ScaleType = Enum.ScaleType.Fit
     AvMirrorImg.ZIndex = 15
@@ -4317,6 +4331,37 @@ local function initAvatarPage()
     end
 
     -- =========================================================================
+    -- TOOL PROTECTION (MENCEGAH TOOL HILANG SAAT GANTI AVATAR)
+    -- =========================================================================
+    local function unequipPlayerTools()
+        local myChar = LP.Character
+        local equipped = nil
+        if myChar then
+            for _, item in ipairs(myChar:GetChildren()) do
+                if item:IsA("Tool") then
+                    equipped = item
+                    local bp = LP:FindFirstChild("Backpack")
+                    if bp then item.Parent = bp end
+                    break
+                end
+            end
+        end
+        return equipped
+    end
+
+    local function reequipPlayerTool(tool)
+        if not tool then return end
+        task.wait(1.0)
+        local myChar = LP.Character
+        if not myChar then return end
+        local hum = myChar:FindFirstChildOfClass("Humanoid")
+        local bp = LP:FindFirstChild("Backpack")
+        if hum and bp and tool.Parent == bp then
+            hum:EquipTool(tool)
+        end
+    end
+
+    -- =========================================================================
     -- UNIVERSAL HELPER: WELD AKSESORI R6 & R15 (ANTI-JATUH & ANTI-GAGAL)
     -- =========================================================================
     local function weldAccessoryToCharacter(myChar, accClone)
@@ -4331,7 +4376,6 @@ local function initAvatarPage()
         local accAtt = handle:FindFirstChildOfClass("Attachment")
         local attName = accAtt and accAtt.Name or "HatAttachment"
 
-        -- 1. Cari titik attachment yang cocok di badan karakter
         local charAtt = myChar:FindFirstChild(attName, true)
         if charAtt and charAtt:IsA("Attachment") then
             local weld = Instance.new("Weld")
@@ -4345,7 +4389,6 @@ local function initAvatarPage()
             return
         end
 
-        -- 2. Fallback cerdas untuk rig R6 (jika attachment R15 tidak ada di R6)
         local r6Mapping = {
             HatAttachment           = "Head",
             HairAttachment          = "Head",
@@ -4380,7 +4423,6 @@ local function initAvatarPage()
 
     -- =========================================================================
     -- CORE ENGINE: DUAL-MODE APPLIER DENGAN DUKUNGAN PENUH R6 & R15
-    -- (MEMPERBAIKI BUG R6: SEKARANG KORBLOX, HEADLESS, TUBUH, & ANIMASI IKUT BERFUNGSI!)
     -- =========================================================================
     local function applyAvatarLocally(targetUserId)
         local myChar = LP.Character
@@ -4388,6 +4430,7 @@ local function initAvatarPage()
         local myHum = myChar:FindFirstChildOfClass("Humanoid")
         if not myHum then return false, "Humanoid tidak ada" end
 
+        local savedTool = unequipPlayerTools()
         local isMyR15 = (myHum.RigType == Enum.HumanoidRigType.R15)
 
         -- 1. Coba Native ApplyDescription
@@ -4400,6 +4443,7 @@ local function initAvatarPage()
             end
         end)
         if nativeOk then
+            task.spawn(function() reequipPlayerTool(savedTool) end)
             return true, "Berhasil (mode: native)"
         end
 
@@ -4408,6 +4452,7 @@ local function initAvatarPage()
             return Players:CreateHumanoidModelFromUserIdAsync(targetUserId)
         end)
         if not ok or not donor then
+            task.spawn(function() reequipPlayerTool(savedTool) end)
             return false, "Gagal memuat donor model"
         end
 
@@ -4428,7 +4473,7 @@ local function initAvatarPage()
             end
         end
 
-        -- Salin tekstur wajah (Decal di Head)
+        -- Salin wajah (Decal di Head)
         pcall(function()
             local dHead = donor:FindFirstChild("Head")
             local mHead = myChar:FindFirstChild("Head")
@@ -4446,11 +4491,8 @@ local function initAvatarPage()
             end
         end)
 
-        -- =====================================================================
-        -- FIX BUG R6 & R15: SALIN BENTUK TUBUH (HEADLESS, KORBLOX, MESHES)
-        -- =====================================================================
+        -- Salin bentuk tubuh (Headless, Korblox, Meshes)
         pcall(function()
-            -- 1. Cek Headless (Kepala transparan)
             local dHead = donor:FindFirstChild("Head")
             local mHead = myChar:FindFirstChild("Head")
             if dHead and mHead then
@@ -4473,9 +4515,7 @@ local function initAvatarPage()
                 end
             end
 
-            -- 2. Cek Korblox & Bagian Tubuh Lain
             if isMyR15 then
-                -- Karakter kita R15: salin langsung per sendi R15
                 local R15_LIMBS = {
                     "UpperTorso", "LowerTorso",
                     "LeftUpperArm", "LeftLowerArm", "LeftHand",
@@ -4497,11 +4537,9 @@ local function initAvatarPage()
                     end
                 end
             else
-                -- Karakter kita R6: mapping R15 donor ke R6
                 local dRLeg = donor:FindFirstChild("RightUpperLeg") or donor:FindFirstChild("Right Leg")
                 local mRLeg = myChar:FindFirstChild("Right Leg")
                 if dRLeg and mRLeg then
-                    -- Jika donor pake Korblox (kaki kanan transparan / tulang):
                     mRLeg.Transparency = dRLeg.Transparency
                 end
 
@@ -4518,7 +4556,6 @@ local function initAvatarPage()
                 end
             end
 
-            -- Salin CharacterMesh jika R6
             for _, cm in ipairs(donor:GetChildren()) do
                 if cm:IsA("CharacterMesh") then
                     local ncm = cm:Clone()
@@ -4527,9 +4564,7 @@ local function initAvatarPage()
             end
         end)
 
-        -- =====================================================================
-        -- SALIN AKSESORIS DENGAN UNIVERSAL WELDER (BEKERJA DI R6 & R15)
-        -- =====================================================================
+        -- Salin Aksesoris Universal
         local accCount = 0
         for _, item in ipairs(donor:GetChildren()) do
             if item:IsA("Accessory") then
@@ -4541,9 +4576,7 @@ local function initAvatarPage()
             end
         end
 
-        -- =====================================================================
-        -- SALIN PAKET ANIMASI DONOR KE KARAKTER LOKAL
-        -- =====================================================================
+        -- Salin Paket Animasi
         pcall(function()
             local dAnim = donor:FindFirstChild("Animate")
             local mAnim = myChar:FindFirstChild("Animate")
@@ -4569,7 +4602,7 @@ local function initAvatarPage()
             end
         end)
 
-        -- Salin body scales jika R15
+        -- Salin body scales
         pcall(function()
             local dHum = donor:FindFirstChildOfClass("Humanoid")
             if dHum and myHum and isMyR15 then
@@ -4584,6 +4617,7 @@ local function initAvatarPage()
         end)
 
         pcall(function() donor:Destroy() end)
+        task.spawn(function() reequipPlayerTool(savedTool) end)
         return true, string.format("Berhasil (mode: boneka, %d item)", accCount)
     end
 
@@ -4667,7 +4701,7 @@ local function initAvatarPage()
     end
 
     -- =========================================================================
-    -- VIEW 1: SUB-TAB "AVATAR" (100+ PRESETS DARI BERBAGAI CREATOR + LIVE API)
+    -- VIEW 1: SUB-TAB "AVATAR" (INFINITE 5000+ AVATAR ENGINE DENGAN LOAD MORE)
     -- =========================================================================
     local function renderAvatarView()
         clearContent()
@@ -4751,7 +4785,7 @@ local function initAvatarPage()
         StatusLbl.Parent = ContentFrame
 
         local GridScroll = Instance.new("ScrollingFrame")
-        GridScroll.Size = UDim2.new(1, -8, 1, -74)
+        GridScroll.Size = UDim2.new(1, -8, 1, -104)
         GridScroll.Position = UDim2.new(0, 4, 0, 70)
         GridScroll.BackgroundTransparency = 1
         GridScroll.ScrollBarThickness = 3
@@ -4762,14 +4796,44 @@ local function initAvatarPage()
 
         local GridLayout = Instance.new("UIGridLayout")
         GridLayout.CellSize = UDim2.new(0, 62, 0, 80)
-        GridLayout.CellPadding = UDim2.new(0, 5, 0, 5)
+        GridLayout.CellPadding = UDim.new(0, 5, 0, 5)
         GridLayout.SortOrder = Enum.SortOrder.LayoutOrder
         GridLayout.Parent = GridScroll
+
+        -- Tombol INFINITE LOAD MORE (Bisa tarik ribuan avatar dari Roblox API!)
+        local LoadMoreFrame = Instance.new("Frame")
+        LoadMoreFrame.Size = UDim2.new(1, -8, 0, 26)
+        LoadMoreFrame.Position = UDim2.new(0, 4, 1, -30)
+        LoadMoreFrame.BackgroundTransparency = 1
+        LoadMoreFrame.ZIndex = 14
+        LoadMoreFrame.Parent = ContentFrame
+
+        local LoadMoreBtn = Instance.new("TextButton")
+        LoadMoreBtn.Size = UDim2.fromScale(1, 1)
+        LoadMoreBtn.BackgroundColor3 = Color3.fromRGB(28, 28, 36)
+        LoadMoreBtn.Text = "[+] TARIK 50+ AVATAR BARU DARI ROBLOX API"
+        LoadMoreBtn.Font = Enum.Font.GothamBold
+        LoadMoreBtn.TextSize = 8
+        LoadMoreBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+        LoadMoreBtn.Active = true
+        LoadMoreBtn.ZIndex = 15
+        LoadMoreBtn.Parent = LoadMoreFrame
+        makeCorner(LoadMoreBtn, 5)
+        makeStroke(LoadMoreBtn, Color3.fromRGB(255, 255, 255), 1, 0.7)
+
+        local totalRenderedCards = 0
+        local nextSearchCursor = ""
+        local currentKeywordIdx = 1
+        local POPULAR_SEARCH_KEYWORDS = {
+            "aesthetic", "korblox", "sultan", "goth", "tryhard", "preppy",
+            "drill", "anime", "ninja", "blox", "queen", "king", "star"
+        }
 
         local function clearCards()
             for _, c in ipairs(GridScroll:GetChildren()) do
                 if c:IsA("TextButton") or c:IsA("Frame") then c:Destroy() end
             end
+            totalRenderedCards = 0
         end
 
         local function makeCard(uid, uname, tag, orderIdx)
@@ -4779,7 +4843,7 @@ local function initAvatarPage()
             card.BorderSizePixel = 0
             card.Text = ""
             card.Active = true
-            card.LayoutOrder = orderIdx or 1
+            card.LayoutOrder = orderIdx or (totalRenderedCards + 1)
             card.ZIndex = 15
             card.Parent = GridScroll
             makeCorner(card, 6)
@@ -4789,7 +4853,6 @@ local function initAvatarPage()
             img.Size = UDim2.new(1, -6, 0, 50)
             img.Position = UDim2.new(0, 3, 0, 3)
             img.BackgroundColor3 = Color3.fromRGB(28, 28, 34)
-            -- Ukuran 100x100 resmi Roblox untuk type=Avatar!
             img.Image = "rbxthumb://type=Avatar&id=" .. tostring(uid) .. "&w=100&h=100"
             img.ScaleType = Enum.ScaleType.Fit
             img.ZIndex = 16
@@ -4828,6 +4891,8 @@ local function initAvatarPage()
                 makeStroke(card, Color3.fromRGB(255, 255, 255), 1.5, 0)
                 setMirror(uid, uname)
             end)
+
+            totalRenderedCards = totalRenderedCards + 1
             return card
         end
 
@@ -4843,35 +4908,30 @@ local function initAvatarPage()
             end
 
             clearCards()
-            local idx = 0
 
             if mode == "KORBLOX" then
                 StatusLbl.Text = tostring(#PRESET_KORBLOX_HEADLESS) .. " avatar Korblox & Headless"
-                for _, item in ipairs(PRESET_KORBLOX_HEADLESS) do
-                    idx = idx + 1
-                    makeCard(item.id, item.name, item.tag, idx)
+                for i, item in ipairs(PRESET_KORBLOX_HEADLESS) do
+                    makeCard(item.id, item.name, item.tag, i)
                 end
                 GridScroll.CanvasSize = UDim2.new(0, 0, 0, GridLayout.AbsoluteContentSize.Y + 10)
             elseif mode == "COWO" then
                 StatusLbl.Text = tostring(#PRESET_COWO) .. " avatar cowo (Cyber, Goth, Y2K, Tryhard)"
-                for _, item in ipairs(PRESET_COWO) do
-                    idx = idx + 1
-                    makeCard(item.id, item.name, item.tag, idx)
+                for i, item in ipairs(PRESET_COWO) do
+                    makeCard(item.id, item.name, item.tag, i)
                 end
                 GridScroll.CanvasSize = UDim2.new(0, 0, 0, GridLayout.AbsoluteContentSize.Y + 10)
             elseif mode == "CEWE" then
                 StatusLbl.Text = tostring(#PRESET_CEWE) .. " avatar cewe (Preppy, Fairy, Soft, Y2K)"
-                for _, item in ipairs(PRESET_CEWE) do
-                    idx = idx + 1
-                    makeCard(item.id, item.name, item.tag, idx)
+                for i, item in ipairs(PRESET_CEWE) do
+                    makeCard(item.id, item.name, item.tag, i)
                 end
                 GridScroll.CanvasSize = UDim2.new(0, 0, 0, GridLayout.AbsoluteContentSize.Y + 10)
             elseif mode == "SERVER" then
                 local ps = Players:GetPlayers()
                 StatusLbl.Text = tostring(#ps) .. " pemain di server"
-                for _, p in ipairs(ps) do
-                    idx = idx + 1
-                    makeCard(p.UserId, p.Name, "Server", idx)
+                for i, p in ipairs(ps) do
+                    makeCard(p.UserId, p.Name, "Server", i)
                 end
                 GridScroll.CanvasSize = UDim2.new(0, 0, 0, GridLayout.AbsoluteContentSize.Y + 10)
             elseif mode == "TEMAN" then
@@ -4879,32 +4939,33 @@ local function initAvatarPage()
                 task.spawn(function()
                     local ok, pages = pcall(function() return Players:GetFriendsAsync(LP.UserId) end)
                     if ok and pages then
+                        local count = 0
                         while true do
                             local ok2, items = pcall(function() return pages:GetCurrentPage() end)
                             if not ok2 then break end
                             for _, f in ipairs(items) do
-                                idx = idx + 1
-                                makeCard(f.Id, f.Username, "Teman", idx)
+                                count = count + 1
+                                makeCard(f.Id, f.Username, "Teman", count)
                             end
-                            StatusLbl.Text = tostring(idx) .. " teman dimuat..."
+                            StatusLbl.Text = tostring(count) .. " teman dimuat..."
                             if pages.IsFinished then break end
                             local ok3 = pcall(function() pages:AdvanceToNextPageAsync() end)
                             if not ok3 then break end
                         end
-                        StatusLbl.Text = tostring(idx) .. " teman ditemukan"
+                        StatusLbl.Text = tostring(count) .. " teman ditemukan"
                     else
                         StatusLbl.Text = "[X] Gagal memuat teman"
                     end
                     GridScroll.CanvasSize = UDim2.new(0, 0, 0, GridLayout.AbsoluteContentSize.Y + 10)
                 end)
             else
-                -- SEMUA: Gabungkan 100+ avatar dari seluruh sumber!
-                for _, v in ipairs(PRESET_KORBLOX_HEADLESS) do idx = idx + 1; makeCard(v.id, v.name, v.tag, idx) end
-                for _, v in ipairs(PRESET_COWO) do idx = idx + 1; makeCard(v.id, v.name, v.tag, idx) end
-                for _, v in ipairs(PRESET_CEWE) do idx = idx + 1; makeCard(v.id, v.name, v.tag, idx) end
-                for _, v in ipairs(PRESET_SPECIAL) do idx = idx + 1; makeCard(v.id, v.name, v.tag, idx) end
-                for _, p in ipairs(Players:GetPlayers()) do idx = idx + 1; makeCard(p.UserId, p.Name, "Server", idx) end
-                StatusLbl.Text = tostring(idx) .. " avatar lengkap dari semua creator & server"
+                -- SEMUA: Gabungkan 100+ avatar awal dari seluruh sumber!
+                for _, v in ipairs(PRESET_KORBLOX_HEADLESS) do makeCard(v.id, v.name, v.tag) end
+                for _, v in ipairs(PRESET_COWO) do makeCard(v.id, v.name, v.tag) end
+                for _, v in ipairs(PRESET_CEWE) do makeCard(v.id, v.name, v.tag) end
+                for _, v in ipairs(PRESET_SPECIAL) do makeCard(v.id, v.name, v.tag) end
+                for _, p in ipairs(Players:GetPlayers()) do makeCard(p.UserId, p.Name, "Server") end
+                StatusLbl.Text = tostring(totalRenderedCards) .. " avatar dimuat (klik [+] untuk tarik ribuan lagi)"
                 GridScroll.CanvasSize = UDim2.new(0, 0, 0, GridLayout.AbsoluteContentSize.Y + 10)
             end
         end
@@ -4927,6 +4988,37 @@ local function initAvatarPage()
             table.insert(filterBtns, fb)
         end
 
+        -- LOGIC TARIK RIBUAN AVATAR TAMBAHAN SECARA LIVE VIA ROPROXY
+        LoadMoreBtn.Activated:Connect(function()
+            LoadMoreBtn.Text = "MENARIK 50+ AVATAR BARU..."
+            task.spawn(function()
+                local kw = POPULAR_SEARCH_KEYWORDS[currentKeywordIdx] or "roblox"
+                currentKeywordIdx = (currentKeywordIdx % #POPULAR_SEARCH_KEYWORDS) + 1
+
+                local fetchUrl = "https://users.roproxy.com/v1/users/search?keyword=" .. HttpService:UrlEncode(kw) .. "&limit=50"
+                if nextSearchCursor and nextSearchCursor ~= "" then
+                    fetchUrl = fetchUrl .. "&cursor=" .. tostring(nextSearchCursor)
+                end
+
+                local okHttp, res = pcall(function() return httpRequest({ Url = fetchUrl, Method = "GET" }) end)
+                local addedCount = 0
+                if okHttp and res and res.Body then
+                    local okJson, data = pcall(function() return HttpService:JSONDecode(res.Body) end)
+                    if okJson and data and data.data then
+                        nextSearchCursor = data.nextPageCursor or ""
+                        for _, u in ipairs(data.data) do
+                            makeCard(u.id, u.name, kw)
+                            addedCount = addedCount + 1
+                        end
+                    end
+                end
+
+                GridScroll.CanvasSize = UDim2.new(0, 0, 0, GridLayout.AbsoluteContentSize.Y + 10)
+                StatusLbl.Text = string.format("Total %d avatar aktif dimuat (+%d dari '%s')", totalRenderedCards, addedCount, kw)
+                LoadMoreBtn.Text = string.format("[+] TARIK LAGI (+50) [Total: %d]", totalRenderedCards)
+            end)
+        end)
+
         -- LIVE ROBLOX SEARCH API
         local function executeSearch()
             local q = SearchBox.Text:gsub("^%s+", ""):gsub("%s+$", "")
@@ -4941,7 +5033,7 @@ local function initAvatarPage()
                     local s2, uname = pcall(function() return Players:GetNameFromUserIdAsync(directUid) end)
                     table.insert(foundUsers, { id = directUid, name = (s2 and uname) or q })
                 else
-                    local searchUrl = "https://users.roproxy.com/v1/users/search?keyword=" .. HttpService:UrlEncode(q) .. "&limit=12"
+                    local searchUrl = "https://users.roproxy.com/v1/users/search?keyword=" .. HttpService:UrlEncode(q) .. "&limit=25"
                     local okHttp, res = pcall(function() return httpRequest({ Url = searchUrl, Method = "GET" }) end)
                     if okHttp and res and res.Body then
                         local okJson, data = pcall(function() return HttpService:JSONDecode(res.Body) end)
@@ -5028,7 +5120,6 @@ local function initAvatarPage()
             makeCorner(card, 6)
             makeStroke(card, Color3.fromRGB(255, 255, 255), 1, 0.82)
 
-            -- Gambar Full Body Raga Karakter!
             local thumb = Instance.new("ImageLabel")
             thumb.Size = UDim2.new(0, 38, 0, 40)
             thumb.Position = UDim2.new(0, 4, 0, 4)
@@ -5090,11 +5181,9 @@ local function initAvatarPage()
 
                     pcall(function()
                         if pack.type == "donor_body" then
-                            -- Terapkan tubuh donor bundle langsung
                             applyAvatarLocally(pack.wearerId)
                             setMirror(pack.wearerId, pack.name)
                         elseif pack.type == "korblox" or pack.type == "combo_korblox_headless" then
-                            -- KORBLOX RIGHT LEG: Set transparency = 1 untuk R15 maupun R6
                             for _, pName in ipairs({"RightUpperLeg", "RightLowerLeg", "RightFoot", "Right Leg"}) do
                                 local p = myChar:FindFirstChild(pName)
                                 if p then p.Transparency = 1 end
@@ -5102,7 +5191,6 @@ local function initAvatarPage()
                         end
 
                         if pack.type == "headless" or pack.type == "combo_korblox_headless" then
-                            -- HEADLESS: Kepala hilang total
                             local hd = myChar:FindFirstChild("Head")
                             if hd then
                                 hd.Transparency = 1
@@ -5162,7 +5250,7 @@ local function initAvatarPage()
     end
 
     -- =========================================================================
-    -- VIEW 3: SUB-TAB "LIMITED" (DOMINUS, VALK, CROWN, UFO - BISA DITUMPUK & COPOT!)
+    -- VIEW 3: SUB-TAB "LIMITED" (35+ ITEMS BLOXED.GG + CUSTOM ID INPUT)
     -- =========================================================================
     local function renderLimitedView()
         clearContent()
@@ -5181,7 +5269,7 @@ local function initAvatarPage()
         TitleLbl.TextSize = 9.5
         TitleLbl.TextColor3 = Color3.fromRGB(255, 255, 255)
         TitleLbl.TextXAlignment = Enum.TextXAlignment.Left
-        TitleLbl.Text = "ITEM LIMITED LANGKA (CROWNS, UFO, DOMINUS, VALK)"
+        TitleLbl.Text = "ITEM LIMITED SULTAN (BLOXED.GG KATALOG)"
         TitleLbl.ZIndex = 15
         TitleLbl.Parent = HeaderRow
 
@@ -5199,9 +5287,45 @@ local function initAvatarPage()
         makeCorner(CopotSemuaBtn, 4)
         makeStroke(CopotSemuaBtn, Color3.fromRGB(255, 80, 100), 1, 0.6)
 
+        -- KOTAK INPUT CUSTOM LIMITED ID DARI BLOXED.GG
+        local CustomRow = Instance.new("Frame")
+        CustomRow.Size = UDim2.new(1, -8, 0, 24)
+        CustomRow.Position = UDim2.new(0, 4, 0, 30)
+        CustomRow.BackgroundTransparency = 1
+        CustomRow.ZIndex = 14
+        CustomRow.Parent = ContentFrame
+
+        local CustomIdBox = Instance.new("TextBox")
+        CustomIdBox.Size = UDim2.new(1, -84, 1, 0)
+        CustomIdBox.BackgroundColor3 = Color3.fromRGB(22, 22, 28)
+        CustomIdBox.PlaceholderText = "Paste Asset ID Item dari Bloxed.gg..."
+        CustomIdBox.PlaceholderColor3 = Color3.fromRGB(110, 110, 120)
+        CustomIdBox.Text = ""
+        CustomIdBox.Font = Enum.Font.Code
+        CustomIdBox.TextSize = 8.5
+        CustomIdBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+        CustomIdBox.ClearTextOnFocus = false
+        CustomIdBox.ZIndex = 15
+        CustomIdBox.Parent = CustomRow
+        makeCorner(CustomIdBox, 5)
+        makeStroke(CustomIdBox, Color3.fromRGB(255, 255, 255), 1, 0.8)
+
+        local CustomAddBtn = Instance.new("TextButton")
+        CustomAddBtn.Size = UDim2.new(0, 80, 1, 0)
+        CustomAddBtn.Position = UDim2.new(1, -80, 0, 0)
+        CustomAddBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+        CustomAddBtn.Text = "+ PASANG ID"
+        CustomAddBtn.Font = Enum.Font.GothamBold
+        CustomAddBtn.TextSize = 7.5
+        CustomAddBtn.TextColor3 = Color3.fromRGB(0, 0, 0)
+        CustomAddBtn.Active = true
+        CustomAddBtn.ZIndex = 15
+        CustomAddBtn.Parent = CustomRow
+        makeCorner(CustomAddBtn, 5)
+
         local LScroll = Instance.new("ScrollingFrame")
-        LScroll.Size = UDim2.new(1, -8, 1, -30)
-        LScroll.Position = UDim2.new(0, 4, 0, 26)
+        LScroll.Size = UDim2.new(1, -8, 1, -58)
+        LScroll.Position = UDim2.new(0, 4, 0, 56)
         LScroll.BackgroundTransparency = 1
         LScroll.ScrollBarThickness = 3
         LScroll.ScrollBarImageColor3 = Color3.fromRGB(255, 255, 255)
@@ -5326,6 +5450,36 @@ local function initAvatarPage()
             end)
         end
 
+        -- Pasang Custom Asset ID dari Bloxed.gg
+        CustomAddBtn.Activated:Connect(function()
+            local cId = tonumber(CustomIdBox.Text:gsub("%s+", ""))
+            if not cId then return end
+            CustomAddBtn.Text = "LOADING..."
+            task.spawn(function()
+                local myChar = LP.Character
+                if myChar then
+                    local ok, objs = pcall(function() return game:GetObjects("rbxassetid://" .. tostring(cId)) end)
+                    if ok and objs and #objs > 0 then
+                        for _, obj in ipairs(objs) do
+                            pcall(function()
+                                if obj:IsA("Accessory") then
+                                    weldAccessoryToCharacter(myChar, obj)
+                                    stackedLimitedAccessories[cId] = obj
+                                end
+                            end)
+                        end
+                        CustomAddBtn.Text = "[OK] TERPASANG"
+                        task.wait(1.2)
+                        CustomAddBtn.Text = "+ PASANG ID"
+                        return
+                    end
+                end
+                CustomAddBtn.Text = "[X] GAGAL"
+                task.wait(1.2)
+                CustomAddBtn.Text = "+ PASANG ID"
+            end)
+        end)
+
         CopotSemuaBtn.Activated:Connect(function()
             for id, inst in pairs(stackedLimitedAccessories) do
                 pcall(function()
@@ -5382,7 +5536,6 @@ local function initAvatarPage()
             makeCorner(card, 6)
             makeStroke(card, Color3.fromRGB(255, 255, 255), 1, 0.82)
 
-            -- Gambar Thumbnail Resmi Animasi Asset
             local thumb = Instance.new("ImageLabel")
             thumb.Size = UDim2.new(0, 36, 0, 36)
             thumb.Position = UDim2.new(0, 4, 0, 4)
@@ -5476,7 +5629,7 @@ local function initAvatarPage()
     end
 
     -- =========================================================================
-    -- VIEW 5: SUB-TAB "SEPATU" (SNEAKERS RESMI DENGAN GAMBAR ASSET MUNCUL 100%)
+    -- VIEW 5: SUB-TAB "SEPATU" (SNEAKERS RESMI + CUSTOM ID INPUT)
     -- =========================================================================
     local function renderSepatuView()
         clearContent()
@@ -5489,13 +5642,48 @@ local function initAvatarPage()
         TitleLbl.TextSize = 10
         TitleLbl.TextColor3 = Color3.fromRGB(255, 255, 255)
         TitleLbl.TextXAlignment = Enum.TextXAlignment.Left
-        TitleLbl.Text = "KATALOG SEPATU & SNEAKERS LENGKAP (LAYERED SHOES)"
+        TitleLbl.Text = "KATALOG SEPATU & SNEAKERS (LAYERED CLOTHING SHOES)"
         TitleLbl.ZIndex = 14
         TitleLbl.Parent = ContentFrame
 
+        local CustomRow = Instance.new("Frame")
+        CustomRow.Size = UDim2.new(1, -8, 0, 24)
+        CustomRow.Position = UDim2.new(0, 4, 0, 28)
+        CustomRow.BackgroundTransparency = 1
+        CustomRow.ZIndex = 14
+        CustomRow.Parent = ContentFrame
+
+        local ShoeIdBox = Instance.new("TextBox")
+        ShoeIdBox.Size = UDim2.new(1, -84, 1, 0)
+        ShoeIdBox.BackgroundColor3 = Color3.fromRGB(22, 22, 28)
+        ShoeIdBox.PlaceholderText = "Paste Shoe Asset ID dari Catalog..."
+        ShoeIdBox.PlaceholderColor3 = Color3.fromRGB(110, 110, 120)
+        ShoeIdBox.Text = ""
+        ShoeIdBox.Font = Enum.Font.Code
+        ShoeIdBox.TextSize = 8.5
+        ShoeIdBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+        ShoeIdBox.ClearTextOnFocus = false
+        ShoeIdBox.ZIndex = 15
+        ShoeIdBox.Parent = CustomRow
+        makeCorner(ShoeIdBox, 5)
+        makeStroke(ShoeIdBox, Color3.fromRGB(255, 255, 255), 1, 0.8)
+
+        local ShoeAddBtn = Instance.new("TextButton")
+        ShoeAddBtn.Size = UDim2.new(0, 80, 1, 0)
+        ShoeAddBtn.Position = UDim2.new(1, -80, 0, 0)
+        ShoeAddBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+        ShoeAddBtn.Text = "+ PASANG SEPATU"
+        ShoeAddBtn.Font = Enum.Font.GothamBold
+        ShoeAddBtn.TextSize = 7
+        ShoeAddBtn.TextColor3 = Color3.fromRGB(0, 0, 0)
+        ShoeAddBtn.Active = true
+        ShoeAddBtn.ZIndex = 15
+        ShoeAddBtn.Parent = CustomRow
+        makeCorner(ShoeAddBtn, 5)
+
         local SScroll = Instance.new("ScrollingFrame")
-        SScroll.Size = UDim2.new(1, -8, 1, -30)
-        SScroll.Position = UDim2.new(0, 4, 0, 26)
+        SScroll.Size = UDim2.new(1, -8, 1, -56)
+        SScroll.Position = UDim2.new(0, 4, 0, 54)
         SScroll.BackgroundTransparency = 1
         SScroll.ScrollBarThickness = 3
         SScroll.ScrollBarImageColor3 = Color3.fromRGB(255, 255, 255)
@@ -5593,6 +5781,35 @@ local function initAvatarPage()
                 end)
             end)
         end
+
+        ShoeAddBtn.Activated:Connect(function()
+            local sId = tonumber(ShoeIdBox.Text:gsub("%s+", ""))
+            if not sId then return end
+            ShoeAddBtn.Text = "LOADING..."
+            task.spawn(function()
+                local myChar = LP.Character
+                if myChar then
+                    local ok, objs = pcall(function() return game:GetObjects("rbxassetid://" .. tostring(sId)) end)
+                    if ok and objs and #objs > 0 then
+                        for _, obj in ipairs(objs) do
+                            pcall(function()
+                                if obj:IsA("Accessory") then
+                                    weldAccessoryToCharacter(myChar, obj)
+                                end
+                            end)
+                        end
+                        ShoeAddBtn.Text = "[OK] TERPASANG"
+                        task.wait(1.2)
+                        ShoeAddBtn.Text = "+ PASANG SEPATU"
+                        return
+                    end
+                end
+                ShoeAddBtn.Text = "[X] GAGAL"
+                task.wait(1.2)
+                ShoeAddBtn.Text = "+ PASANG SEPATU"
+            end)
+        end)
+
         SScroll.CanvasSize = UDim2.new(0, 0, 0, #SEPATU_PACKS * 50 + 20)
     end
 
