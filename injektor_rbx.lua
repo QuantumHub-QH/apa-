@@ -10150,7 +10150,7 @@ headless618263746
         StatusLbl.TextSize = 8
         StatusLbl.TextColor3 = Color3.fromRGB(140, 140, 155)
         StatusLbl.TextXAlignment = Enum.TextXAlignment.Left
-        StatusLbl.Text = "Memuat database avatar..."
+        StatusLbl.Text = "Database 5.344 avatar siap - memuat..."
         StatusLbl.ZIndex = 14
         StatusLbl.Parent = ContentFrame
 
@@ -10222,20 +10222,9 @@ headless618263746
             local img = Instance.new("ImageLabel")
             img.Size = UDim2.new(1, -6, 0, 50)
             img.Position = UDim2.new(0, 3, 0, 3)
-            img.BackgroundColor3 = Color3.fromRGB(28, 28, 34)
-            if uid and tonumber(uid) and tonumber(uid) > 0 then
-                img.Image = "rbxthumb://type=Avatar&id=" .. tostring(uid) .. "&w=100&h=100"
-            else
-                img.Image = "rbxthumb://type=AvatarHeadShot&id=1&w=100&h=100"
-                task.spawn(function()
-                    local s, realId = pcall(function() return Players:GetUserIdFromNameAsync(uname) end)
-                    if s and realId and card and card.Parent then
-                        uid = realId
-                        img.Image = "rbxthumb://type=Avatar&id=" .. tostring(realId) .. "&w=100&h=100"
-                        if tagL and tagL.Parent then tagL.Text = "ID:" .. tostring(realId) end
-                    end
-                end)
-            end
+            img.BackgroundColor3 = Color3.fromRGB(35, 35, 42)
+            img.BackgroundTransparency = 0
+            img.Image = ""
             img.ScaleType = Enum.ScaleType.Fit
             img.ZIndex = 16
             img.Parent = card
@@ -10260,9 +10249,31 @@ headless618263746
             tagL.Font = Enum.Font.Code
             tagL.TextSize = 7
             tagL.TextColor3 = Color3.fromRGB(130, 130, 145)
-            tagL.Text = tag or ("ID:" .. tostring(uid))
+            tagL.Text = tag or "AVATAR"
             tagL.ZIndex = 16
             tagL.Parent = card
+
+            -- Load thumbnail
+            if uid and tonumber(uid) and tonumber(uid) > 0 then
+                -- uid sudah diketahui: set langsung tanpa async
+                img.Image = "rbxthumb://type=Avatar&id=" .. tostring(uid) .. "&w=100&h=100"
+                tagL.Text = "ID:" .. tostring(uid)
+            else
+                -- Delay acak supaya tidak banjir API sekaligus (1-8 detik random per card)
+                local delayTime = math.random(10, 80) * 0.1
+                task.delay(delayTime, function()
+                    if not card or not card.Parent then return end
+                    local ok2, realId = pcall(function() return Players:GetUserIdFromNameAsync(uname) end)
+                    if ok2 and realId and tonumber(realId) and tonumber(realId) > 0 then
+                        if img and img.Parent then
+                            img.Image = "rbxthumb://type=Avatar&id=" .. tostring(realId) .. "&w=100&h=100"
+                        end
+                        if tagL and tagL.Parent then
+                            tagL.Text = "ID:" .. tostring(realId)
+                        end
+                    end
+                end)
+            end
 
             card.Activated:Connect(function()
                 for _, c2 in ipairs(GridScroll:GetChildren()) do
@@ -10278,7 +10289,7 @@ headless618263746
             return card
         end
 
-        local currentActiveList = DB_5000
+                local currentActiveList = DB_5000
         local currentListOffset = 1
         local currentActiveTag = "5000-AVATAR"
 
@@ -10293,7 +10304,12 @@ headless618263746
 
             for i = startIdx, endIdx do
                 local uName = currentActiveList[i]
-                makeCard(0, uName, currentActiveTag, i)
+                local ok_mc, err_mc = pcall(function()
+                    makeCard(0, uName, currentActiveTag, i)
+                end)
+                if not ok_mc then
+                    StatusLbl.Text = "[ERR CARD] " .. tostring(err_mc)
+                end
             end
 
             currentListOffset = endIdx + 1
@@ -10387,7 +10403,7 @@ headless618263746
             fb.Size = UDim2.new(0, 48, 1, 0)
             fb.BackgroundColor3 = Color3.fromRGB(24, 24, 30)
             fb.Text = fName
-            fb.Font = Enum.Font.GothamB
+            fb.Font = Enum.Font.GothamBold
             fb.TextSize = 8
             fb.TextColor3 = Color3.fromRGB(190, 190, 205)
             fb.Parent = FilterRow
@@ -10481,7 +10497,13 @@ headless618263746
             end
         end)
 
-        loadFilter("SEMUA")
+        -- Wrap loadFilter dalam pcall supaya error terlihat di layar
+        local ok_lf, err_lf = pcall(function()
+            loadFilter("SEMUA")
+        end)
+        if not ok_lf then
+            StatusLbl.Text = "[ERROR] " .. tostring(err_lf)
+        end
     end
 
     -- =========================================================================
