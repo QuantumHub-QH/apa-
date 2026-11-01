@@ -3935,8 +3935,552 @@ initReplacerPage()
 -- PAGE 6: AVATAR CHANGER V5 (INFINITE 5000+ AVATARS, BLOXED.GG LIMITEDS, R6/R15 BODY)
 -- =====================================================
 local function initAvatarPage()
-    -- === DATABASE 5000: 5.000 ROBLOX AVATAR PRESET (SULTAN, COWO, CEWE, HIP-HOP) ===
+    -- === DATABASE 5000: 5.344 ROBLOX AVATAR ASLI DARI USER ===
     local DATABASE_5000_RAW = [[
+TraderPhillip
+TraderShaman
+Trader_GrowAGardens
+Trader_rr0
+trader_KING19
+traders_tp9
+TraderAcc_12
+trader_nptwROBLOX
+Trader_dag
+trader_boy444
+traderiti
+TRADER4447
+TRADER_1207
+traderfrfr
+Frenchekebabs
+12yoandrei
+Lioneltahiirrr
+mozzarelaaffumicata
+Ynalee12
+DenionGaming36
+ribamoy231
+sammyio046
+Raim12943
+Ziyahpittma
+okeypiye
+princenaithan2016
+jaren_2323
+its_ted37
+jamal9149
+Clate98
+Deucey6833
+quest_12558
+Resad1929
+Jessee217
+JABESRAM
+pee567zxr
+guldan_1232
+Kindgirltt57
+Xebectherealone
+Renoisanseau065
+hoi_pet1234
+MR_DARK57312
+MASARAPNAKARL
+khoa9859
+Hamza_19269
+BIZZ_MEH
+Naninoenoe
+edress415
+Jamoran_4567
+FischDavid_1
+richmo370
+richpremiumguyz
+rich_j74
+Richestheestallion
+Rich_2631
+richcoonie1
+rich_53705
+rich200022
+richasaurr_18
+Richboyuknow7
+richzin10
+RIChy_986
+RICH_NEWBEAA
+Richboycat_ninja1
+RICH_35353
+RichmanMIX
+Rich42899
+Richi76501
+RICH200927
+richbaby2010
+Richist503
+richardricharlisson
+RichchangYAYA2
+Richard019BR
+richard1826474
+richnicole8
+RICHMONDKILLER
+Richytot101
+RICHINOVA11011
+Richafr4tty
+Riche123228
+Riche_S2
+richiemich5
+richuerta2010
+Rich_Wich
+Rich_xp3
+Rich_hala
+richmode54
+richmael112
+Rich36079
+richelyson755
+Rich_explosions
+RichDerKing
+RichGamerZAyAAN
+richhasanewacc
+Richvvoy
+rich15569
+RichKidStudio
+RichXD1232
+Richies70798
+sultan
+sultan1443xf
+sultandafgj
+Sultan_26o
+Sultan1324565
+sultankhalaf13
+SultanSuleiman151
+Sultan5saleh
+Sultan763698
+Sultan1234536
+Sultanisherelo
+Sultan_zh5
+Sultan_gojo8
+sultan627384
+Sultan09443206
+Sultan_0120123
+Sultanyola
+sultan_7643
+sultan1234jj
+Sultan_GZ122
+sultanmansour101
+sultan_62217
+sultanahagung
+Sultan727288
+Sultan341523
+SULTAN_ALPARIZIX
+sultanshh7
+sultan600097
+sultan28160
+Sultan485832
+Sultanenrn
+Sultan_Baghlani
+sultan_1a23
+Sultan01721
+Sultan_2018piu
+Sultan4004000
+sultanmhd00
+sultangacor38
+SultanMohmmed_6
+Sultan_st2
+Sultan511739
+sultano0o2020M
+sultan354883
+Sultanizoom
+sultan112233m
+Sultan1998sa64
+sultan293762
+Sultannaqbi9
+Sultannura19
+sultanhjw
+collector
+Collector823
+CollectorKamila
+Collectornr2
+Collector8262
+CollectorOfMystery
+Collector000000
+catttttotitanic
+Krazy_Drei844
+krendel2211
+Ju_UvU
+lefilo349
+CutieLea_One
+5MeWmEtc
+LoTusssskaka
+goldrainbow235
+Artem2w12
+Marcel0903ffsj
+tutanadam2211
+railyOMG123
+Cacti434
+legandaryofthelegand
+fiart10
+aidensad20
+ALTER_LEGEND
+POHRTHO_298
+Notrawd64
+32XzackX23
+RobloxCreator3rdArm
+Vuryat
+nabinsubedi56
+Matvey79606
+givemeknife2312
+Matheus_Kaiser10
+dylynthedinosaur
+kuzeyemir16
+memegamer258
+dee_ba6
+RenoTouch
+The_collector0830
+Black_Owl0009
+ffauzanm8
+You_notATopg
+Goldoncow527
+Jalisa_G
+nawafn25
+Sadwerswad2
+The_itemCollector781
+k1u2b3i4k
+KenZSwordd
+ShadowWolfy_16
+Shadow_Sheronsky
+Shadow_sight11
+Shadow6t99
+shadow32681912
+shadow930175
+SHADOWBOOM_CHAOS2012
+SHADOW_EXE773
+shadow186787
+shadowxflash16
+shadow65513
+Shadow_Katara25
+ShadowVortexx203
+ShadowTVman748
+ShadowTempest91
+shadow_xd695
+SHADOW_57825
+shadow_eyad60
+Shadow2432026
+Shadow858298
+ShadowBright1CZ
+shadow321es23
+Shadow_diablos222
+ShadowDragonHunter0
+shadow_legend721
+Shadow6868467
+Shadow_sinxn1
+shadow_jett9
+Shadow_man0218
+SHADOWMONARC957
+ShadowDeath2727
+ShadowBhaii1
+Shadowdragonbeast08
+ShadowLink1029
+Shadow_Love688
+Shadow_eieiUwU
+ShadowDarkWolf74
+Shadoww_1309
+shadow0908228
+Shadow404jr
+shadowstrikeBlaster
+Shadow_madness013
+ShadowEagle7494
+SHADOWSQUADKING
+shadowcrafter2017
+Shadow191615
+Shadowmaster4701
+Shadow115631
+SHADOW7CR92
+john
+Johnant0709
+Johnthatteaches123
+Johnnnnnnnnnnnnnnn66
+John_Moe20
+johnnywydd
+Johnfratila
+Johnmajchrowski
+johnisnadin6767
+john0o883
+JOHN_009218
+John_John8759
+Johnthegamerboilol
+john_noob766
+john238292
+John_41971
+Johnstone409
+John_57316
+john_445455
+John_rick1098
+John2599059
+John_t67
+john567145
+JohnathanXXZ
+John9262936
+johnkennedyAE
+John_doe5306
+johnheidud
+johnmaun123
+johnvicent7
+John1233784
+JOHN234033
+john70563
+johncarlogwapo125
+john_eramm
+Johnnyjet12
+John538532
+John9797569
+John231333131
+john17952
+John175049
+johnny12711
+JOHNMICHAEL9024
+johnpork10908
+JohnreyRun
+John123_5h
+john24042013
+john_53227
+Johnny_boy1008
+starshipgirl
+starslightz2z
+starwnu
+star12456hvhggg
+star_42067
+Star672377
+starfirefan401
+starxolivia24
+Star_10551
+star_s22
+starspeIl
+Starlight21454
+Starcutey43
+Stars_CouZz2
+Starly_Stellar0
+starrbuurst
+Starplexo
+Star_LaryYT
+StarsCrush2017
+Stars_icecream304
+Starloba_1120
+Star_hello469
+Starcake128
+star676617
+starAylaJ
+Star010522
+star_ssie
+StarGalaxyPlay
+starydance
+Stargalaxybomb
+Starbucks_1005
+Star_221861
+StarlyJustForFun
+Star2011770
+star_437522
+StaRRYMN
+StarryAmystic
+star150790
+star89883
+star81226
+Star_kk29
+Starking2862
+Stars03000
+stars4525
+Starmomsohappy
+star_63136
+starm1l
+Star_l0ver10
+Starinthesky331
+Star354776
+fire
+Firefogo59
+firekid5321
+firesinside
+fire667456
+FireCodedexe
+Fire_Nike80
+firetrkbowsercreeper
+Fire20090227
+FIRE89PLAYSGAME40
+fireglitch19
+fire_11166
+firelordisthe
+Fire111795
+firecrow1110
+fireboy1662
+Firexgurl
+FireGhost5034
+fire_fist201
+Fire_Legend112
+firestyel51
+fire_jason1234975
+Firepottt
+Firelol8119
+fire_Deku123
+FireSoulja
+fireBlades2013
+Fireplaysga
+FiReMaG3
+fireking21401
+Fire_lefeuquibrule
+FIRE98GR
+Fire_space005
+fired362
+fireflight111
+firemanforyou26
+fireplacedemon
+Firephoenix095
+Fire303_LavaLord
+fireferrt16
+Firecharge1227
+fireball_bird1110
+Firebeast1000
+Fire_Dr4gon06
+Fire81999
+Fire_proboi
+fire3331
+firelol383
+lordcant666
+LordgonZas
+lorde_sss
+lordesainte
+LORD_EMPERES
+lord_zoro198
+Lordthedark123
+LordzGreed
+lord_OFdarkness3
+LORDGHL1
+Lord_nelsonte2
+Lorde00889
+Lord_Identity1
+LordWillem2000
+Lordpudden
+lord503503
+Lordkillerrobot
+Lord_Rukkhadevata4
+lord_opon
+lord_top1ggvpo
+LORD_isox
+lordcamp_3
+LORDq778
+LordOf_Fiends
+Lord_Whxte
+LORDSMALLD
+lordgwapo522
+Lord230909
+lord19465
+Lord50956
+Lordbs101
+Lordezin_71
+LORD_dg18
+lordtk_10
+lordsakai19allt
+LORDD909
+Lordsmisfortune
+Lord_mumbach
+lordhelmet2
+LORD_230309
+lordlight31
+LORDS_1905
+lordzinpro
+Lord_mjrn
+Lord128GM4
+LORD_DAM0
+Lord_34519
+lord_voledem0rt
+god109717
+GODEmperor520
+godsupersayya
+Godkin_900
+God829262
+god_soueu2
+GODFAILO
+Godisnicetous_alt
+GODsDAD_me
+GODGOD2413
+god_zazaq
+gods_pell9
+God_35213
+GOD_669990
+GodMariohaha
+GodVR2000
+GOD346595
+Godmega63
+godoftheroblox2013
+goddymytry14
+godxl09
+God_Sempaiyn
+GODlol_op
+God_Galactus123
+God222052
+Godehdk_8
+God_nghia120
+Godoffear02
+GODof4o4
+godkiller_45673
+God_8216
+godroncher
+godsawyr53
+god122774
+godeden0
+Godlygigaz
+Godsoak7
+GOD_67087
+godrihan1234
+god_70101
+Godofallsree
+GOD_KUYEE
+god_73214
+GODSNIPER904
+godine55
+GodHakkaii_Uchirra
+god_757877
+Godofdestruction2738
+God1120531
+godas_29
+legendsfhh
+LEGEND_yt001
+legendlakshya16
+legend_gokhan24
+Legend00415
+legend_32496
+LegendProBanda1233
+legendes8z
+LeGeNDK_73
+LEGEND105815
+LegendFulmer4
+Legend91783
+LegendGroup7
+Legendistooflyy3
+Legend_gaming679
+LEGEND17336_alt
+Legendplayer102
+LegendaryZecro10
+legendboy13461
+Legendgamerff77
+LegendTinyBearCrysta
+LEGENDA7D
+legendjaskirat
+legend6996996
+legendneverdie12361
+Legend_mior77
+legend_p134
+Legendsroleadhg
+legendscrown567
+Legendchotuking
+legend_ofheroes
+legendkiller115935
+legendarylll5
+LEGEND453277
+legendsoftheGodss
+LEGENDary21427
+Legend20636
+Legende_fishy
+legends_island
+LegendaryBro60
+legends123body1
+Legendized
+Legend101188
+Legendohene25
+Legend_20088
+LegendALT_acc1
+legend91109
+LegendsOfTheRagnarok
+legend11525
+Legendflash321
 hiphop1
 Omarieosgood
 hiphop123301
@@ -4578,7 +5122,6 @@ noobboyAM
 Moiretzu123454
 NOOBpoor2193
 Coltenezzz
-roblox_user_4537763412
 GUIGUEMIS
 yassen23228
 Lalouve_330
@@ -4785,54 +5328,11 @@ Diva2_6746
 Diva776767
 diva_sasa2
 DIVA1234568795
-richpremiumguyz
-Richestheestallion
-Rich_2631
-richmo370
-rich_j74
-richcoonie1
-rich_53705
-rich200022
 Richelyr2
 Richiedoos
 RichNat_911
-Richard019BR
-RICHINOVA11011
-Richytot101
-Richafr4tty
-richardricharlisson
-Richist503
-RICH200927
-Richi76501
-richbaby2010
-RichchangYAYA2
-Rich_xp3
-Rich_hala
-richmode54
-Riche123228
-Riche_S2
-richiemich5
-richuerta2010
-Rich_Wich
-RichmanMIX
-Rich42899
-richard1826474
-richnicole8
-richmael112
-Rich36079
-richelyson755
-Rich_explosions
-RichDerKing
-RichGamerZAyAAN
-richhasanewacc
-Richies70798
 Richard_sunter
-RICHMONDKILLER
 richardking2345
-rich15569
-RichKidStudio
-Richvvoy
-RichXD1232
 Richachmadi
 Rich_VampireKing
 Dominuschamp14
@@ -4885,8 +5385,6 @@ banafsa9ozi
 Im_nottravis0
 Augustrivera09
 kumpeeezxd
-warrior king
-THE KING 187
 kingthegoat_5677
 Kingkyray1019
 kingsleyisyopapi
@@ -4938,35 +5436,12 @@ kingevbuom123
 GodofMzp
 god_usopi3
 godTaka22500
-God1120531
 GodZackery
-Godofdestruction2738
-godas_29
 godziila201721
 GOD01302
-gods_pell9
-God_35213
 godapple96
 GodMinator_166
-GOD_KUYEE
-god_73214
-GODlol_op
-God_Galactus123
 godofdarkness0808
-GODEmperor520
-god109717
-Godkin_900
-godsupersayya
-Godmega63
-godoftheroblox2013
-goddymytry14
-godxl09
-God_Sempaiyn
-God222052
-God_nghia120
-Godehdk_8
-Godoffear02
-GODof4o4
 Godna43
 God_op912
 GodPlayer201336
@@ -4974,9 +5449,7 @@ God_vuk
 godchadfino
 Godthepro1237
 godgamer178983
-god_soueu2
 Godblesing62
-God829262
 godsw65
 Godzia512
 GOD3488
@@ -4984,7 +5457,6 @@ godlyslayer2525
 GODLIKE6991
 GODSniper145
 God_dragon57
-god_zazaq
 elitefederal01
 EliteNoNoWil
 Eliterami77
@@ -5445,7 +5917,6 @@ Gizmomc22
 Gweenbob
 67labyb67
 slayqueeen578
-roblox_user_3355482927
 cRoCs_GiRlz
 Johnny_monog2
 BlackDahliaRose7
@@ -5725,7 +6196,6 @@ Rich222261
 RICH24168
 Rich22jralt
 Rich2007fa
-Shadow and Kirby
 shadowshark123644
 shadow78_edit
 ShadowM09814
@@ -6233,7 +6703,6 @@ sonic02923
 ScareMyBoo
 dupa54321
 ee8xx8
-roblox_user_2520993830
 Masoncj4
 BrandonHjustdontcare
 Roboxerrrrrr
@@ -6315,7 +6784,6 @@ alphaf111
 Alpha_112211
 alphaxd_28
 ALPHA1399392
-Tama girl
 Girlbye_256
 GirlAlt1414
 Girl607594
@@ -6515,39 +6983,11 @@ Bubble36456
 Bubble367710
 Bubble31SM
 bubble32130
-collector
-Collector823
-Collectornr2
-Collector000000
-CollectorKamila
-Collector8262
-CollectorOfMystery
-catttttotitanic
-Krazy_Drei844
-krendel2211
-Artem2w12
-goldrainbow235
-5MeWmEtc
-Ju_UvU
 LANCERAYVIN123
-LoTusssskaka
 Junyofme
-lefilo349
-Marcel0903ffsj
-tutanadam2211
 KukuNuna0814
-givemeknife2312
-Matheus_Kaiser10
-POHRTHO_298
-Notrawd64
-kuzeyemir16
-memegamer258
-dee_ba6
 letibi5
-ALTER_LEGEND
-railyOMG123
 EnderCraft755
-CutieLea_One
 Jeffrey_dorr
 Mamix373
 Mextro_power
@@ -6558,13 +6998,11 @@ Heni123757
 JackKevin34
 SuflazYT
 messimaxyu
-aidensad20
 Quality_Quantity0
 ahmedjaceylow12
 Monstersx_8
 Leofeldmannn
 TheshadowgamerX
-32XzackX23
 Korblox1234160
 Korblox_0019
 Korblox_0001
@@ -6615,34 +7053,7 @@ soybeni495
 IBBY45449
 SnorlaxIbo
 geogian_4
-lord vol
-Lord Vader
-Lord128GM4
-Lord_34519
-LORD_DAM0
-lord_voledem0rt
 LoRdq911
-LordzGreed
-Lordthedark123
-lord_zoro198
-lord_OFdarkness3
-LORDSMALLD
-lordgwapo522
-lord_opon
-lord_top1ggvpo
-LORD_isox
-lordcamp_3
-LORDq778
-Lord230909
-Lord50956
-lord19465
-lordcant666
-LordgonZas
-lorde_sss
-lordhelmet2
-lordlight31
-LORD_230309
-Lord_mumbach
 Lord_skellington
 LORDxs7
 lord_powbr
@@ -6657,8 +7068,6 @@ lord_david81
 lord987819
 Lordgaming997
 Lordiq99
-LordOf_Fiends
-Lord_Whxte
 Lord_player921
 lord7890948
 Lordffyt4
@@ -6889,7 +7298,6 @@ rzygawa2137
 SuperMAS27
 a284766
 Ronaldo_Camal4
-roblox_user_2334615584
 Talhataki678
 Harjee2017
 SpiderZilla357
@@ -7265,39 +7673,12 @@ dollqueite
 dollyhrtz_rx
 dollcel
 Dollface20132
-sultan
-Sultan09443206
-Sultan_0120123
-Sultan_GZ122
-sultan627384
-Sultan_gojo8
-sultan1234jj
-sultan_7643
-Sultanyola
-sultanahagung
-Sultan727288
-Sultan341523
-SULTAN_ALPARIZIX
-Sultan1234536
-Sultanisherelo
-Sultan5saleh
-Sultan763698
-Sultan_zh5
 sultan44907
 sultandirga1708
 Sultanalkoo90
 Sultan_12348580
 Sultan12343100
 SULTAN_6099
-sultan600097
-sultan28160
-sultanshh7
-Sultan485832
-Sultanenrn
-sultanmhd00
-sultangacor38
-Sultan4004000
-SultanMohmmed_6
 Sultan82723
 Sultan675448
 sultan29438
@@ -7310,11 +7691,6 @@ sultanfox3
 sultan2345686
 Sultannn12186
 Sultan2saad0
-Sultan_st2
-Sultan511739
-sultano0o2020M
-Sultanizoom
-sultan354883
 Valk4
 imdontmesswitl123
 Ronmes2324
@@ -7928,7 +8304,6 @@ bayg557
 bulabao
 Nikosnockys
 Sonisiwiwwqqww
-roblox_user_4301266355
 riccardoarthaber1
 babypammyy
 AshRetrofan
@@ -8178,34 +8553,6 @@ Richeladipati
 richard_pirata500
 Rich_Dump456
 richarddog5
-sultandafgj
-sultan1443xf
-Sultan1324565
-Sultan_26o
-sultankhalaf13
-SultanSuleiman151
-legendsfhh
-LEGEND_yt001
-legendlakshya16
-legend_gokhan24
-Legend00415
-legend_32496
-Legend101188
-Legende_fishy
-LegendaryBro60
-legends_island
-legends123body1
-Legendohene25
-Legendized
-Legend_20088
-LegendTinyBearCrysta
-legendboy13461
-Legendgamerff77
-LegendALT_acc1
-legend11525
-legend91109
-LegendsOfTheRagnarok
-Legendflash321
 Legend35685868
 legend_2017633
 LegendStudio633
@@ -8339,7 +8686,6 @@ TalitoRafa201472
 tyyyfy6
 pepepacheconumber2
 Hermes_Turkey
-roblox_user_5091116243
 hello_burgelol
 jo_jo05jo
 Lawnmower2155543
@@ -8457,7 +8803,6 @@ Swagsirlot
 swagathswags1234
 Swagger_088
 swagsyaboi
-thunder boy
 boy57049
 boyx977
 boy_30280
@@ -8548,7 +8893,6 @@ paldin25
 yoyori790
 balasa877
 Afro_Ez
-roblox_user_8699505957
 CarlEboy85
 Metruop19
 BLUEEXORCIST42
@@ -8939,8 +9283,27 @@ Headless6015
 headless618263746
 ]]
     local DB_5000 = {}
+    local LIST_HIPHOP = {}
+    local LIST_COWO = {}
+    local LIST_CEWE = {}
+    local LIST_SULTAN = {}
+    local LIST_KORBLOX = {}
+
+    -- Parse dan kategorisasi 5.344 nama langsung saat script berjalan
     for u in string.gmatch(DATABASE_5000_RAW, "[^%s]+") do
         table.insert(DB_5000, u)
+        local low = string.lower(u)
+        if string.find(low, "hiphop") or string.find(low, "rapper") or string.find(low, "drill") or string.find(low, "dahood") or string.find(low, "trap") or string.find(low, "baggy") or string.find(low, "bape") or string.find(low, "graffiti") or string.find(low, "urban") or string.find(low, "baller") or string.find(low, "swag") or string.find(low, "drip") or string.find(low, "jordan") or string.find(low, "hood") then
+            table.insert(LIST_HIPHOP, u)
+        elseif string.find(low, "girl") or string.find(low, "cutie") or string.find(low, "princess") or string.find(low, "queen") or string.find(low, "preppy") or string.find(low, "aesthetic") or string.find(low, "kawaii") or string.find(low, "softie") or string.find(low, "fairy") or string.find(low, "kitty") or string.find(low, "barbie") or string.find(low, "baddie") or string.find(low, "rose") or string.find(low, "pink") or string.find(low, "sweet") or string.find(low, "doll") or string.find(low, "blossom") or string.find(low, "butterfly") or string.find(low, "bubble") or string.find(low, "luna") or string.find(low, "diva") then
+            table.insert(LIST_CEWE, u)
+        elseif string.find(low, "boy") or string.find(low, "eboy") or string.find(low, "slender") or string.find(low, "hoodie") or string.find(low, "badboy") or string.find(low, "skater") or string.find(low, "animeboy") or string.find(low, "streetwear") or string.find(low, "darkboy") or string.find(low, "coolboy") or string.find(low, "chad") or string.find(low, "retroboy") or string.find(low, "ninja") or string.find(low, "prince") or string.find(low, "alpha") then
+            table.insert(LIST_COWO, u)
+        elseif string.find(low, "korblox") or string.find(low, "headless") then
+            table.insert(LIST_KORBLOX, u)
+        else
+            table.insert(LIST_SULTAN, u)
+        end
     end
     -- === DATABASE 1: AVATAR PRESET SULTAN & CREATOR (TOP 100+) ===
     local PRESET_KORBLOX_HEADLESS = {
@@ -9770,7 +10133,7 @@ headless618263746
         FilterRow.ZIndex = 14
         FilterRow.Parent = ContentFrame
 
-        local filterPills = {"SEMUA", "5000 SULTAN", "KORBLOX", "COWO", "CEWE", "SERVER", "TEMAN"}
+        local filterPills = {"SEMUA", "HIPHOP", "COWO", "CEWE", "SULTAN", "KORBLOX", "SERVER", "TEMAN"}
         local filterBtns = {}
 
         local filterUL = Instance.new("UIListLayout")
@@ -9915,6 +10278,34 @@ headless618263746
             return card
         end
 
+        local currentActiveList = DB_5000
+        local currentListOffset = 1
+        local currentActiveTag = "5000-AVATAR"
+
+        local function renderNextChunk(count)
+            count = count or 30
+            local startIdx = currentListOffset
+            local endIdx = math.min(startIdx + count - 1, #currentActiveList)
+            if startIdx > endIdx then
+                LoadMoreBtn.Text = string.format("[V] SEMUA %d AVATAR SUDAH DITAMPILKAN", #currentActiveList)
+                return
+            end
+
+            for i = startIdx, endIdx do
+                local uName = currentActiveList[i]
+                makeCard(0, uName, currentActiveTag, i)
+            end
+
+            currentListOffset = endIdx + 1
+            GridScroll.CanvasSize = UDim2.new(0, 0, 0, GridLayout.AbsoluteContentSize.Y + 10)
+            StatusLbl.Text = string.format("Menampilkan %d dari %d avatar (%s)", totalRenderedCards, #currentActiveList, currentActiveTag)
+            if currentListOffset <= #currentActiveList then
+                LoadMoreBtn.Text = string.format("[+] MUAT 30 LAGI (Ditampilkan %d dari %d)", totalRenderedCards, #currentActiveList)
+            else
+                LoadMoreBtn.Text = string.format("[V] SEMUA %d AVATAR SUDAH DITAMPILKAN", #currentActiveList)
+            end
+        end
+
         local function loadFilter(mode)
             for _, b in ipairs(filterBtns) do
                 if b.Name == mode then
@@ -9927,41 +10318,36 @@ headless618263746
             end
 
             clearCards()
+            currentListOffset = 1
 
-            local db5000Offset = 1
-            if mode == "5000 SULTAN" then
-                StatusLbl.Text = string.format("Database %d Sultan, Cowo, Cewe & HipHop", #DB_5000)
-                local maxShow = math.min(30, #DB_5000)
-                for i = 1, maxShow do
-                    local uName = DB_5000[i]
-                    makeCard(0, uName, "5000-DB", i)
-                end
-                GridScroll.CanvasSize = UDim2.new(0, 0, 0, GridLayout.AbsoluteContentSize.Y + 10)
-            elseif mode == "KORBLOX" then
-                StatusLbl.Text = tostring(#PRESET_KORBLOX_HEADLESS) .. " avatar Korblox & Headless"
-                for i, item in ipairs(PRESET_KORBLOX_HEADLESS) do
-                    makeCard(item.id, item.name, item.tag, i)
-                end
-                GridScroll.CanvasSize = UDim2.new(0, 0, 0, GridLayout.AbsoluteContentSize.Y + 10)
+            if mode == "HIPHOP" then
+                currentActiveList = LIST_HIPHOP
+                currentActiveTag = "HIPHOP"
+                renderNextChunk(30)
             elseif mode == "COWO" then
-                StatusLbl.Text = tostring(#PRESET_COWO) .. " avatar cowo (Cyber, Goth, Y2K, Tryhard)"
-                for i, item in ipairs(PRESET_COWO) do
-                    makeCard(item.id, item.name, item.tag, i)
-                end
-                GridScroll.CanvasSize = UDim2.new(0, 0, 0, GridLayout.AbsoluteContentSize.Y + 10)
+                currentActiveList = LIST_COWO
+                currentActiveTag = "COWO"
+                renderNextChunk(30)
             elseif mode == "CEWE" then
-                StatusLbl.Text = tostring(#PRESET_CEWE) .. " avatar cewe (Preppy, Fairy, Soft, Y2K)"
-                for i, item in ipairs(PRESET_CEWE) do
-                    makeCard(item.id, item.name, item.tag, i)
-                end
-                GridScroll.CanvasSize = UDim2.new(0, 0, 0, GridLayout.AbsoluteContentSize.Y + 10)
+                currentActiveList = LIST_CEWE
+                currentActiveTag = "CEWE"
+                renderNextChunk(30)
+            elseif mode == "SULTAN" then
+                currentActiveList = LIST_SULTAN
+                currentActiveTag = "SULTAN"
+                renderNextChunk(30)
+            elseif mode == "KORBLOX" then
+                currentActiveList = LIST_KORBLOX
+                currentActiveTag = "KORBLOX"
+                renderNextChunk(30)
             elseif mode == "SERVER" then
                 local ps = Players:GetPlayers()
-                StatusLbl.Text = tostring(#ps) .. " pemain di server"
+                StatusLbl.Text = tostring(#ps) .. " pemain di server saat ini"
                 for i, p in ipairs(ps) do
                     makeCard(p.UserId, p.Name, "Server", i)
                 end
                 GridScroll.CanvasSize = UDim2.new(0, 0, 0, GridLayout.AbsoluteContentSize.Y + 10)
+                LoadMoreBtn.Text = "[SERVER] Pemain Server Dimuat"
             elseif mode == "TEMAN" then
                 StatusLbl.Text = "Memuat daftar teman..."
                 task.spawn(function()
@@ -9986,68 +10372,39 @@ headless618263746
                     end
                     GridScroll.CanvasSize = UDim2.new(0, 0, 0, GridLayout.AbsoluteContentSize.Y + 10)
                 end)
+                LoadMoreBtn.Text = "[TEMAN] Daftar Teman Dimuat"
             else
-                -- SEMUA: Gabungkan 100+ avatar awal dari seluruh sumber!
-                for _, v in ipairs(PRESET_KORBLOX_HEADLESS) do makeCard(v.id, v.name, v.tag) end
-                for _, v in ipairs(PRESET_COWO) do makeCard(v.id, v.name, v.tag) end
-                for _, v in ipairs(PRESET_CEWE) do makeCard(v.id, v.name, v.tag) end
-                for _, v in ipairs(PRESET_SPECIAL) do makeCard(v.id, v.name, v.tag) end
-                for _, p in ipairs(Players:GetPlayers()) do makeCard(p.UserId, p.Name, "Server") end
-                StatusLbl.Text = tostring(totalRenderedCards) .. " avatar dimuat (klik [+] untuk tarik ribuan lagi)"
-                GridScroll.CanvasSize = UDim2.new(0, 0, 0, GridLayout.AbsoluteContentSize.Y + 10)
+                -- SEMUA: Tampilkan dari seluruh 5.344 avatar pilihanmu!
+                currentActiveList = DB_5000
+                currentActiveTag = "5344-ALL"
+                renderNextChunk(30)
             end
         end
 
         for _, fName in ipairs(filterPills) do
             local fb = Instance.new("TextButton")
             fb.Name = fName
-            fb.Size = UDim2.new(0, 42, 1, 0)
+            fb.Size = UDim2.new(0, 48, 1, 0)
             fb.BackgroundColor3 = Color3.fromRGB(24, 24, 30)
             fb.Text = fName
-            fb.Font = Enum.Font.GothamBold
-            fb.TextSize = 7.5
+            fb.Font = Enum.Font.GothamB
+            fb.TextSize = 8
             fb.TextColor3 = Color3.fromRGB(190, 190, 205)
-            fb.Active = true
-            fb.ZIndex = 15
-            fb.Parent = FilterRow
-            makeCorner(fb, 4)
-            makeStroke(fb, Color3.fromRGB(255, 255, 255), 1, 0.7)
-            fb.Activated:Connect(function() loadFilter(fName) end)
+            fb.Parent = FilterScroll
+            makeCorner(fb, 5)
             table.insert(filterBtns, fb)
-        end
 
-        -- LOGIC TARIK RIBUAN AVATAR TAMBAHAN SECARA LIVE VIA ROPROXY
-        LoadMoreBtn.Activated:Connect(function()
-            LoadMoreBtn.Text = "MENARIK 50+ AVATAR BARU..."
-            task.spawn(function()
-                local kw = POPULAR_SEARCH_KEYWORDS[currentKeywordIdx] or "roblox"
-                currentKeywordIdx = (currentKeywordIdx % #POPULAR_SEARCH_KEYWORDS) + 1
-
-                local fetchUrl = "https://users.roproxy.com/v1/users/search?keyword=" .. HttpService:UrlEncode(kw) .. "&limit=50"
-                if nextSearchCursor and nextSearchCursor ~= "" then
-                    fetchUrl = fetchUrl .. "&cursor=" .. tostring(nextSearchCursor)
-                end
-
-                local okHttp, res = pcall(function() return httpRequest({ Url = fetchUrl, Method = "GET" }) end)
-                local addedCount = 0
-                if okHttp and res and res.Body then
-                    local okJson, data = pcall(function() return HttpService:JSONDecode(res.Body) end)
-                    if okJson and data and data.data then
-                        nextSearchCursor = data.nextPageCursor or ""
-                        for _, u in ipairs(data.data) do
-                            makeCard(u.id, u.name, kw)
-                            addedCount = addedCount + 1
-                        end
-                    end
-                end
-
-                GridScroll.CanvasSize = UDim2.new(0, 0, 0, GridLayout.AbsoluteContentSize.Y + 10)
-                StatusLbl.Text = string.format("Total %d avatar aktif dimuat (+%d dari '%s')", totalRenderedCards, addedCount, kw)
-                LoadMoreBtn.Text = string.format("[+] TARIK LAGI (+50) [Total: %d]", totalRenderedCards)
+            fb.Activated:Connect(function()
+                loadFilter(fName)
             end)
+        end
+        FilterScroll.CanvasSize = UDim2.new(0, #filterPills * 53 + 10, 0, 0)
+
+        -- TOMBOL MUAT LEBIH BANYAK DARI DATABASE 5.344 AVATAR
+        LoadMoreBtn.Activated:Connect(function()
+            renderNextChunk(30)
         end)
 
-        -- LIVE ROBLOX SEARCH API
         local function executeSearch()
             local q = SearchBox.Text:gsub("^%s+", ""):gsub("%s+$", "")
             if q == "" then return end
