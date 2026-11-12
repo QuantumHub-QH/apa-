@@ -499,8 +499,26 @@ makeStroke(ToggleBtn, Color3.fromRGB(255,255,255), 1.4)
 
 -- =====================================================
 -- QUANTUM HUB UI LOADER (FLUENT LIBRARY - EXACT QUANTUM THEME)
+-- Multi-tier HTTP fallback (game:HttpGet -> request -> http_request)
 -- =====================================================
-local Fluent = loadstring(game:HttpGet("https://raw.githubusercontent.com/CloudyEX/CloudyMain/refs/heads/main/UI.lua"))()
+local Fluent = nil
+local function getUrl(url)
+    local ok, res = pcall(function() return game:HttpGet(url) end)
+    if ok and type(res) == "string" and #res > 0 then return res end
+    local req = (syn and syn.request) or request or http_request or (http and http.request)
+    if req then
+        local ok2, r = pcall(function() return req({Url = url, Method = "GET"}) end)
+        if ok2 and r and r.Body then return r.Body end
+    end
+    return nil
+end
+
+local fluentSource = getUrl("https://raw.githubusercontent.com/CloudyEX/CloudyMain/refs/heads/main/UI.lua")
+if fluentSource then
+    Fluent = loadstring(fluentSource)()
+else
+    error("[Quantum] Gagal mendownload Fluent UI library!")
+end
 
 local Window = Fluent:CreateWindow({
     Title = "Quantum | ID",
@@ -8357,14 +8375,6 @@ closeBtn.Activated:Connect(function()
 end)
 
 -- promo removed
-	local orig = "💬 SALURAN WA"
-	waBtn.Text = "✓ COPIED!"
-	task.delay(1.5, function()
-		if waBtn.Parent then
-			waBtn.Text = orig
-		end
-	end)
-end)
 
 mk("Frame", { Size = UDim2.new(1, -32, 0, 1), Position = UDim2.new(0, 16, 0, 48), BackgroundColor3 = Theme.CardBorder, BorderSizePixel = 0, Parent = mainFrame })
 -- bar loading di bawah header (aktif saat avatar / item sedang diproses)
