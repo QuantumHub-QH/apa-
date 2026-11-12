@@ -498,356 +498,73 @@ makeStroke(ToggleBtn, Color3.fromRGB(255,255,255), 1.4)
 
 
 -- =====================================================
--- 2. QUANTUM MAIN WINDOW (SIDEBAR KIRI + TAB CONTAINER KANAN)
+-- QUANTUM HUB UI LOADER (FLUENT LIBRARY - EXACT QUANTUM THEME)
 -- =====================================================
-local MainFrame = Instance.new("Frame")
-MainFrame.Name = "QuantumMainFrame"
-MainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
-MainFrame.Position = UDim2.fromScale(0.5, 0.5)
-MainFrame.Size = UDim2.new(0, 800, 0, 460)
-MainFrame.BackgroundColor3 = Color3.fromRGB(13, 14, 18)
-MainFrame.BorderSizePixel = 0
-MainFrame.ClipsDescendants = true
-MainFrame.Active = true
-MainFrame.ZIndex = 10
-MainFrame.Parent = ScreenGui
-makeCorner(MainFrame, 10)
-makeStroke(MainFrame, Color3.fromRGB(48, 52, 72), 1.5)
+local Fluent = loadstring(game:HttpGet("https://raw.githubusercontent.com/CloudyEX/CloudyMain/refs/heads/main/UI.lua"))()
 
--- Glow accent line at top
-local TopAccent = Instance.new("Frame")
-TopAccent.Size = UDim2.new(1, 0, 0, 2)
-TopAccent.BackgroundColor3 = Color3.fromRGB(88, 101, 242)
-TopAccent.BorderSizePixel = 0
-TopAccent.ZIndex = 25
-TopAccent.Parent = MainFrame
+local Window = Fluent:CreateWindow({
+    Title = "Quantum | ID",
+    TitleIcon = "lucide/atom",
+    SubTitle = "Studio Lite PC",
+    MinWindowSize = Vector2.new(440, 250),
+    Size = UDim2.fromOffset(580, 380),
+    Acrylic = false,
+    Theme = "Cloudy",
+    MinimizeKey = Enum.KeyCode.LeftControl,
+    MinimizeIcon = "rbxassetid://109388426525855"
+})
 
--- TOP BAR (HEADER)
-local TopBar = Instance.new("Frame")
-TopBar.Size = UDim2.new(1, -16, 0, 36)
-TopBar.Position = UDim2.new(0, 8, 0, 6)
-TopBar.BackgroundColor3 = Color3.fromRGB(18, 20, 26)
-TopBar.BorderSizePixel = 0
-TopBar.Active = true
-TopBar.ZIndex = 11
-TopBar.Parent = MainFrame
-makeCorner(TopBar, 7)
-makeStroke(TopBar, Color3.fromRGB(38, 42, 58), 1, 0)
+-- QUANTUM TABS (Navigasi Kiri Penuh)
+local Tabs = {
+    Toolbox  = Window:AddTab({ Title = "Toolbox",     Icon = "lucide/package" }),
+    RBXM     = Window:AddTab({ Title = "Insert RBXM", Icon = "lucide/file-code" }),
+    Text3D   = Window:AddTab({ Title = "3D Text",     Icon = "lucide/type" }),
+    Replacer = Window:AddTab({ Title = "Replacer",    Icon = "lucide/replace" }),
+    Avatar   = Window:AddTab({ Title = "Avatar",      Icon = "lucide/user" }),
+}
 
--- Header Logo / Icon
-local TitleIcon = Instance.new("TextLabel")
-TitleIcon.Size = UDim2.new(0, 28, 1, 0)
-TitleIcon.Position = UDim2.new(0, 8, 0, 0)
-TitleIcon.BackgroundTransparency = 1
-TitleIcon.Text = "⚛"
-TitleIcon.Font = Enum.Font.GothamBold
-TitleIcon.TextSize = 18
-TitleIcon.TextColor3 = Color3.fromRGB(88, 101, 242)
-TitleIcon.ZIndex = 12
-TitleIcon.Parent = TopBar
-
-local TitleLbl = Instance.new("TextLabel")
-TitleLbl.Size = UDim2.new(0, 320, 1, 0)
-TitleLbl.Position = UDim2.new(0, 36, 0, 0)
-TitleLbl.BackgroundTransparency = 1
-TitleLbl.Text = "MCHLERN ENGINE  <font color='#5865F2'>STUDIO LITE</font>  <font color='#8A92A6'>| Quantum PC</font>"
-TitleLbl.RichText = true
-TitleLbl.Font = Enum.Font.GothamBold
-TitleLbl.TextSize = 11.5
-TitleLbl.TextColor3 = Color3.fromRGB(240, 242, 250)
-TitleLbl.TextXAlignment = Enum.TextXAlignment.Left
-TitleLbl.ZIndex = 12
-TitleLbl.Parent = TopBar
-
--- Close Button (X)
-local CloseBtn = Instance.new("TextButton")
-CloseBtn.Size = UDim2.new(0, 26, 0, 24)
-CloseBtn.Position = UDim2.new(1, -30, 0, 6)
-CloseBtn.BackgroundColor3 = Color3.fromRGB(30, 33, 44)
-CloseBtn.Text = "✕"
-CloseBtn.Font = Enum.Font.GothamBold
-CloseBtn.TextSize = 11
-CloseBtn.TextColor3 = Color3.fromRGB(200, 205, 220)
-CloseBtn.ZIndex = 20
-CloseBtn.Active = true
-CloseBtn.Parent = TopBar
-makeCorner(CloseBtn, 5)
-makeStroke(CloseBtn, Color3.fromRGB(50, 55, 75), 1)
-
-CloseBtn.MouseButton1Click:Connect(function()
-    MainFrame.Visible = false
-    ToggleBtn.Visible = true
-end)
-
-ToggleBtn.MouseButton1Click:Connect(function()
-    MainFrame.Visible = not MainFrame.Visible
-end)
-
--- Draggable via TopBar
-local function makeSafeTopBarDraggable(frame, handle)
-    local dragInput, dragStart, startPos = nil, nil, nil
-    handle.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            dragInput = input
-            dragStart = input.Position
-            startPos = frame.Position
-        end
-    end)
-    UserInputService.InputChanged:Connect(function(input)
-        if input == dragInput and dragStart and startPos then
-            local delta = input.Position - dragStart
-            local vp = (workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize) or Vector2.new(800, 450)
-            local newX = math.clamp(startPos.X.Offset + delta.X, -vp.X/2 + 200, vp.X/2 - 200)
-            local newY = math.clamp(startPos.Y.Offset + delta.Y, -vp.Y/2 + 100, vp.Y/2 - 100)
-            frame.Position = UDim2.new(startPos.X.Scale, newX, startPos.Y.Scale, newY)
-        end
-    end)
-    handle.InputEnded:Connect(function(input)
-        if input == dragInput then dragInput = nil end
-    end)
-end
-makeSafeTopBarDraggable(MainFrame, TopBar)
-
--- =====================================================
--- 3. SIDEBAR (KIRI - SEMUA TOMBOL NAVIGASI DI SINI)
--- =====================================================
-local Sidebar = Instance.new("Frame")
-Sidebar.Name = "QuantumSidebar"
-Sidebar.Size = UDim2.new(0, 172, 1, -50)
-Sidebar.Position = UDim2.new(0, 8, 0, 46)
-Sidebar.BackgroundColor3 = Color3.fromRGB(16, 17, 23)
-Sidebar.BorderSizePixel = 0
-Sidebar.ZIndex = 11
-Sidebar.Parent = MainFrame
-makeCorner(Sidebar, 8)
-makeStroke(Sidebar, Color3.fromRGB(34, 38, 52), 1)
-
--- User Mini Profile in Sidebar
-local UserProfile = Instance.new("Frame")
-UserProfile.Size = UDim2.new(1, -12, 0, 46)
-UserProfile.Position = UDim2.new(0, 6, 0, 6)
-UserProfile.BackgroundColor3 = Color3.fromRGB(22, 24, 32)
-UserProfile.BorderSizePixel = 0
-UserProfile.ZIndex = 12
-UserProfile.Parent = Sidebar
-makeCorner(UserProfile, 6)
-
-local UserAvatarImg = Instance.new("ImageLabel")
-UserAvatarImg.Size = UDim2.new(0, 32, 0, 32)
-UserAvatarImg.Position = UDim2.new(0, 6, 0, 7)
-UserAvatarImg.BackgroundColor3 = Color3.fromRGB(28, 30, 40)
-UserAvatarImg.Image = "rbxthumb://type=AvatarHeadShot&id=" .. tostring(LP.UserId) .. "&w=150&h=150"
-UserAvatarImg.ZIndex = 13
-UserAvatarImg.Parent = UserProfile
-makeCorner(UserAvatarImg, 16)
-makeStroke(UserAvatarImg, Color3.fromRGB(88, 101, 242), 1)
-
-local UserDispName = Instance.new("TextLabel")
-UserDispName.Size = UDim2.new(1, -48, 0, 16)
-UserDispName.Position = UDim2.new(0, 44, 0, 7)
-UserDispName.BackgroundTransparency = 1
-UserDispName.Text = LP.DisplayName or LP.Name or "Player"
-UserDispName.Font = Enum.Font.GothamBold
-UserDispName.TextSize = 10.5
-UserDispName.TextColor3 = Color3.fromRGB(255, 255, 255)
-UserDispName.TextXAlignment = Enum.TextXAlignment.Left
-UserDispName.TextTruncate = Enum.TextTruncate.AtEnd
-UserDispName.ZIndex = 13
-UserDispName.Parent = UserProfile
-
-local UserHandle = Instance.new("TextLabel")
-UserHandle.Size = UDim2.new(1, -48, 0, 13)
-UserHandle.Position = UDim2.new(0, 44, 0, 23)
-UserHandle.BackgroundTransparency = 1
-UserHandle.Text = "@" .. (LP.Name or "user")
-UserHandle.Font = Enum.Font.Gotham
-UserHandle.TextSize = 8.5
-UserHandle.TextColor3 = Color3.fromRGB(140, 145, 165)
-UserHandle.TextXAlignment = Enum.TextXAlignment.Left
-UserHandle.TextTruncate = Enum.TextTruncate.AtEnd
-UserHandle.ZIndex = 13
-UserHandle.Parent = UserProfile
-
--- Divider under profile
-local SideDiv = Instance.new("Frame")
-SideDiv.Size = UDim2.new(1, -16, 0, 1)
-SideDiv.Position = UDim2.new(0, 8, 0, 58)
-SideDiv.BackgroundColor3 = Color3.fromRGB(34, 38, 52)
-SideDiv.BorderSizePixel = 0
-SideDiv.ZIndex = 12
-SideDiv.Parent = Sidebar
-
--- Navigation List
-local NavScroll = Instance.new("ScrollingFrame")
-NavScroll.Size = UDim2.new(1, -8, 1, -66)
-NavScroll.Position = UDim2.new(0, 4, 0, 64)
-NavScroll.BackgroundTransparency = 1
-NavScroll.BorderSizePixel = 0
-NavScroll.ScrollBarThickness = 2
-NavScroll.ScrollBarImageColor3 = Color3.fromRGB(60, 65, 85)
-NavScroll.CanvasSize = UDim2.new()
-NavScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
-NavScroll.ZIndex = 12
-NavScroll.Parent = Sidebar
-
-local NavLayout = Instance.new("UIListLayout")
-NavLayout.Padding = UDim.new(0, 4)
-NavLayout.SortOrder = Enum.SortOrder.LayoutOrder
-NavLayout.Parent = NavScroll
-
--- =====================================================
--- 4. CONTENT AREA (KANAN - HALAMAN TAB AKTIF)
--- =====================================================
-local Content = Instance.new("Frame")
-Content.Name = "QuantumContent"
-Content.Size = UDim2.new(1, -192, 1, -50)
-Content.Position = UDim2.new(0, 184, 0, 46)
-Content.BackgroundTransparency = 1
-Content.ClipsDescendants = true
-Content.ZIndex = 11
-Content.Parent = MainFrame
-
+-- Target Page Containers (Mounted cleanly inside each Fluent tab)
 local PageToolbox  = Instance.new("Frame")
-local PageSplash   = PageToolbox -- Aliased to PageToolbox for backward compatibility
 local PageRBXM     = Instance.new("Frame")
 local PageText3D   = Instance.new("Frame")
 local PageReplacer = Instance.new("Frame")
 local PageAvatar   = Instance.new("Frame")
 
-local ALL_PAGES = {
-    Toolbox  = PageToolbox,
-    RBXM     = PageRBXM,
-    Text3D   = PageText3D,
-    Replacer = PageReplacer,
-    Avatar   = PageAvatar,
-}
+local PageSplash   = PageToolbox -- Compatibility alias
 
-for name, pg in pairs(ALL_PAGES) do
-    pg.Name = "Page_" .. name
-    pg.Size = UDim2.fromScale(1, 1)
-    pg.BackgroundTransparency = 1
-    pg.Visible = false
-    pg.ZIndex = 12
-    pg.Parent = Content
+local function setupPage(page, tab, name)
+    page.Name = name
+    page.Size = UDim2.new(1, 0, 0, 330)
+    page.Position = UDim2.new(0, 0, 0, 0)
+    page.BackgroundTransparency = 1
+    page.BorderSizePixel = 0
+    page.ZIndex = 10
+    page.Parent = tab.ContainerFrame
 end
 
--- Navigation Button Builder
-local navButtons = {}
-local activeTabName = nil
+setupPage(PageToolbox,  Tabs.Toolbox,  "PageToolbox")
+setupPage(PageRBXM,     Tabs.RBXM,     "PageRBXM")
+setupPage(PageText3D,   Tabs.Text3D,   "PageText3D")
+setupPage(PageReplacer, Tabs.Replacer, "PageReplacer")
+setupPage(PageAvatar,   Tabs.Avatar,   "PageAvatar")
 
-local function switchTab(tabKey)
-    activeTabName = tabKey
-    for name, pg in pairs(ALL_PAGES) do
-        pg.Visible = (name == tabKey)
-    end
-    for name, btnData in pairs(navButtons) do
-        local isActive = (name == tabKey)
-        btnData.Button.BackgroundColor3 = isActive and Color3.fromRGB(30, 36, 56) or Color3.fromRGB(18, 20, 26)
-        btnData.Indicator.Visible = isActive
-        btnData.Label.TextColor3 = isActive and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(150, 155, 175)
-        btnData.Label.Font = isActive and Enum.Font.GothamBold or Enum.Font.GothamMedium
-        btnData.Stroke.Color = isActive and Color3.fromRGB(88, 101, 242) or Color3.fromRGB(28, 30, 40)
-    end
-end
-
-local function addNavButton(tabKey, icon, labelText, order)
-    local btn = Instance.new("TextButton")
-    btn.Name = "Nav_" .. tabKey
-    btn.Size = UDim2.new(1, 0, 0, 38)
-    btn.BackgroundColor3 = Color3.fromRGB(18, 20, 26)
-    btn.BorderSizePixel = 0
-    btn.Text = ""
-    btn.AutoButtonColor = false
-    btn.LayoutOrder = order or 1
-    btn.ZIndex = 13
-    btn.Parent = NavScroll
-    makeCorner(btn, 6)
-    local btnStroke = makeStroke(btn, Color3.fromRGB(28, 30, 40), 1)
-
-    -- Left glowing accent indicator bar (Quantum style)
-    local ind = Instance.new("Frame")
-    ind.Size = UDim2.new(0, 3.5, 0, 20)
-    ind.Position = UDim2.new(0, 4, 0.5, -10)
-    ind.BackgroundColor3 = Color3.fromRGB(88, 101, 242)
-    ind.BorderSizePixel = 0
-    ind.Visible = false
-    ind.ZIndex = 14
-    ind.Parent = btn
-    makeCorner(ind, 2)
-
-    -- Icon
-    local ic = Instance.new("TextLabel")
-    ic.Size = UDim2.new(0, 24, 1, 0)
-    ic.Position = UDim2.new(0, 11, 0, 0)
-    ic.BackgroundTransparency = 1
-    ic.Text = icon
-    ic.Font = Enum.Font.GothamBold
-    ic.TextSize = 13
-    ic.TextColor3 = Color3.fromRGB(88, 101, 242)
-    ic.ZIndex = 14
-    ic.Parent = btn
-
-    -- Label
-    local lb = Instance.new("TextLabel")
-    lb.Size = UDim2.new(1, -40, 1, 0)
-    lb.Position = UDim2.new(0, 38, 0, 0)
-    lb.BackgroundTransparency = 1
-    lb.Text = labelText
-    lb.Font = Enum.Font.GothamMedium
-    lb.TextSize = 10
-    lb.TextColor3 = Color3.fromRGB(150, 155, 175)
-    lb.TextXAlignment = Enum.TextXAlignment.Left
-    lb.ZIndex = 14
-    lb.Parent = btn
-
-    btn.MouseEnter:Connect(function()
-        if activeTabName ~= tabKey then
-            btn.BackgroundColor3 = Color3.fromRGB(24, 27, 38)
-            lb.TextColor3 = Color3.fromRGB(200, 205, 220)
-        end
-    end)
-    btn.MouseLeave:Connect(function()
-        if activeTabName ~= tabKey then
-            btn.BackgroundColor3 = Color3.fromRGB(18, 20, 26)
-            lb.TextColor3 = Color3.fromRGB(150, 155, 175)
-        end
-    end)
-
-    btn.MouseButton1Click:Connect(function()
-        switchTab(tabKey)
-    end)
-
-    navButtons[tabKey] = {
-        Button = btn,
-        Indicator = ind,
-        Label = lb,
-        Stroke = btnStroke
-    }
-end
-
--- Add all tabs on the left
-addNavButton("Toolbox",  "📦", "TOOLBOX ASET",     1)
-addNavButton("RBXM",     "📁", "INSERT RBXM",      2)
-addNavButton("Text3D",   "🔤", "GENE TEXT 3D",     3)
-addNavButton("Replacer", "🔄", "REPLACER TOOLS",   4)
-addNavButton("Avatar",   "👤", "AVATAR CHANGER",   5)
-
--- Compatibility helper for existing code that calls showPage
+-- Helper compatibility for legacy code
 local function showPage(target)
-    for name, pg in pairs(ALL_PAGES) do
-        if pg == target then
-            switchTab(name)
-            return
-        end
+    if target == PageToolbox or target == PageSplash then Window:SelectTab(1)
+    elseif target == PageRBXM then Window:SelectTab(2)
+    elseif target == PageText3D then Window:SelectTab(3)
+    elseif target == PageReplacer then Window:SelectTab(4)
+    elseif target == PageAvatar then Window:SelectTab(5)
     end
 end
+
 local function makeBackBtn(parent, onBack)
-    -- Hidden/stub in Quantum layout since sidebar is always visible!
-    local b = Instance.new("Frame")
-    b.Size = UDim2.new(0, 0, 0, 0)
-    b.Visible = false
-    b.Parent = parent
-    return b
+    -- Di Quantum layout, navigasi tab selalu ada di kiri, tombol back tidak lagi diperlukan
+    local dummy = Instance.new("Frame")
+    dummy.Size = UDim2.new(0, 0, 0, 0)
+    dummy.Visible = false
+    dummy.Parent = parent
+    return dummy
 end
 
 local TbHeader = Instance.new("Frame")
@@ -877,7 +594,7 @@ TbContent.ZIndex = 13
 TbContent.Parent = PageToolbox
 
 local TbLeft = Instance.new("Frame")
-TbLeft.Size = UDim2.new(0, 220, 1, 0)
+TbLeft.Size = UDim2.new(0, 185, 1, 0)
 TbLeft.BackgroundTransparency = 1
 TbLeft.ZIndex = 14
 TbLeft.Parent = TbContent
@@ -1069,7 +786,7 @@ TbDetCopy.TextColor3 = Color3.fromRGB(0, 0, 0); TbDetCopy.Active = true; TbDetCo
 TbDetCopy.Parent = TbDetRow; makeCorner(TbDetCopy, 5)
 
 local TbRight = Instance.new("Frame")
-TbRight.Size = UDim2.new(1, -228, 1, 0); TbRight.Position = UDim2.new(0, 228, 0, 0)
+TbRight.Size = UDim2.new(1, -190, 1, 0); TbRight.Position = UDim2.new(0, 190, 0, 0)
 TbRight.BackgroundColor3 = Color3.fromRGB(18, 18, 22)
 TbRight.ZIndex = 14
 TbRight.Parent = TbContent
@@ -3277,14 +2994,11 @@ initReplacerPage()
 
 
 -- =====================================================
--- PAGE 5: AVATAR CHANGER (leon4951hub Embedded)
+-- AVATAR CHANGER (STUDIO LITE - CLEAN NO BRANDING)
 -- =====================================================
 local function initAvatarPage()
-    local old_avatar = PageAvatar:FindFirstChild("Body")
-    if old_avatar then old_avatar:Destroy() end
-
 --[[ =============================================================================
-  leon4951hub  -  script.lua   (LocalScript / StarterPlayerScripts)
+  Avatar Studio  -  Quantum Edition
   Visual-only: item, avatar, dan animasi yang dipilih langsung dipasang di
   karakter kamu.
 
@@ -3297,7 +3011,7 @@ local function initAvatarPage()
    - Pencarian lebih cepat: 3 backend diadu bersamaan, hasil persis paralel, hasil teratas di-prefetch.
    - Kamera cermin menyesuaikan ukuran avatar (kecil / tinggi) dan ukuran panel.
   UPDATE v5:
-   - CONFIG avatar: daftar avatar di tab avatar disimpan ke file (leon4951hub_avatars.json).
+   - CONFIG avatar: daftar avatar di tab avatar disimpan ke file (avatar_studio_avatars.json).
      Saat masuk lagi langsung muncul 100+ kartu sebelumnya lalu lanjut memuat. (butuh writefile/readfile)
    - Avatar yang diklik secepat mungkin terpasang: model donor 8 avatar teratas yang terlihat disiapkan
      lebih dulu (prefetch + cache), klik cepat berturut-turut diantre. Waktu pasang tampil di kartu & toast.
@@ -3325,15 +3039,15 @@ local HttpService = game:GetService("HttpService")
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
 
-local old = playerGui:FindFirstChild("leon4951hub")
+local old = playerGui:FindFirstChild("AvatarStudio")
 if old then
 	old:Destroy()
 end
 
-local GEN = (tonumber(playerGui:GetAttribute("leon_gen")) or 0) + 1
-playerGui:SetAttribute("leon_gen", GEN)
+local GEN = (tonumber(playerGui:GetAttribute("avt_gen")) or 0) + 1
+playerGui:SetAttribute("avt_gen", GEN)
 local function stale()
-	return playerGui:GetAttribute("leon_gen") ~= GEN
+	return playerGui:GetAttribute("avt_gen") ~= GEN
 end
 
 local REMOTE_NAME = "AvatarStudioApply"
@@ -3701,7 +3415,7 @@ local function logf(fmt, ...)
 	while #LOG > 500 do
 		table.remove(LOG, 1)
 	end
-	print("[leon4951hub] " .. line)
+	print("[AvatarStudio] " .. line)
 	if logHook then
 		pcall(logHook)
 	end
@@ -6417,7 +6131,7 @@ local FEED_MORE = 60      -- tambahan tiap gulir
 local FEED_CONC = 24      -- pengecekan avatar paralel
 local FEED_KEEP = 160     -- jumlah kartu avatar minimal yang dijaga tetap terisi di latar belakang
 local AV_SAVE_MAX = 400   -- maksimal avatar yang disimpan ke file config (supaya saat masuk lagi langsung tampil)
-local AV_FILE = "leon4951hub_avatars.json"
+local AV_FILE = "avatar_studio_avatars.json"
 
 local Theme = {
 	Background = rgb(7, 10, 17), CardBg = rgb(14, 20, 32), CardBorder = rgb(34, 48, 73),
@@ -6671,7 +6385,7 @@ end
 ----------------------------------------------------------------------------
 -- [7b] FAVORIT + CONFIG AVATAR (tersimpan ke file kalau executor punya writefile)
 ----------------------------------------------------------------------------
-local FAV_FILE = "leon4951hub_fav.json"
+local FAV_FILE = "avatar_studio_fav.json"
 local FAV = { avatars = {}, items = {}, listeners = {} }
 
 local function favSave()
@@ -7247,7 +6961,7 @@ local function idFromName(name)
 	return nil
 end
 
-local SESSION_ID = "leon-" .. tostring(os.time())
+local SESSION_ID = "avt-" .. tostring(os.time())
 pcall(function()
 	SESSION_ID = HttpService:GenerateGUID(false)
 end)
@@ -8563,17 +8277,20 @@ local function buildFavorites(page)
 end
 
 ----------------------------------------------------------------------------
--- [11] SHELL UI (gaya LEON4951 HUB v2): header, sidebar 5 tab, drag, resize
+-- [11] SHELL UI (gaya AVATAR CHANGER v2): header, sidebar 5 tab, drag, resize
 ----------------------------------------------------------------------------
 local MAIN_W, MAIN_H = 660, 360
-local State = { tab = "avatars", open = false, sbw = 78 }
+local State = { tab = "avatars", open = true, sbw = 64 }
 local UI = { builders = {}, built = {}, pages = {}, refreshers = {} }
 
-UI.gui = ScreenGui
+UI.gui = mk("ScreenGui", {
+	Name = "AvatarStudio", ResetOnSpawn = false, IgnoreGuiInset = true,
+	ZIndexBehavior = Enum.ZIndexBehavior.Sibling, DisplayOrder = 50, Parent = playerGui,
+})
 
 toastHolder = mk("Frame", {
 	AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 14), Size = UDim2.fromOffset(420, 300),
-	BackgroundTransparency = 1, ZIndex = 200, Parent = ScreenGui,
+	BackgroundTransparency = 1, ZIndex = 200, Parent = UI.gui,
 })
 mk("UIListLayout", {
 	FillDirection = Enum.FillDirection.Vertical, Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder,
@@ -8624,7 +8341,7 @@ end)
 mk("TextLabel", {
 	Font = Enum.Font.GothamBold, TextSize = 20, TextColor3 = Theme.Accent, BackgroundTransparency = 1,
 	Size = UDim2.new(0, 200, 0, 26), Position = UDim2.new(0, 50, 0, 13), TextXAlignment = Enum.TextXAlignment.Left,
-	Text = "LEON4951 HUB", Parent = header,
+	Text = "AVATAR CHANGER", Parent = header,
 })
 
 local ToggleMainUI
@@ -8639,21 +8356,7 @@ closeBtn.Activated:Connect(function()
 	ToggleMainUI(false)
 end)
 
-local waBtn = mk("TextButton", {
-	Size = UDim2.fromOffset(120, 26), Position = UDim2.new(1, -175, 0, 13), BackgroundColor3 = Theme.WaGreen,
-	Text = "💬 SALURAN WA", Font = Enum.Font.GothamBold, TextSize = 9, TextColor3 = Theme.TextPrimary,
-	AutoButtonColor = false, Parent = header,
-})
-corner(waBtn, 8)
-stroke(waBtn, Theme.WaDarkGreen, 1.5)
-waBtn.Activated:Connect(function()
-	pcall(function()
-		if setclipboard then
-			setclipboard(WA_CHANNEL_LINK)
-		elseif toclipboard then
-			toclipboard(WA_CHANNEL_LINK)
-		end
-	end)
+-- promo removed
 	local orig = "💬 SALURAN WA"
 	waBtn.Text = "✓ COPIED!"
 	task.delay(1.5, function()
@@ -8689,7 +8392,7 @@ task.spawn(function()
 end)
 
 -- body: sidebar + content
-local bodyFrame = mk("Frame", { Name = "Body", Size = UDim2.new(1, -12, 1, -8), Position = UDim2.new(0, 6, 0, 4), BackgroundTransparency = 1, Parent = PageAvatar })
+local bodyFrame = mk("Frame", { Name = "AvatarBody", Size = UDim2.new(1, -4, 1, -4), Position = UDim2.new(0, 2, 0, 2), BackgroundTransparency = 1, Parent = PageAvatar })
 local sidebar = mk("ScrollingFrame", {
 	Name = "Sidebar", Size = UDim2.new(0, State.sbw, 1, 0), BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 0,
 	AutomaticCanvasSize = Enum.AutomaticSize.Y, CanvasSize = UDim2.new(), Parent = bodyFrame,
@@ -8697,7 +8400,7 @@ local sidebar = mk("ScrollingFrame", {
 mk("UIListLayout", { Padding = UDim.new(0, 4), SortOrder = Enum.SortOrder.LayoutOrder, Parent = sidebar })
 
 local contentFrame = mk("Frame", {
-	Name = "Content", Size = UDim2.new(1, -(State.sbw + 8) - 180, 1, 0), Position = UDim2.new(0, State.sbw + 8, 0, 0),
+	Name = "Content", Size = UDim2.new(1, -(State.sbw + 6) - (MIRROR_W + 6), 1, 0), Position = UDim2.new(0, State.sbw + 6, 0, 0),
 	BackgroundTransparency = 1, ClipsDescendants = true, Parent = bodyFrame,
 })
 local contentTitle = mk("TextLabel", {
@@ -8807,7 +8510,7 @@ end
 --   Kamera otomatis menyesuaikan ukuran avatar (kecil / tinggi) dan ukuran panel.
 ----------------------------------------------------------------------------
 do
-local MIRROR_W = 170
+local MIRROR_W = 116
 local Mirror = { on = true, spin = 0, auto = true, dragging = false, pauseUntil = 0, sig = nil, stage = nil, model = nil, token = 0 }
 
 local mirrorPanel = mk("Frame", {
@@ -9099,7 +8802,7 @@ end
 local fab = mk("TextButton", {
 	Name = "FloatingToggleBtn", Size = UDim2.fromOffset(44, 44), AnchorPoint = Vector2.new(0, 0.5),
 	Position = UDim2.new(0, 20, 0.4, 0), BackgroundColor3 = Theme.Background, BorderSizePixel = 0,
-	Visible = false, Active = true, Text = "", ZIndex = 20, Parent = ScreenGui,
+	Visible = false, Active = true, Text = "", ZIndex = 20, Parent = UI.gui,
 })
 corner(fab, 11)
 stroke(fab, Theme.Accent, 1.5)
@@ -9171,7 +8874,7 @@ UserInputService.InputEnded:Connect(function(input)
 end)
 fab.Activated:Connect(function()
 	if not floatMoved then
-		-- embedded in PageAvatar
+		-- mounted in PageAvatar
 	end
 end)
 
@@ -9245,7 +8948,7 @@ end)
 -- [12] BOOT + START
 ----------------------------------------------------------------------------
 setTab(1)
--- embedded in PageAvatar
+-- mounted in PageAvatar
 
 task.spawn(function()
 	local ok, err = pcall(E.init)
@@ -9253,7 +8956,7 @@ task.spawn(function()
 		toast("Gagal menyiapkan karakter: " .. tostring(err), "danger")
 		return
 	end
-	toast("leon4951hub siap! K = buka/tutup  •  mode: " .. (E.remote and "SERVER" or (E.injectFirst and "INJECTOR (visual klien)" or "native")), "ok")
+	toast("Avatar Changer siap! K = buka/tutup  •  mode: " .. (E.remote and "SERVER" or (E.injectFirst and "INJECTOR (visual klien)" or "native")), "ok")
 	if PREWARM_SKIN and not E.remote and E.useSkin and E.cap.donor ~= false and E.look then
 		E.busy = true
 		pcall(E.apply, E.look)
@@ -9275,11 +8978,10 @@ task.delay(3, function()
 		end
 	end
 end)
-
 end
 initAvatarPage()
 
 
--- Set default open tab to Toolbox
-switchTab("Toolbox")
-print("[Quantum Engine] Studio Lite PC Loaded Successfully!")
+-- Select first tab (Toolbox)
+Window:SelectTab(1)
+print("[Quantum | ID] Studio Lite PC Loaded!")
