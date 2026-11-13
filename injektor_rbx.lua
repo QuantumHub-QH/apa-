@@ -281,7 +281,7 @@ local function makeStroke(parent, color, thickness, transparency)
 end
 
 local function bindBtn(btn, callback)
-    btn.Activated:Connect(callback)
+    btn.MouseButton1Click:Connect(callback)
 end
 
 -- =====================================================
@@ -746,7 +746,7 @@ for _, c in ipairs(cats) do
     cb.Parent = TbCatRow
     makeCorner(cb, 4); makeStroke(cb, Color3.fromRGB(255,255,255), 1, 0.82)
     catBtns[c.id] = cb
-    cb.Activated:Connect(function() selectedCat = c.id; updateCatTabs() end)
+    cb.MouseButton1Click:Connect(function() selectedCat = c.id; updateCatTabs() end)
 end
 updateCatTabs()
 
@@ -2051,7 +2051,7 @@ local function renderRbxmCards()
         makeCorner(edBtn, 6)
         makeStroke(edBtn, Color3.fromRGB(255,255,255), 1, 0.7)
 
-        edBtn.Activated:Connect(function()
+        edBtn.MouseButton1Click:Connect(function()
             local code = lookupScriptSource(file.name:gsub("%.rbxm.*", ""))
             if not code or code == "" then
                 local d = safeReadFile(file.path)
@@ -2075,7 +2075,7 @@ local function renderRbxmCards()
         insertBtn.Parent = card
         makeCorner(insertBtn, 6)
 
-        insertBtn.Activated:Connect(function()
+        insertBtn.MouseButton1Click:Connect(function()
             if insertBtn.Text == "..." then return end
             insertBtn.Text = "..."
             task.spawn(function()
@@ -2100,7 +2100,7 @@ local function renderRbxmCards()
     RbxmScroll.CanvasSize = UDim2.new(0, 0, 0, RbxmList.AbsoluteContentSize.Y + 20)
 end
 
-RbxmScanBtn.Activated:Connect(renderRbxmCards)
+RbxmScanBtn.MouseButton1Click:Connect(renderRbxmCards)
 
 local function inspectAsset(id, name, creator)
     currentInspId = tostring(id)
@@ -2118,14 +2118,14 @@ local function inspectAsset(id, name, creator)
     end
 end
 
-TbDetCopy.Activated:Connect(function()
+TbDetCopy.MouseButton1Click:Connect(function()
     if currentInspId ~= "" and clipFn then
         pcall(clipFn, currentInspId); TbDetCopy.Text = "COPIED!"
         task.delay(1.2, function() if TbDetCopy and TbDetCopy.Parent then TbDetCopy.Text = "COPY ID" end end)
     end
 end)
 
-TbDetInsert.Activated:Connect(function()
+TbDetInsert.MouseButton1Click:Connect(function()
     if currentInspId ~= "" then
         TbDetInsert.Text = "..."
         task.spawn(function()
@@ -2214,11 +2214,11 @@ local function renderGrid(data)
         cBtn.Font = Enum.Font.GothamBold; cBtn.TextSize = 8
         cBtn.TextColor3 = Color3.fromRGB(0, 0, 0); cBtn.Active = true; cBtn.Parent = btnRow; makeCorner(cBtn, 4)
 
-        cBtn.Activated:Connect(function()
+        cBtn.MouseButton1Click:Connect(function()
             if clipFn then pcall(clipFn, assetId); cBtn.Text = "OK!"
                 task.delay(1.2, function() if cBtn and cBtn.Parent then cBtn.Text = "COPY" end end) end
         end)
-        iBtn.Activated:Connect(function()
+        iBtn.MouseButton1Click:Connect(function()
             iBtn.Text = "..."; TbStatusLbl.Text = "[.] Inserting "..assetId
             task.spawn(function()
                 local ok, m = smartInsert(assetId); TbStatusLbl.Text = "[.] "..m
@@ -2231,7 +2231,7 @@ local function renderGrid(data)
 
         local hitbox = Instance.new("TextButton")
         hitbox.Size = UDim2.new(1, 0, 0, 86); hitbox.BackgroundTransparency = 1; hitbox.Text = ""; hitbox.Active = true; hitbox.Parent = card
-        hitbox.Activated:Connect(function() inspectAsset(assetId, nameL.Text, creator) end)
+        hitbox.MouseButton1Click:Connect(function() inspectAsset(assetId, nameL.Text, creator) end)
 
         task.spawn(function()
             local num = tonumber(assetId); if not num then return end
@@ -2257,10 +2257,10 @@ local function execSearch()
         end)
     end
 end
-TbSearchBtn.Activated:Connect(execSearch)
+TbSearchBtn.MouseButton1Click:Connect(execSearch)
 TbSearchBox.FocusLost:Connect(function(enter) if enter then execSearch() end end)
 
-TbInsertIdBtn.Activated:Connect(function()
+TbInsertIdBtn.MouseButton1Click:Connect(function()
     local id = TbIdBox.Text:gsub("%D+", "")
     if id ~= "" then
         inspectAsset(id, "Memuat...", "?"); TbInsertIdBtn.Text = "..."
@@ -3270,7 +3270,7 @@ local function button(parent, o)
 		tween(b, { BackgroundColor3 = b:GetAttribute("Base") or bg }, 0.15)
 	end)
 	if o.onClick then
-		b.Activated:Connect(o.onClick)
+		b.MouseButton1Click:Connect(o.onClick)
 	end
 	return b
 end
@@ -6528,7 +6528,7 @@ local function addHeart(card, isFav, onToggle)
 		h.TextColor3 = f and T.Danger or T.Text
 	end
 	paint()
-	h.Activated:Connect(function()
+	h.MouseButton1Click:Connect(function()
 		onToggle()
 		paint()
 	end)
@@ -6618,7 +6618,7 @@ local function makeCard(parent, item)
 			E.prefetchBundle(item.Id)
 		end
 	end)
-	card.Activated:Connect(function()
+	card.MouseButton1Click:Connect(function()
 		if isBundle then
 			if obj.loading then
 				return
@@ -6847,7 +6847,7 @@ local function buildCatalog(page, group)
 		corner(c, 8)
 		pad(c, 10, 0, 10, 0)
 		chipRefs[cat.id] = c
-		c.Activated:Connect(function()
+		c.MouseButton1Click:Connect(function()
 			selectCat(cat)
 		end)
 	end
@@ -6960,7 +6960,7 @@ local function userCard(parent, userId, name, order, sub)
 	end)
 
 	local busyCard = false
-	card.Activated:Connect(function()
+	card.MouseButton1Click:Connect(function()
 		if busyCard then
 			return
 		end
@@ -7198,7 +7198,7 @@ local function buildAvatars(page)
 		})
 		corner(c, 8)
 		chips[d[1]] = c
-		c.Activated:Connect(function()
+		c.MouseButton1Click:Connect(function()
 			showSection(d[1])
 		end)
 	end
@@ -7695,7 +7695,7 @@ local function buildAvatars(page)
 		end
 	end
 	for k, c in pairs(modeChips) do
-		c.Activated:Connect(function()
+		c.MouseButton1Click:Connect(function()
 			setSortMode(k)
 		end)
 	end
@@ -7794,13 +7794,13 @@ local function buildAvatars(page)
 			loadMore()
 		end
 	end)
-	searchBtn.Activated:Connect(doSearch)
+	searchBtn.MouseButton1Click:Connect(doSearch)
 	box.FocusLost:Connect(function(enter)
 		if enter then
 			doSearch()
 		end
 	end)
-	randBtn.Activated:Connect(function()
+	randBtn.MouseButton1Click:Connect(function()
 		box.Text = ""
 		startFeed(false)
 	end)
@@ -8214,7 +8214,7 @@ local function buildFavorites(page)
 		corner(c, 8)
 		pad(c, 10, 0, 10, 0)
 		chips[d[1]] = c
-		c.Activated:Connect(function()
+		c.MouseButton1Click:Connect(function()
 			show(d[1])
 		end)
 	end
@@ -8344,7 +8344,8 @@ mk("UIListLayout", {
 })
 
 local mainFrame = PageAvatar
-local mainScale = { Scale = 1 }
+-- UIScale must be an Instance; TweenService cannot tween a plain Lua table.
+local mainScale = mk("UIScale", { Name = "AvatarUIScale", Scale = 1, Parent = mainFrame })
 
 local function computeScale()
 	local cam = Workspace.CurrentCamera
@@ -8371,7 +8372,7 @@ local logo = createLogo(UDim2.fromOffset(26, 26), -12)
 logo.Position = UDim2.new(0, 16, 0, 13)
 logo.Parent = header
 local logBtn = mk("TextButton", { Size = UDim2.fromOffset(30, 30), Position = UDim2.new(0, 14, 0, 11), BackgroundTransparency = 1, Text = "", ZIndex = 5, Parent = header })
-logBtn.Activated:Connect(function()
+logBtn.MouseButton1Click:Connect(function()
 	local okC = pcall(function()
 		local txt = table.concat(LOG, "\n")
 		if setclipboard then
@@ -8398,7 +8399,7 @@ local closeBtn = mk("TextButton", {
 })
 corner(closeBtn, 10)
 stroke(closeBtn, Theme.CardBorder, 1.5)
-closeBtn.Activated:Connect(function()
+closeBtn.MouseButton1Click:Connect(function()
 	ToggleMainUI(false)
 end)
 
@@ -8476,8 +8477,10 @@ UI.builders.worn = function(p)
 end
 for _, tab in ipairs(TABS) do
 	if tab.group then
-		UI.builders[tab.key] = function(p)
-			UI.refreshers[tab.key] = buildCatalog(p, tab.group)
+		local tabKey = tab.key
+		local tabGroup = tab.group
+		UI.builders[tabKey] = function(p)
+			UI.refreshers[tabKey] = buildCatalog(p, tabGroup)
 		end
 	end
 end
@@ -8500,14 +8503,20 @@ local function setTab(index)
 	contentTitle.Text = tab.title or string.upper(tab.name)
 	updateSub()
 	if not UI.built[tab.key] then
-		UI.built[tab.key] = true
 		local okB, errB = pcall(UI.builders[tab.key], UI.pages[tab.key])
-		if not okB then
+		if okB then
+			UI.built[tab.key] = true
+		else
+			UI.built[tab.key] = false
 			logf("GAGAL membuat halaman %s: %s", tab.key, tostring(errB))
+			for _, child in ipairs(UI.pages[tab.key]:GetChildren()) do
+				if child.Name == "BuildError" then child:Destroy() end
+			end
 			mk("TextLabel", {
+				Name = "BuildError",
 				Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency = 1, TextWrapped = true, TextColor3 = T.Danger,
 				TextSize = 12, Font = Enum.Font.GothamMedium, TextXAlignment = Enum.TextXAlignment.Left,
-				TextYAlignment = Enum.TextYAlignment.Top, Text = "⚠ Halaman gagal dibuat:\n" .. tostring(errB),
+				TextYAlignment = Enum.TextYAlignment.Top, Text = "Halaman gagal dibuat. Ketuk tab lagi untuk mencoba ulang.\n" .. tostring(errB),
 				Parent = UI.pages[tab.key],
 			})
 		end
@@ -8535,7 +8544,7 @@ for i, tab in ipairs(TABS) do
 		Text = string.upper(tab.name), Parent = b,
 	})
 	table.insert(tabBtns, { frame = b, stroke = sk, label = lb, indicator = ind })
-	b.Activated:Connect(function()
+	b.MouseButton1Click:Connect(function()
 		setTab(i)
 	end)
 	UI.pages[tab.key] = mk("Frame", { Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency = 1, Visible = false, Parent = pageHolder })
@@ -8785,7 +8794,7 @@ local mirrorAutoBtn = button(mirrorPanel, {
 	text = "⏸ Putar", textSize = 11, bg = Theme.CardBg, size = UDim2.new(1, -12, 0, 26),
 	position = UDim2.new(0, 6, 1, -32), radius = 8, onClick = function() end,
 })
-mirrorAutoBtn.Activated:Connect(function()
+mirrorAutoBtn.MouseButton1Click:Connect(function()
 	Mirror.auto = not Mirror.auto
 	mirrorAutoBtn.Text = Mirror.auto and "⏸ Putar" or "▶ Putar"
 end)
@@ -8884,24 +8893,24 @@ UserInputService.InputChanged:Connect(function(input)
 	if not moveType then
 		return
 	end
-	if dragging then
+	if dragging and dragStart and dragOrigin then
 		local d = input.Position - dragStart
-		mainFrame.Position = UDim2.new(dragOrigin.X.Scale, dragOrigin.X.Offset + d.X, dragOrigin.Y.Scale, dragOrigin.Y.Offset + d.Y)
+		mainFrame.Position = UDim2.new(dragOrigin.X.Scale, (dragOrigin.X.Offset or 0) + d.X, dragOrigin.Y.Scale, (dragOrigin.Y.Offset or 0) + d.Y)
 	end
-	if resizing then
-		local d = (input.Position - resizeStart) / math.max(mainScale.Scale, 0.1)
+	if resizing and resizeStart and sizeOrigin then
+		local d = (input.Position - resizeStart) / math.max(tonumber(mainScale.Scale) or 1, 0.1)
 		mainFrame.Size = UDim2.fromOffset(
-			math.clamp(sizeOrigin.X.Offset + d.X, 560, 1000),
-			math.clamp(sizeOrigin.Y.Offset + d.Y, 300, 650)
+			math.clamp((sizeOrigin.X.Offset or 0) + d.X, 300, 1000),
+			math.clamp((sizeOrigin.Y.Offset or 0) + d.Y, 260, 720)
 		)
 	end
-	if floating then
+	if floating and floatStart and floatOrigin then
 		local d = input.Position - floatStart
 		if math.abs(d.X) + math.abs(d.Y) > 8 then
 			floatMoved = true
 		end
 		if floatMoved then
-			fab.Position = UDim2.new(floatOrigin.X.Scale, floatOrigin.X.Offset + d.X, floatOrigin.Y.Scale, floatOrigin.Y.Offset + d.Y)
+			fab.Position = UDim2.new(floatOrigin.X.Scale, (floatOrigin.X.Offset or 0) + d.X, floatOrigin.Y.Scale, (floatOrigin.Y.Offset or 0) + d.Y)
 		end
 	end
 end)
@@ -8910,26 +8919,33 @@ UserInputService.InputEnded:Connect(function(input)
 		dragging, resizing, floating = false, false, false
 	end
 end)
-fab.Activated:Connect(function()
+fab.MouseButton1Click:Connect(function()
 	if not floatMoved then
 		-- mounted in PageAvatar
 	end
 end)
 
-ToggleMainUI = function(show) end
-local _unused_ToggleMainUI = function(show)
+ToggleMainUI = function(show)
+	show = (show == true)
 	State.open = show
 	if show then
 		mainFrame.Visible = true
-		mainScale.Scale = 0
 		fab.Visible = false
+		mainScale.Scale = 0.92
 		tween(mainScale, { Scale = computeScale() }, 0.22, Enum.EasingStyle.Back)
 	else
-		mainScale.Scale = 0
 		mainFrame.Visible = false
 		fab.Visible = true
+		mainScale.Scale = computeScale()
 	end
 end
+
+-- Tombol mengambang benar-benar membuka kembali panel setelah ditutup.
+fab.MouseButton1Click:Connect(function()
+	if not floatMoved then
+		ToggleMainUI(true)
+	end
+end)
 
 UserInputService.InputBegan:Connect(function(input, gp)
 	if gp or E.uiDestroyed or stale() then
