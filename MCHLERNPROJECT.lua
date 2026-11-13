@@ -58,6 +58,8 @@ local function __s(key)
 end
 local HYAZ_WHITELIST = {
     8901569536,
+    8958292798, -- ID kamu
+    -- tambah ID pembeli di bawah ini, satu per baris, pakai koma
 }
 local function isHYAZWhitelisted(userId)
     userId = tonumber(userId)
