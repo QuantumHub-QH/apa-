@@ -502,6 +502,17 @@ makeStroke(ToggleBtn, Color3.fromRGB(255,255,255), 1.4)
 -- Multi-tier HTTP fallback (game:HttpGet -> request -> http_request)
 -- =====================================================
 local Fluent = nil
+
+-- Delta Android compatibility:
+-- Some execution environments do not expose getgenv(). Fluent uses it
+-- for shared settings during library initialization.
+if type(getgenv) ~= "function" then
+    local sharedEnv = _G
+    getgenv = function()
+        return sharedEnv
+    end
+end
+
 local function getUrl(url)
     local ok, res = pcall(function() return game:HttpGet(url) end)
     if ok and type(res) == "string" and #res > 0 then return res end
@@ -514,11 +525,28 @@ local function getUrl(url)
 end
 
 local fluentSource = getUrl("https://raw.githubusercontent.com/CloudyEX/CloudyMain/refs/heads/main/UI.lua")
-if fluentSource then
-    Fluent = loadstring(fluentSource)()
-else
-    error("[Quantum] Gagal mendownload Fluent UI library!")
+if not fluentSource then
+    error("[Quantum] Gagal mendownload Fluent UI library. Cek koneksi atau akses HTTP executor.")
 end
+
+if type(loadstring) ~= "function" then
+    error("[Quantum] loadstring tidak tersedia di executor ini; Fluent UI tidak dapat dimuat.")
+end
+
+local compiledFluent, compileError = loadstring(fluentSource)
+if type(compiledFluent) ~= "function" then
+    error("[Quantum] Gagal compile Fluent UI: " .. tostring(compileError))
+end
+
+local fluentOk, fluentResult = pcall(compiledFluent)
+if not fluentOk then
+    error("[Quantum] Fluent UI gagal inisialisasi: " .. tostring(fluentResult))
+end
+if type(fluentResult) ~= "table" or type(fluentResult.CreateWindow) ~= "function" then
+    error("[Quantum] Fluent UI termuat tetapi API CreateWindow tidak ditemukan.")
+end
+
+Fluent = fluentResult
 
 local Window = Fluent:CreateWindow({
     Title = "Quantum | ID",
