@@ -965,10 +965,10 @@ local function injectStudioLiteUI(scr, sourceMap)
     local path = scr.ClassName .. ":" .. scr.Name
     local realSource = _G.Hyaz_RAW_SOURCES[scr] or (sourceMap and sourceMap[path])
     if not realSource then pcall(function() realSource = scr.Source end) end
-    if realSource and #realSource > 0 then local _nullpat = string.char(0); realSource = realSource:gsub(_nullpat .. "*$", "") else realSource = "
+    if realSource and #realSource > 0 then local _nullpat = string.char(0); realSource = realSource:gsub(_nullpat .. "*$", "") else realSource = "" end
     _G.Hyaz_RAW_SOURCES[scr] = realSource
     local UI_TEXT = realSource
-    if #UI_TEXT > 150000 then UI_TEXT = "
+    if #UI_TEXT > 150000 then UI_TEXT = "-- [source terlalu besar untuk ditampilkan]" end
     local existingTB = scr:FindFirstChild("SL_CodeTextBox")
     if existingTB then
         existingTB.Text = UI_TEXT
