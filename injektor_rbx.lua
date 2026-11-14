@@ -281,7 +281,7 @@ local function makeStroke(parent, color, thickness, transparency)
 end
 
 local function bindBtn(btn, callback)
-    btn.MouseButton1Click:Connect(callback)
+    btn.Activated:Connect(callback)
 end
 
 -- =====================================================
@@ -498,119 +498,359 @@ makeStroke(ToggleBtn, Color3.fromRGB(255,255,255), 1.4)
 
 
 -- =====================================================
--- QUANTUM HUB UI LOADER (FLUENT LIBRARY - EXACT QUANTUM THEME)
--- Multi-tier HTTP fallback (game:HttpGet -> request -> http_request)
+-- 2. QUANTUM MAIN WINDOW (SIDEBAR KIRI + TAB CONTAINER KANAN)
 -- =====================================================
-local Fluent = nil
+local MainFrame = Instance.new("Frame")
+MainFrame.Name = "QuantumMainFrame"
+MainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+MainFrame.Position = UDim2.fromScale(0.5, 0.5)
+MainFrame.Size = UDim2.fromOffset(580, 380)
+MainFrame.BackgroundColor3 = Color3.fromRGB(13, 14, 18)
+MainFrame.BorderSizePixel = 0
+MainFrame.ClipsDescendants = true
+MainFrame.Active = true
+MainFrame.ZIndex = 10
+MainFrame.Parent = ScreenGui
+makeCorner(MainFrame, 10)
+makeStroke(MainFrame, Color3.fromRGB(48, 52, 72), 1.5)
 
--- Delta Android compatibility:
--- Some execution environments do not expose getgenv(). Fluent uses it
--- for shared settings during library initialization.
-if type(getgenv) ~= "function" then
-    local sharedEnv = _G
-    getgenv = function()
-        return sharedEnv
-    end
+-- Glow accent line at top
+local TopAccent = Instance.new("Frame")
+TopAccent.Size = UDim2.new(1, 0, 0, 2)
+TopAccent.BackgroundColor3 = Color3.fromRGB(88, 101, 242)
+TopAccent.BorderSizePixel = 0
+TopAccent.ZIndex = 25
+TopAccent.Parent = MainFrame
+
+-- TOP BAR (HEADER)
+local TopBar = Instance.new("Frame")
+TopBar.Size = UDim2.new(1, -12, 0, 32)
+TopBar.Position = UDim2.new(0, 6, 0, 5)
+TopBar.BackgroundColor3 = Color3.fromRGB(18, 20, 26)
+TopBar.BorderSizePixel = 0
+TopBar.Active = true
+TopBar.ZIndex = 11
+TopBar.Parent = MainFrame
+makeCorner(TopBar, 7)
+makeStroke(TopBar, Color3.fromRGB(38, 42, 58), 1, 0)
+
+-- Header Logo / Icon
+local TitleIcon = Instance.new("TextLabel")
+TitleIcon.Size = UDim2.new(0, 28, 1, 0)
+TitleIcon.Position = UDim2.new(0, 8, 0, 0)
+TitleIcon.BackgroundTransparency = 1
+TitleIcon.Text = "⚛"
+TitleIcon.Font = Enum.Font.GothamBold
+TitleIcon.TextSize = 18
+TitleIcon.TextColor3 = Color3.fromRGB(88, 101, 242)
+TitleIcon.ZIndex = 12
+TitleIcon.Parent = TopBar
+
+local TitleLbl = Instance.new("TextLabel")
+TitleLbl.Size = UDim2.new(0, 320, 1, 0)
+TitleLbl.Position = UDim2.new(0, 36, 0, 0)
+TitleLbl.BackgroundTransparency = 1
+TitleLbl.Text = "MCHLERN ENGINE  <font color='#5865F2'>STUDIO LITE</font>  <font color='#8A92A6'>| Quantum PC</font>"
+TitleLbl.RichText = true
+TitleLbl.Font = Enum.Font.GothamBold
+TitleLbl.TextSize = 11.5
+TitleLbl.TextColor3 = Color3.fromRGB(240, 242, 250)
+TitleLbl.TextXAlignment = Enum.TextXAlignment.Left
+TitleLbl.ZIndex = 12
+TitleLbl.Parent = TopBar
+
+-- Close Button (X)
+local CloseBtn = Instance.new("TextButton")
+CloseBtn.Size = UDim2.new(0, 26, 0, 24)
+CloseBtn.Position = UDim2.new(1, -30, 0, 6)
+CloseBtn.BackgroundColor3 = Color3.fromRGB(30, 33, 44)
+CloseBtn.Text = "✕"
+CloseBtn.Font = Enum.Font.GothamBold
+CloseBtn.TextSize = 11
+CloseBtn.TextColor3 = Color3.fromRGB(200, 205, 220)
+CloseBtn.ZIndex = 20
+CloseBtn.Active = true
+CloseBtn.Parent = TopBar
+makeCorner(CloseBtn, 5)
+makeStroke(CloseBtn, Color3.fromRGB(50, 55, 75), 1)
+
+CloseBtn.MouseButton1Click:Connect(function()
+    MainFrame.Visible = false
+    ToggleBtn.Visible = true
+end)
+
+ToggleBtn.MouseButton1Click:Connect(function()
+    MainFrame.Visible = not MainFrame.Visible
+end)
+
+-- Draggable via TopBar
+local function makeSafeTopBarDraggable(frame, handle)
+    local dragInput, dragStart, startPos = nil, nil, nil
+    handle.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragInput = input
+            dragStart = input.Position
+            startPos = frame.Position
+        end
+    end)
+    UserInputService.InputChanged:Connect(function(input)
+        if input == dragInput and dragStart and startPos then
+            local delta = input.Position - dragStart
+            local vp = (workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize) or Vector2.new(800, 450)
+            local newX = math.clamp(startPos.X.Offset + delta.X, -vp.X/2 + 200, vp.X/2 - 200)
+            local newY = math.clamp(startPos.Y.Offset + delta.Y, -vp.Y/2 + 100, vp.Y/2 - 100)
+            frame.Position = UDim2.new(startPos.X.Scale, newX, startPos.Y.Scale, newY)
+        end
+    end)
+    handle.InputEnded:Connect(function(input)
+        if input == dragInput then dragInput = nil end
+    end)
 end
+makeSafeTopBarDraggable(MainFrame, TopBar)
 
-local function getUrl(url)
-    local ok, res = pcall(function() return game:HttpGet(url) end)
-    if ok and type(res) == "string" and #res > 0 then return res end
-    local req = (syn and syn.request) or request or http_request or (http and http.request)
-    if req then
-        local ok2, r = pcall(function() return req({Url = url, Method = "GET"}) end)
-        if ok2 and r and r.Body then return r.Body end
-    end
-    return nil
-end
+-- =====================================================
+-- 3. SIDEBAR (KIRI - SEMUA TOMBOL NAVIGASI DI SINI)
+-- =====================================================
+local Sidebar = Instance.new("Frame")
+Sidebar.Name = "QuantumSidebar"
+Sidebar.Size = UDim2.new(0, 132, 1, -44)
+Sidebar.Position = UDim2.new(0, 6, 0, 39)
+Sidebar.BackgroundColor3 = Color3.fromRGB(16, 17, 23)
+Sidebar.BorderSizePixel = 0
+Sidebar.ZIndex = 11
+Sidebar.Parent = MainFrame
+makeCorner(Sidebar, 8)
+makeStroke(Sidebar, Color3.fromRGB(34, 38, 52), 1)
 
-local fluentSource = getUrl("https://raw.githubusercontent.com/CloudyEX/CloudyMain/refs/heads/main/UI.lua")
-if not fluentSource then
-    error("[Quantum] Gagal mendownload Fluent UI library. Cek koneksi atau akses HTTP executor.")
-end
+-- User Mini Profile in Sidebar
+local UserProfile = Instance.new("Frame")
+UserProfile.Size = UDim2.new(1, -8, 0, 36)
+UserProfile.Position = UDim2.new(0, 4, 0, 5)
+UserProfile.BackgroundColor3 = Color3.fromRGB(22, 24, 32)
+UserProfile.BorderSizePixel = 0
+UserProfile.ZIndex = 12
+UserProfile.Parent = Sidebar
+makeCorner(UserProfile, 6)
 
-if type(loadstring) ~= "function" then
-    error("[Quantum] loadstring tidak tersedia di executor ini; Fluent UI tidak dapat dimuat.")
-end
+local UserAvatarImg = Instance.new("ImageLabel")
+UserAvatarImg.Size = UDim2.new(0, 24, 0, 24)
+UserAvatarImg.Position = UDim2.new(0, 5, 0, 6)
+UserAvatarImg.BackgroundColor3 = Color3.fromRGB(28, 30, 40)
+UserAvatarImg.Image = "rbxthumb://type=AvatarHeadShot&id=" .. tostring(LP.UserId) .. "&w=150&h=150"
+UserAvatarImg.ZIndex = 13
+UserAvatarImg.Parent = UserProfile
+makeCorner(UserAvatarImg, 12)
+makeStroke(UserAvatarImg, Color3.fromRGB(88, 101, 242), 1)
 
-local compiledFluent, compileError = loadstring(fluentSource)
-if type(compiledFluent) ~= "function" then
-    error("[Quantum] Gagal compile Fluent UI: " .. tostring(compileError))
-end
+local UserDispName = Instance.new("TextLabel")
+UserDispName.Size = UDim2.new(1, -38, 0, 14)
+UserDispName.Position = UDim2.new(0, 34, 0, 5)
+UserDispName.BackgroundTransparency = 1
+UserDispName.Text = LP.DisplayName or LP.Name or "Player"
+UserDispName.Font = Enum.Font.GothamBold
+UserDispName.TextSize = 9
+UserDispName.TextColor3 = Color3.fromRGB(255, 255, 255)
+UserDispName.TextXAlignment = Enum.TextXAlignment.Left
+UserDispName.TextTruncate = Enum.TextTruncate.AtEnd
+UserDispName.ZIndex = 13
+UserDispName.Parent = UserProfile
 
-local fluentOk, fluentResult = pcall(compiledFluent)
-if not fluentOk then
-    error("[Quantum] Fluent UI gagal inisialisasi: " .. tostring(fluentResult))
-end
-if type(fluentResult) ~= "table" or type(fluentResult.CreateWindow) ~= "function" then
-    error("[Quantum] Fluent UI termuat tetapi API CreateWindow tidak ditemukan.")
-end
+local UserHandle = Instance.new("TextLabel")
+UserHandle.Size = UDim2.new(1, -38, 0, 12)
+UserHandle.Position = UDim2.new(0, 34, 0, 18)
+UserHandle.BackgroundTransparency = 1
+UserHandle.Text = "@" .. (LP.Name or "user")
+UserHandle.Font = Enum.Font.Gotham
+UserHandle.TextSize = 7.5
+UserHandle.TextColor3 = Color3.fromRGB(140, 145, 165)
+UserHandle.TextXAlignment = Enum.TextXAlignment.Left
+UserHandle.TextTruncate = Enum.TextTruncate.AtEnd
+UserHandle.ZIndex = 13
+UserHandle.Parent = UserProfile
 
-Fluent = fluentResult
+-- Divider under profile
+local SideDiv = Instance.new("Frame")
+SideDiv.Size = UDim2.new(1, -16, 0, 1)
+SideDiv.Position = UDim2.new(0, 6, 0, 46)
+SideDiv.BackgroundColor3 = Color3.fromRGB(34, 38, 52)
+SideDiv.BorderSizePixel = 0
+SideDiv.ZIndex = 12
+SideDiv.Parent = Sidebar
 
-local Window = Fluent:CreateWindow({
-    Title = "Quantum | ID",
-    TitleIcon = "lucide/atom",
-    SubTitle = "Studio Lite PC",
-    MinWindowSize = Vector2.new(440, 250),
-    Size = UDim2.fromOffset(580, 380),
-    Acrylic = false,
-    Theme = "Cloudy",
-    MinimizeKey = Enum.KeyCode.LeftControl,
-    MinimizeIcon = "rbxassetid://109388426525855"
-})
+-- Navigation List
+local NavScroll = Instance.new("ScrollingFrame")
+NavScroll.Size = UDim2.new(1, -6, 1, -54)
+NavScroll.Position = UDim2.new(0, 3, 0, 50)
+NavScroll.BackgroundTransparency = 1
+NavScroll.BorderSizePixel = 0
+NavScroll.ScrollBarThickness = 2
+NavScroll.ScrollBarImageColor3 = Color3.fromRGB(60, 65, 85)
+NavScroll.CanvasSize = UDim2.new()
+NavScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+NavScroll.ZIndex = 12
+NavScroll.Parent = Sidebar
 
--- QUANTUM TABS (Navigasi Kiri Penuh)
-local Tabs = {
-    Toolbox  = Window:AddTab({ Title = "Toolbox",     Icon = "lucide/package" }),
-    RBXM     = Window:AddTab({ Title = "Insert RBXM", Icon = "lucide/file-code" }),
-    Text3D   = Window:AddTab({ Title = "3D Text",     Icon = "lucide/type" }),
-    Replacer = Window:AddTab({ Title = "Replacer",    Icon = "lucide/replace" }),
-    Avatar   = Window:AddTab({ Title = "Avatar",      Icon = "lucide/user" }),
-}
+local NavLayout = Instance.new("UIListLayout")
+NavLayout.Padding = UDim.new(0, 4)
+NavLayout.SortOrder = Enum.SortOrder.LayoutOrder
+NavLayout.Parent = NavScroll
 
--- Target Page Containers (Mounted cleanly inside each Fluent tab)
+-- =====================================================
+-- 4. CONTENT AREA (KANAN - HALAMAN TAB AKTIF)
+-- =====================================================
+local Content = Instance.new("Frame")
+Content.Name = "QuantumContent"
+Content.Size = UDim2.new(1, -148, 1, -44)
+Content.Position = UDim2.new(0, 142, 0, 39)
+Content.BackgroundTransparency = 1
+Content.ClipsDescendants = true
+Content.ZIndex = 11
+Content.Parent = MainFrame
+
 local PageToolbox  = Instance.new("Frame")
+local PageSplash   = PageToolbox -- Aliased to PageToolbox for backward compatibility
+local PageAvatar   = Instance.new("Frame")
+local PageRBXL     = Instance.new("Frame")
 local PageRBXM     = Instance.new("Frame")
 local PageText3D   = Instance.new("Frame")
 local PageReplacer = Instance.new("Frame")
-local PageAvatar   = Instance.new("Frame")
 
-local PageSplash   = PageToolbox -- Compatibility alias
+local ALL_PAGES = {
+    Toolbox  = PageToolbox,
+    Avatar   = PageAvatar,
+    RBXL     = PageRBXL,
+    RBXM     = PageRBXM,
+    Text3D   = PageText3D,
+    Replacer = PageReplacer,
+}
 
-local function setupPage(page, tab, name)
-    page.Name = name
-    page.Size = UDim2.new(1, 0, 0, 330)
-    page.Position = UDim2.new(0, 0, 0, 0)
-    page.BackgroundTransparency = 1
-    page.BorderSizePixel = 0
-    page.ZIndex = 10
-    page.Parent = tab.ContainerFrame
+for name, pg in pairs(ALL_PAGES) do
+    pg.Name = "Page_" .. name
+    pg.Size = UDim2.fromScale(1, 1)
+    pg.BackgroundTransparency = 1
+    pg.Visible = false
+    pg.ZIndex = 12
+    pg.Parent = Content
 end
 
-setupPage(PageToolbox,  Tabs.Toolbox,  "PageToolbox")
-setupPage(PageRBXM,     Tabs.RBXM,     "PageRBXM")
-setupPage(PageText3D,   Tabs.Text3D,   "PageText3D")
-setupPage(PageReplacer, Tabs.Replacer, "PageReplacer")
-setupPage(PageAvatar,   Tabs.Avatar,   "PageAvatar")
+-- Navigation Button Builder
+local navButtons = {}
+local activeTabName = nil
 
--- Helper compatibility for legacy code
-local function showPage(target)
-    if target == PageToolbox or target == PageSplash then Window:SelectTab(1)
-    elseif target == PageRBXM then Window:SelectTab(2)
-    elseif target == PageText3D then Window:SelectTab(3)
-    elseif target == PageReplacer then Window:SelectTab(4)
-    elseif target == PageAvatar then Window:SelectTab(5)
+local function switchTab(tabKey)
+    activeTabName = tabKey
+    for name, pg in pairs(ALL_PAGES) do
+        pg.Visible = (name == tabKey)
+    end
+    for name, btnData in pairs(navButtons) do
+        local isActive = (name == tabKey)
+        btnData.Button.BackgroundColor3 = isActive and Color3.fromRGB(30, 36, 56) or Color3.fromRGB(18, 20, 26)
+        btnData.Indicator.Visible = isActive
+        btnData.Label.TextColor3 = isActive and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(150, 155, 175)
+        btnData.Label.Font = isActive and Enum.Font.GothamBold or Enum.Font.GothamMedium
+        btnData.Stroke.Color = isActive and Color3.fromRGB(88, 101, 242) or Color3.fromRGB(28, 30, 40)
     end
 end
 
+local function addNavButton(tabKey, icon, labelText, order)
+    local btn = Instance.new("TextButton")
+    btn.Name = "Nav_" .. tabKey
+    btn.Size = UDim2.new(1, 0, 0, 31)
+    btn.BackgroundColor3 = Color3.fromRGB(18, 20, 26)
+    btn.BorderSizePixel = 0
+    btn.Text = ""
+    btn.AutoButtonColor = false
+    btn.LayoutOrder = order or 1
+    btn.ZIndex = 13
+    btn.Parent = NavScroll
+    makeCorner(btn, 6)
+    local btnStroke = makeStroke(btn, Color3.fromRGB(28, 30, 40), 1)
+
+    -- Left glowing accent indicator bar (Quantum style)
+    local ind = Instance.new("Frame")
+    ind.Size = UDim2.new(0, 3, 0, 16)
+    ind.Position = UDim2.new(0, 3, 0.5, -8)
+    ind.BackgroundColor3 = Color3.fromRGB(88, 101, 242)
+    ind.BorderSizePixel = 0
+    ind.Visible = false
+    ind.ZIndex = 14
+    ind.Parent = btn
+    makeCorner(ind, 2)
+
+    -- Icon
+    local ic = Instance.new("TextLabel")
+    ic.Size = UDim2.new(0, 18, 1, 0)
+    ic.Position = UDim2.new(0, 8, 0, 0)
+    ic.BackgroundTransparency = 1
+    ic.Text = icon
+    ic.Font = Enum.Font.GothamBold
+    ic.TextSize = 11
+    ic.TextColor3 = Color3.fromRGB(88, 101, 242)
+    ic.ZIndex = 14
+    ic.Parent = btn
+
+    -- Label
+    local lb = Instance.new("TextLabel")
+    lb.Size = UDim2.new(1, -40, 1, 0)
+    lb.Position = UDim2.new(0, 28, 0, 0)
+    lb.BackgroundTransparency = 1
+    lb.Text = labelText
+    lb.Font = Enum.Font.GothamMedium
+    lb.TextSize = 8.5
+    lb.TextColor3 = Color3.fromRGB(150, 155, 175)
+    lb.TextXAlignment = Enum.TextXAlignment.Left
+    lb.ZIndex = 14
+    lb.Parent = btn
+
+    btn.MouseEnter:Connect(function()
+        if activeTabName ~= tabKey then
+            btn.BackgroundColor3 = Color3.fromRGB(24, 27, 38)
+            lb.TextColor3 = Color3.fromRGB(200, 205, 220)
+        end
+    end)
+    btn.MouseLeave:Connect(function()
+        if activeTabName ~= tabKey then
+            btn.BackgroundColor3 = Color3.fromRGB(18, 20, 26)
+            lb.TextColor3 = Color3.fromRGB(150, 155, 175)
+        end
+    end)
+
+    btn.MouseButton1Click:Connect(function()
+        switchTab(tabKey)
+    end)
+
+    navButtons[tabKey] = {
+        Button = btn,
+        Indicator = ind,
+        Label = lb,
+        Stroke = btnStroke
+    }
+end
+
+-- Add all tabs on the left
+addNavButton("Toolbox",  "📦", "TOOLBOX ASET",     1)
+addNavButton("Avatar",   "👤", "AVATAR CHANGER",   2)
+addNavButton("RBXL",     "🏗️", "RBXL IMPORTER",    3)
+addNavButton("RBXM",     "📁", "INSERT RBXM",      4)
+addNavButton("Text3D",   "🔤", "GENE TEXT 3D",     5)
+addNavButton("Replacer", "🔄", "REPLACER TOOLS",   6)
+
+-- Compatibility helper for existing code that calls showPage
+local function showPage(target)
+    for name, pg in pairs(ALL_PAGES) do
+        if pg == target then
+            switchTab(name)
+            return
+        end
+    end
+end
 local function makeBackBtn(parent, onBack)
-    -- Di Quantum layout, navigasi tab selalu ada di kiri, tombol back tidak lagi diperlukan
-    local dummy = Instance.new("Frame")
-    dummy.Size = UDim2.new(0, 0, 0, 0)
-    dummy.Visible = false
-    dummy.Parent = parent
-    return dummy
+    -- Hidden/stub in Quantum layout since sidebar is always visible!
+    local b = Instance.new("Frame")
+    b.Size = UDim2.new(0, 0, 0, 0)
+    b.Visible = false
+    b.Parent = parent
+    return b
 end
 
 local TbHeader = Instance.new("Frame")
@@ -640,7 +880,7 @@ TbContent.ZIndex = 13
 TbContent.Parent = PageToolbox
 
 local TbLeft = Instance.new("Frame")
-TbLeft.Size = UDim2.new(0, 185, 1, 0)
+TbLeft.Size = UDim2.new(0, 180, 1, 0)
 TbLeft.BackgroundTransparency = 1
 TbLeft.ZIndex = 14
 TbLeft.Parent = TbContent
@@ -746,7 +986,7 @@ for _, c in ipairs(cats) do
     cb.Parent = TbCatRow
     makeCorner(cb, 4); makeStroke(cb, Color3.fromRGB(255,255,255), 1, 0.82)
     catBtns[c.id] = cb
-    cb.MouseButton1Click:Connect(function() selectedCat = c.id; updateCatTabs() end)
+    cb.Activated:Connect(function() selectedCat = c.id; updateCatTabs() end)
 end
 updateCatTabs()
 
@@ -832,7 +1072,7 @@ TbDetCopy.TextColor3 = Color3.fromRGB(0, 0, 0); TbDetCopy.Active = true; TbDetCo
 TbDetCopy.Parent = TbDetRow; makeCorner(TbDetCopy, 5)
 
 local TbRight = Instance.new("Frame")
-TbRight.Size = UDim2.new(1, -190, 1, 0); TbRight.Position = UDim2.new(0, 190, 0, 0)
+TbRight.Size = UDim2.new(1, -186, 1, 0); TbRight.Position = UDim2.new(0, 186, 0, 0)
 TbRight.BackgroundColor3 = Color3.fromRGB(18, 18, 22)
 TbRight.ZIndex = 14
 TbRight.Parent = TbContent
@@ -871,6 +1111,3010 @@ TbGridStatus.Parent = TbGridScroll
 -- =====================================================
 
 local RbxmHeader = Instance.new("Frame")
+
+
+-- ============================================================================
+-- [PAGE: RBXL IMPORTER (STUDIO LITE)]
+-- Universal RBXL Binary Engine (Decompress LZ4/ZSTD, Parse & Inject to Services)
+-- ============================================================================
+local function initPageRBXL()
+    local function createRbxlEngine()
+_G.Hyaz_RAW_SOURCES = _G.Hyaz_RAW_SOURCES or {}
+_G.Hyaz_RAW_SOURCE_BY_REF = _G.Hyaz_RAW_SOURCE_BY_REF or {}
+if type(string.unpack) ~= "function" then
+    warn("[RBXL ENGINE] string.unpack tidak tersedia. Binary RBXL tidak dapat dibaca di executor ini.")
+end
+local BINARY_BIT32_OK = type(bit32) == "table"
+if not BINARY_BIT32_OK then
+    warn("[RBXL ENGINE] bit32 tidak tersedia. UI tetap dibuka, tetapi import binary tidak bisa berjalan.")
+end
+local _rrotate = BINARY_BIT32_OK and bit32.rrotate or nil
+if type(_rrotate) ~= "function" then
+    _rrotate = function(x, n)
+        x = x % 4294967296
+        n = n % 32
+        if n == 0 then return x end
+        local p = 2 ^ n
+        return (math.floor(x / p) + (x % p) * (2 ^ (32 - n))) % 4294967296
+    end
+end
+local function Buffer(str, allowOverflows)
+    local Stream = { Offset = 0, Source = str, Length = string.len(str), AllowOverflows = (allowOverflows == nil and true) or allowOverflows }
+    function Stream:read(len, shift)
+        len = len or 1; shift = (shift == nil and true) or shift
+        local dat = string.sub(self.Source, self.Offset + 1, self.Offset + len)
+        if shift then self:seek(len) end
+        return dat
+    end
+    function Stream:seek(len) self.Offset = math.clamp(self.Offset + len, 0, self.Length) end
+    function Stream:readNumber(fmt, shift)
+        fmt = fmt or "I1"
+        if type(string.unpack) ~= "function" then
+            error("string.unpack tidak tersedia di environment ini")
+        end
+        local size
+        if type(string.packsize) == "function" then
+            size = string.packsize(fmt)
+        else
+            local f = tostring(fmt):gsub("^[<>!=@]", "")
+            local sizes = {I1=1,i1=1,I2=2,i2=2,I4=4,i4=4,I8=8,i8=8,f=4,d=8}
+            size = sizes[f]
+            if not size then error("Unsupported pack format: "..tostring(fmt)) end
+        end
+        local chunk = self:read(size, shift)
+        if #chunk ~= size then
+            error(("Unexpected EOF while reading %s (%d/%d bytes)"):format(tostring(fmt), #chunk, size))
+        end
+        return string.unpack(fmt, chunk)
+    end
+    function Stream:append(s) self.Source = self.Source .. s; self.Length = #self.Source end
+    function Stream:toEnd() self.Offset = self.Length end
+    return Stream
+end
+local function transformInt(x) return (x % 2 == 0) and (x / 2) or (-(x + 1) / 2) end
+local function rbxF32(x) x = _rrotate(x, 1); return string.unpack(">f", string.pack(">I4", x)) end
+local basicTypes = {}
+function basicTypes.String(buffer) return buffer:read(buffer:readNumber("<I4")) end
+function basicTypes.Int32(buffer) return transformInt(buffer:readNumber(">I4")) end
+function basicTypes.Int64(buffer) return transformInt(buffer:readNumber(">I8")) end
+function basicTypes.Float32(buffer) return rbxF32(buffer:readNumber(">I4")) end
+function basicTypes.Float64(buffer) return buffer:readNumber("<d") end
+function basicTypes.InterleaveArrayWithSize(buffer, count, sizeof)
+    if count < 0 then return Buffer("", false) end
+    local stream = buffer:read(count * sizeof); local out = table.create(count)
+    for i = 1, count do
+        local chunk = table.create(sizeof)
+        for s = 0, sizeof - 1 do
+            local bitPos = i + (count * s); chunk[s+1] = string.sub(stream, bitPos, bitPos)
+        end
+        out[i] = table.concat(chunk)
+    end
+    return Buffer(table.concat(out), false)
+end
+function basicTypes.unsignedIntArray(buffer, count)
+    if count < 1 then return {} end
+    local o = table.create(count); local strings = basicTypes.InterleaveArrayWithSize(buffer, count, 4)
+    for i = 1, count do o[i] = strings:readNumber("<I4") end
+    return o
+end
+function basicTypes.Int32Array(buffer, count)
+    if count < 1 then return {} end
+    local o = table.create(count); local strings = basicTypes.InterleaveArrayWithSize(buffer, count, 4)
+    for i = 1, count do o[i] = basicTypes.Int32(strings) end
+    return o
+end
+function basicTypes.Int64Array(buffer, count)
+    if count < 1 then return {} end
+    local o = table.create(count); local strings = basicTypes.InterleaveArrayWithSize(buffer, count, 8)
+    for i = 1, count do o[i] = basicTypes.Int64(strings) end
+    return o
+end
+function basicTypes.RbxF32Array(buffer, count)
+    if count < 1 then return {} end
+    local o = table.create(count); local strings = basicTypes.InterleaveArrayWithSize(buffer, count, 4)
+    for i = 1, count do o[i] = basicTypes.Float32(strings) end
+    return o
+end
+function basicTypes.RefArray(buffer, count)
+    if count < 1 then return {} end
+    local o = table.create(count); local refs = basicTypes.Int32Array(buffer, count); local last = 0
+    for i = 1, count do local ref = last + refs[i]; o[i] = ref; last = ref end
+    return o
+end
+local function lz4(lz4data)
+    local input = Buffer(lz4data, false)
+    local compressedLen = input:readNumber("<I4")
+    local decompressedLen = input:readNumber("<I4")
+    local reserved = input:readNumber("<I4")
+    if reserved ~= 0 then error("not lz4") end
+    if compressedLen == 0 then
+        return input:read(decompressedLen)
+    end
+    local raw = input:read(compressedLen)
+    local pos = 1
+    local out = table.create(decompressedLen)
+    local outLen = 0
+    local function readByte()
+        if pos > #raw then error("LZ4 unexpected end") end
+        local b = string.byte(raw, pos)
+        pos = pos + (1)
+        return b
+    end
+    local function extLen(base)
+        local len = base
+        if base == 15 then
+            while true do
+                local b = readByte()
+                len = len + (b)
+                if b ~= 255 then break end
+            end
+        end
+        return len
+    end
+    while outLen < decompressedLen do
+        local token = readByte()
+        local literalLen = extLen(bit32.rshift(token, 4))
+        for _ = 1, literalLen do
+            outLen = outLen + (1)
+            out[outLen] = string.char(readByte())
+        end
+        if outLen >= decompressedLen then break end
+        local offset = readByte() + bit32.lshift(readByte(), 8)
+        if offset <= 0 or offset > outLen then
+            error("LZ4 invalid match offset")
+        end
+        local matchLen = extLen(bit32.band(token, 15)) + 4
+        local srcIndex = outLen - offset + 1
+        for _ = 1, matchLen do
+            outLen = outLen + (1)
+            out[outLen] = out[srcIndex]
+            srcIndex = srcIndex + (1)
+            if outLen >= decompressedLen then break end
+        end
+    end
+    local result = table.concat(out, "", 1, outLen)
+    if #result ~= decompressedLen then
+        error(("LZ4 length mismatch %d/%d"):format(#result, decompressedLen))
+    end
+    return result
+end
+local function b64encode(str)
+    local chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
+    local out = {}
+    for i = 1, #str, 3 do
+        local b0, b1, b2 = string.byte(str, i, i+2)
+        local b = bit32.lshift(b0, 16) + bit32.lshift(b1 or 0, 8) + (b2 or 0)
+        table.insert(out, chars:sub(bit32.extract(b, 18, 6)+1, bit32.extract(b, 18, 6)+1))
+        table.insert(out, chars:sub(bit32.extract(b, 12, 6)+1, bit32.extract(b, 12, 6)+1))
+        table.insert(out, b1 and chars:sub(bit32.extract(b, 6, 6)+1, bit32.extract(b, 6, 6)+1) or "=")
+        table.insert(out, b2 and chars:sub(bit32.band(b, 63)+1, bit32.band(b, 63)+1) or "=")
+    end
+    return table.concat(out)
+end
+local function _bytesToString(v)
+    if type(v) == "string" then return v end
+    local ok, out = pcall(function()
+        if type(buffer) == "table" and type(buffer.tostring) == "function" then
+            return buffer.tostring(v)
+        end
+        return nil
+    end)
+    if ok and type(out) == "string" then return out end
+    local ok2, out2 = pcall(function()
+        if type(buffer) == "table" and type(buffer.len) == "function" and type(buffer.readu8) == "function" then
+            local n = buffer.len(v)
+            local parts = table.create(math.ceil(n / 4096))
+            local k = 0
+            for i = 0, n - 1, 4096 do
+                local e = math.min(n - 1, i + 4095)
+                local chars = table.create(e - i + 1)
+                for j = i, e do chars[j - i + 1] = string.char(buffer.readu8(v, j)) end
+                k = k + (1)
+                parts[k] = table.concat(chars)
+            end
+            return table.concat(parts)
+        end
+        return nil
+    end)
+    if ok2 and type(out2) == "string" then return out2 end
+    return nil
+end
+local function _zstdViaEncodingService(data)
+    local ok, result = pcall(function()
+        local EncodingService = game:GetService("EncodingService")
+        local CompressionAlgorithm = Enum.CompressionAlgorithm
+        if type(buffer) ~= "table" or type(buffer.fromstring) ~= "function" then error("buffer API unavailable") end
+        if not CompressionAlgorithm or not CompressionAlgorithm.Zstd then error("Zstd enum unavailable") end
+        local compressed = buffer.fromstring(data)
+        local decoded = EncodingService:DecompressBuffer(compressed, CompressionAlgorithm.Zstd)
+        local text = _bytesToString(decoded)
+        if not text then error("failed to convert decompressed buffer") end
+        return text
+    end)
+    return ok and result or nil
+end
+local function _zstdViaJSON(data)
+    local zbase64 = b64encode(data)
+    local ok, result = pcall(function()
+        local x = HttpService:JSONDecode('{"m":null,"t":"buffer","zbase64":"' .. zbase64 .. '"}')
+        local text = _bytesToString(x)
+        if not text then error("JSONDecode returned a buffer but this runtime has no buffer->string bridge") end
+        return text
+    end)
+    return ok and result or nil
+end
+local function zstd(stream)
+    local out = _zstdViaEncodingService(stream)
+    if out then return out end
+    out = _zstdViaJSON(stream)
+    if out then return out end
+    error("ZSTD decompressor tidak tersedia/compatible di environment ini")
+end
+local function _readVector3(buffer, count)
+    local xs = basicTypes.RbxF32Array(buffer, count)
+    local ys = basicTypes.RbxF32Array(buffer, count)
+    local zs = basicTypes.RbxF32Array(buffer, count)
+    local out = table.create(count)
+    for i = 1, count do out[i] = Vector3.new(xs[i], ys[i], zs[i]) end
+    return out
+end
+local function _readColor3(buffer, count)
+    local rs = basicTypes.RbxF32Array(buffer, count)
+    local gs = basicTypes.RbxF32Array(buffer, count)
+    local bs = basicTypes.RbxF32Array(buffer, count)
+    local out = table.create(count)
+    for i = 1, count do out[i] = Color3.new(rs[i], gs[i], bs[i]) end
+    return out
+end
+local function _readVector2(buffer, count)
+    local xs = basicTypes.RbxF32Array(buffer, count)
+    local ys = basicTypes.RbxF32Array(buffer, count)
+    local out = table.create(count)
+    for i = 1, count do out[i] = Vector2.new(xs[i], ys[i]) end
+    return out
+end
+local RBXL_ROTATION_MATRICES = {
+    [0x02] = { 1, 0, 0,  0, 1, 0,  0, 0, 1},
+    [0x03] = { 1, 0, 0,  0, 0,-1,  0, 1, 0},
+    [0x05] = { 1, 0, 0,  0,-1, 0,  0, 0,-1},
+    [0x06] = { 1, 0, 0,  0, 0, 1,  0,-1, 0},
+    [0x07] = { 0, 1, 0,  1, 0, 0,  0, 0,-1},
+    [0x09] = { 0, 0, 1,  1, 0, 0,  0, 1, 0},
+    [0x0A] = { 0,-1, 0,  1, 0, 0,  0, 0, 1},
+    [0x0C] = { 0, 0,-1,  1, 0, 0,  0,-1, 0},
+    [0x0D] = { 0, 1, 0,  0, 0, 1,  1, 0, 0},
+    [0x0E] = { 0, 0,-1,  0, 1, 0,  1, 0, 0},
+    [0x10] = { 0,-1, 0,  0, 0,-1,  1, 0, 0},
+    [0x11] = { 0, 0, 1,  0,-1, 0,  1, 0, 0},
+    [0x14] = {-1, 0, 0,  0, 1, 0,  0, 0,-1},
+    [0x15] = {-1, 0, 0,  0, 0, 1,  0, 1, 0},
+    [0x17] = {-1, 0, 0,  0,-1, 0,  0, 0, 1},
+    [0x18] = {-1, 0, 0,  0, 0,-1,  0,-1, 0},
+    [0x19] = { 0, 1, 0, -1, 0, 0,  0, 0, 1},
+    [0x1B] = { 0, 0,-1, -1, 0, 0,  0, 1, 0},
+    [0x1C] = { 0,-1, 0, -1, 0, 0,  0, 0,-1},
+    [0x1E] = { 0, 0, 1, -1, 0, 0,  0,-1, 0},
+    [0x1F] = { 0, 1, 0,  0, 0,-1, -1, 0, 0},
+    [0x20] = { 0, 0, 1,  0, 1, 0, -1, 0, 0},
+    [0x22] = { 0,-1, 0,  0, 0, 1, -1, 0, 0},
+    [0x23] = { 0, 0,-1,  0,-1, 0, -1, 0, 0},
+}
+local function _cframeFromRotationId(id, p)
+    local m = RBXL_ROTATION_MATRICES[id]
+    if not m then
+        return nil
+    end
+    return CFrame.new(
+        p.X, p.Y, p.Z,
+        m[1],m[2],m[3],
+        m[4],m[5],m[6],
+        m[7],m[8],m[9]
+    )
+end
+local function _readCFrames(buffer, count)
+    local ids = table.create(count)
+    local rotations = table.create(count)
+    for i = 1, count do
+        local id = string.byte(buffer:read())
+        if id == nil then error("CFrame rotation ID terpotong") end
+        ids[i] = id
+        if id == 0 then
+            local m = table.create(9)
+            for j = 1, 9 do
+                m[j] = buffer:readNumber("<f")
+            end
+            rotations[i] = m
+        elseif not RBXL_ROTATION_MATRICES[id] then
+            error(("CFrame rotation ID tidak dikenal: 0x%02X"):format(id))
+        end
+    end
+    local positions = _readVector3(buffer, count)
+    local out = table.create(count)
+    for i = 1, count do
+        local p = positions[i]
+        if ids[i] == 0 then
+            local m = rotations[i]
+            out[i] = CFrame.new(
+                p.X,p.Y,p.Z,
+                m[1],m[2],m[3],
+                m[4],m[5],m[6],
+                m[7],m[8],m[9]
+            )
+        else
+            out[i] = _cframeFromRotationId(ids[i], p)
+        end
+    end
+    return out
+end
+local function _quatToCFrame(qx, qy, qz, qw, p)
+    local xx, yy, zz = qx*qx, qy*qy, qz*qz
+    local xy, xz, yz = qx*qy, qx*qz, qy*qz
+    local wx, wy, wz = qw*qx, qw*qy, qw*qz
+    return CFrame.new(
+        p.X, p.Y, p.Z,
+        1 - 2*(yy + zz), 2*(xy - wz),     2*(xz + wy),
+        2*(xy + wz),     1 - 2*(xx + zz), 2*(yz - wx),
+        2*(xz - wy),     2*(yz + wx),     1 - 2*(xx + yy)
+    )
+end
+local function _readCFrameQuats(buffer, count)
+    local ids = table.create(count)
+    local quats = table.create(count)
+    for i = 1, count do
+        local id = string.byte(buffer:read())
+        if id == nil then error("CFrameQuat ID terpotong") end
+        ids[i] = id
+        if id == 0 then
+            quats[i] = {
+                buffer:readNumber("<f"),
+                buffer:readNumber("<f"),
+                buffer:readNumber("<f"),
+                buffer:readNumber("<f"),
+            }
+        elseif not RBXL_ROTATION_MATRICES[id] then
+            error(("CFrameQuat rotation ID tidak dikenal: 0x%02X"):format(id))
+        end
+    end
+    local positions = _readVector3(buffer, count)
+    local out = table.create(count)
+    for i = 1, count do
+        local p = positions[i]
+        if ids[i] == 0 then
+            local q = quats[i]
+            out[i] = _quatToCFrame(q[1], q[2], q[3], q[4], p)
+        else
+            out[i] = _cframeFromRotationId(ids[i], p)
+        end
+    end
+    return out
+end
+local function _facesFromMask(mask)
+    local ids = {}
+    if bit32.band(mask, 0x01) ~= 0 then table.insert(ids, Enum.NormalId.Right) end
+    if bit32.band(mask, 0x02) ~= 0 then table.insert(ids, Enum.NormalId.Top) end
+    if bit32.band(mask, 0x04) ~= 0 then table.insert(ids, Enum.NormalId.Back) end
+    if bit32.band(mask, 0x08) ~= 0 then table.insert(ids, Enum.NormalId.Left) end
+    if bit32.band(mask, 0x10) ~= 0 then table.insert(ids, Enum.NormalId.Bottom) end
+    if bit32.band(mask, 0x20) ~= 0 then table.insert(ids, Enum.NormalId.Front) end
+    local ok, value = pcall(function() return Faces.new(table.unpack(ids)) end)
+    return ok and value or mask
+end
+local function _axesFromMask(mask)
+    local ids = {}
+    if bit32.band(mask, 0x01) ~= 0 then table.insert(ids, Enum.Axis.X) end
+    if bit32.band(mask, 0x02) ~= 0 then table.insert(ids, Enum.Axis.Y) end
+    if bit32.band(mask, 0x04) ~= 0 then table.insert(ids, Enum.Axis.Z) end
+    local ok, value = pcall(function() return Axes.new(table.unpack(ids)) end)
+    return ok and value or mask
+end
+local function _enumItemByValue(enumType, value)
+    if not enumType then return nil end
+    for _, item in ipairs(enumType:GetEnumItems()) do
+        if item.Value == value then return item end
+    end
+    return nil
+end
+local function _decodePropertyArray(buffer, typeID, count, sharedStrings)
+    if typeID == 0x01 then
+        local a = table.create(count)
+        for i=1,count do a[i]=basicTypes.String(buffer) end
+        return a
+    elseif typeID == 0x02 then
+        local a=table.create(count)
+        for i=1,count do a[i]=string.byte(buffer:read())~=0 end
+        return a
+    elseif typeID == 0x03 then
+        return basicTypes.Int32Array(buffer,count)
+    elseif typeID == 0x04 then
+        return basicTypes.RbxF32Array(buffer,count)
+    elseif typeID == 0x05 then
+        local a=table.create(count)
+        for i=1,count do a[i]=basicTypes.Float64(buffer) end
+        return a
+    elseif typeID == 0x06 then
+        local scales = basicTypes.RbxF32Array(buffer, count)
+        local offsets = basicTypes.Int32Array(buffer, count)
+        local a = table.create(count)
+        for i=1,count do a[i] = UDim.new(scales[i], offsets[i]) end
+        return a
+    elseif typeID == 0x07 then
+        local sx = basicTypes.RbxF32Array(buffer, count)
+        local sy = basicTypes.RbxF32Array(buffer, count)
+        local ox = basicTypes.Int32Array(buffer, count)
+        local oy = basicTypes.Int32Array(buffer, count)
+        local a = table.create(count)
+        for i=1,count do a[i] = UDim2.new(sx[i], ox[i], sy[i], oy[i]) end
+        return a
+    elseif typeID == 0x08 then
+        local a = table.create(count)
+        for i=1,count do
+            local origin = Vector3.new(
+                buffer:readNumber("<f"), buffer:readNumber("<f"), buffer:readNumber("<f")
+            )
+            local direction = Vector3.new(
+                buffer:readNumber("<f"), buffer:readNumber("<f"), buffer:readNumber("<f")
+            )
+            a[i] = Ray.new(origin, direction)
+        end
+        return a
+    elseif typeID == 0x09 then
+        local a=table.create(count)
+        for i=1,count do a[i]=_facesFromMask(string.byte(buffer:read()) or 0) end
+        return a
+    elseif typeID == 0x0A then
+        local a=table.create(count)
+        for i=1,count do a[i]=_axesFromMask(string.byte(buffer:read()) or 0) end
+        return a
+    elseif typeID == 0x0B then
+        local raw = basicTypes.unsignedIntArray(buffer,count)
+        local a = table.create(count)
+        for i=1,count do
+            local ok, bc = pcall(BrickColor.new, raw[i])
+            a[i] = ok and bc or raw[i]
+        end
+        return a
+    elseif typeID == 0x0C then
+        return _readColor3(buffer,count)
+    elseif typeID == 0x0D then
+        return _readVector2(buffer,count)
+    elseif typeID == 0x0E then
+        return _readVector3(buffer,count)
+    elseif typeID == 0x0F then
+        local a=table.create(count)
+        for i=1,count do
+            a[i]=Vector2int16.new(buffer:readNumber("<i2"),buffer:readNumber("<i2"))
+        end
+        return a
+    elseif typeID == 0x10 then
+        return _readCFrames(buffer,count)
+    elseif typeID == 0x11 then
+        return _readCFrameQuats(buffer,count)
+    elseif typeID == 0x12 then
+        return basicTypes.unsignedIntArray(buffer,count)
+    elseif typeID == 0x13 then
+        return basicTypes.RefArray(buffer,count)
+    elseif typeID == 0x14 then
+        local a=table.create(count)
+        for i=1,count do
+            a[i]=Vector3int16.new(
+                buffer:readNumber("<i2"),buffer:readNumber("<i2"),buffer:readNumber("<i2")
+            )
+        end
+        return a
+    elseif typeID == 0x15 then
+        local a=table.create(count)
+        for i=1,count do
+            local n=buffer:readNumber("<I4")
+            local points=table.create(n)
+            for j=1,n do
+                points[j]=NumberSequenceKeypoint.new(
+                    buffer:readNumber("<f"), buffer:readNumber("<f"), buffer:readNumber("<f")
+                )
+            end
+            local ok, seq=pcall(NumberSequence.new, points)
+            a[i]=ok and seq or nil
+        end
+        return a
+    elseif typeID == 0x16 then
+        local a=table.create(count)
+        for i=1,count do
+            local n=buffer:readNumber("<I4")
+            local points=table.create(n)
+            for j=1,n do
+                local t=buffer:readNumber("<f")
+                local c=Color3.new(
+                    buffer:readNumber("<f"), buffer:readNumber("<f"), buffer:readNumber("<f")
+                )
+                buffer:readNumber("<f")
+                points[j]=ColorSequenceKeypoint.new(t,c)
+            end
+            local ok, seq=pcall(ColorSequence.new, points)
+            a[i]=ok and seq or nil
+        end
+        return a
+    elseif typeID == 0x17 then
+        local a=table.create(count)
+        for i=1,count do a[i]=NumberRange.new(buffer:readNumber("<f"),buffer:readNumber("<f")) end
+        return a
+    elseif typeID == 0x18 then
+        local xmin=basicTypes.RbxF32Array(buffer,count)
+        local ymin=basicTypes.RbxF32Array(buffer,count)
+        local xmax=basicTypes.RbxF32Array(buffer,count)
+        local ymax=basicTypes.RbxF32Array(buffer,count)
+        local a=table.create(count)
+        for i=1,count do a[i]=Rect.new(xmin[i],ymin[i],xmax[i],ymax[i]) end
+        return a
+    elseif typeID == 0x19 then
+        local a=table.create(count)
+        for i=1,count do
+            local discriminator=string.byte(buffer:read()) or 0
+            if discriminator == 0x01 or discriminator == 0x03 then
+                local density=buffer:readNumber("<f")
+                local friction=buffer:readNumber("<f")
+                local elasticity=buffer:readNumber("<f")
+                local frictionWeight=buffer:readNumber("<f")
+                local elasticityWeight=buffer:readNumber("<f")
+                if discriminator == 0x03 then
+                    buffer:readNumber("<f")
+                end
+                local ok, pp=pcall(
+                    PhysicalProperties.new,
+                    density, friction, elasticity, frictionWeight, elasticityWeight
+                )
+                a[i]=ok and pp or nil
+            else
+                a[i]=nil
+            end
+        end
+        return a
+    elseif typeID == 0x1A then
+        local rs=table.create(count)
+        local gs=table.create(count)
+        local bs=table.create(count)
+        for i=1,count do rs[i]=string.byte(buffer:read()) end
+        for i=1,count do gs[i]=string.byte(buffer:read()) end
+        for i=1,count do bs[i]=string.byte(buffer:read()) end
+        local a=table.create(count)
+        for i=1,count do a[i]=Color3.fromRGB(rs[i],gs[i],bs[i]) end
+        return a
+    elseif typeID == 0x1B then
+        return basicTypes.Int64Array(buffer,count)
+    elseif typeID == 0x1C then
+        local idx=basicTypes.unsignedIntArray(buffer,count)
+        local a=table.create(count)
+        for i=1,count do
+            a[i]=sharedStrings and sharedStrings[idx[i] + 1] or nil
+        end
+        return a
+    elseif typeID == 0x1E then
+        local innerType=string.byte(buffer:read())
+        if innerType ~= 0x10 then
+            error("Optional type tidak didukung: "..tostring(innerType))
+        end
+        local values=_readCFrames(buffer,count)
+        local presenceType=string.byte(buffer:read())
+        if presenceType ~= 0x02 then
+            error("Optional presence type invalid: "..tostring(presenceType))
+        end
+        local a=table.create(count)
+        for i=1,count do
+            local present=(string.byte(buffer:read()) or 0) ~= 0
+            if present then a[i]=values[i] end
+        end
+        return a
+    elseif typeID == 0x1F then
+        local values=basicTypes.InterleaveArrayWithSize(buffer,count,16)
+        local a=table.create(count)
+        for i=1,count do a[i]=values:read(16) end
+        return a
+    elseif typeID == 0x20 then
+        local a=table.create(count)
+        for i=1,count do
+            local family=basicTypes.String(buffer)
+            local weightValue=buffer:readNumber("<I2")
+            local styleValue=string.byte(buffer:read()) or 0
+            local cached=basicTypes.String(buffer)
+            local weight=_enumItemByValue(Enum.FontWeight, weightValue) or Enum.FontWeight.Regular
+            local style=_enumItemByValue(Enum.FontStyle, styleValue) or Enum.FontStyle.Normal
+            local ok, font=pcall(Font.new, family, weight, style)
+            a[i]=ok and font or {Family=family,Weight=weightValue,Style=styleValue,CachedFaceId=cached}
+        end
+        return a
+    elseif typeID == 0x21 then
+        return basicTypes.Int64Array(buffer,count)
+    elseif typeID == 0x22 then
+        local kinds=basicTypes.Int32Array(buffer,count)
+        local uriCount=buffer:readNumber("<I4")
+        local uris=table.create(uriCount)
+        for i=1,uriCount do uris[i]=basicTypes.String(buffer) end
+        local objectCount=buffer:readNumber("<I4")
+        local objectRefs=basicTypes.RefArray(buffer,objectCount)
+        local externalCount=buffer:readNumber("<I4")
+        if externalCount > 0 then buffer:read(externalCount * 4) end
+        local a=table.create(count)
+        local ui, oi=1,1
+        for i=1,count do
+            if kinds[i] == 1 then
+                a[i]=uris[ui]
+                ui = ui + (1)
+            elseif kinds[i] == 2 then
+                a[i]={__ContentObjectRef=objectRefs[oi]}
+                oi = oi + (1)
+            else
+                a[i]=""
+            end
+        end
+        return a
+    end
+    return nil
+end
+local function parseRBXLBinary(data)
+    local r = Buffer(data, false)
+    if r:read(14) ~= "<roblox!" .. string.char(137,255,13,10,26,10) then return nil, "RBXL header tidak valid" end
+    local version=r:readNumber("<I2")
+    if version~=0 then return nil,"RBXL version tidak didukung: "..tostring(version) end
+    local classCount=r:readNumber("<I4")
+    local instCount=r:readNumber("<I4")
+    r:read(8)
+    if classCount > 100000 or instCount > 5000000 then
+        return nil, "RBXL header count tidak masuk akal"
+    end
+    local chunks={META={},SSTR={},INST={},PROP={},PRNT={},SIGN={},["END\0"]={}}
+    while r.Offset < r.Length do
+        if r.Length - r.Offset < 16 then
+            return nil, "RBXL chunk header terpotong"
+        end
+        local sig=r:read(4)
+        local compressed=r:readNumber("<I4")
+        local decompressed=r:readNumber("<I4")
+        r:read(4)
+        if sig=="END\0" then
+            local payload=r:read(decompressed)
+            chunks[sig][#chunks[sig]+1]={Data=payload}
+            break
+        end
+        local payload
+        if compressed==0 then
+            payload=r:read(decompressed)
+            if #payload ~= decompressed then
+                return nil, "RBXL chunk "..sig.." terpotong"
+            end
+        else
+            local raw=r:read(compressed)
+            if #raw ~= compressed then
+                return nil, "RBXL compressed chunk "..sig.." terpotong"
+            end
+            local magic=string.sub(raw,1,4)
+            if magic==string.char(40,181,47,253) then
+                payload=zstd(raw)
+            else
+                if type(string.pack) ~= "function" then
+                    return nil, "string.pack tidak tersedia untuk LZ4"
+                end
+                payload=lz4(string.pack("<I4I4I4", compressed, decompressed, 0) .. raw)
+            end
+            if #payload ~= decompressed then
+                return nil, "RBXL chunk "..sig.." length mismatch: "..#payload.." / "..decompressed
+            end
+        end
+        if chunks[sig] then
+            chunks[sig][#chunks[sig]+1]={Data=payload}
+        else
+            return nil,"RBXL chunk tidak dikenal: "..tostring(sig)
+        end
+    end
+    local shared={}
+    for _,ch in ipairs(chunks.SSTR) do
+        local b=Buffer(ch.Data,false)
+        local ver=b:readNumber("<I4")
+        if ver ~= 0 then return nil, "SSTR version tidak didukung: "..tostring(ver) end
+        local n=b:readNumber("<I4")
+        for i=1,n do
+            b:read(16)
+            shared[i]=basicTypes.String(b)
+        end
+    end
+    local classes={}; local nodes={}; local serviceRefs={}
+    for _,ch in ipairs(chunks.INST) do
+        local b=Buffer(ch.Data,false); local cid=b:readNumber("<I4"); local cname=basicTypes.String(b); local format=string.byte(b:read()); local n=b:readNumber("<I4"); local refs=basicTypes.RefArray(b,n)
+        classes[cid]={Name=cname,Count=n,Refs=refs,IsService=(format==1)}
+        local marks={}; if format==1 then for i=1,n do marks[i]=string.byte(b:read())~=0 end end
+        for i,ref in ipairs(refs) do nodes[ref]={Ref=ref,ClassId=cid,ClassName=cname,IsService=(format==1),Properties={},PropertyTypes={},Children={},Service=marks[i] or false} end
+        if format==1 then for i,ref in ipairs(refs) do serviceRefs[ref]=true end end
+    end
+    for _,ch in ipairs(chunks.PROP) do
+        local b=Buffer(ch.Data,false); local cid=b:readNumber("<I4"); local cls=classes[cid]; if not cls then return nil,"PROP class id tidak ditemukan: "..cid end
+        local pname=basicTypes.String(b); local typeID=string.byte(b:read())
+        local vals=_decodePropertyArray(b,typeID,cls.Count,shared)
+        if vals then
+            for i,ref in ipairs(cls.Refs) do
+                if nodes[ref] then
+                    nodes[ref].Properties[pname]=vals[i]
+                    nodes[ref].PropertyTypes[pname]=typeID
+                end
+            end
+        else
+            warn(("[RBXL ENGINE] property skipped: %s (type 0x%02X)"):format(pname, typeID or 0))
+        end
+    end
+    local childToParent={}
+    for _,ch in ipairs(chunks.PRNT) do local b=Buffer(ch.Data,false); local ver=string.byte(b:read()); if ver~=0 then return nil,"PRNT version tidak didukung" end; local n=b:readNumber("<I4"); local children=basicTypes.RefArray(b,n); local parents=basicTypes.RefArray(b,n); for i=1,n do childToParent[children[i]]=parents[i] end end
+    local roots={}
+    for ref,node in pairs(nodes) do
+        local p=childToParent[ref]
+        if p and p~=-1 and nodes[p] then table.insert(nodes[p].Children,node) else table.insert(roots,node) end
+    end
+    return {Header={ClassCount=classCount,InstanceCount=instCount},Nodes=nodes,Roots=roots,Services=serviceRefs,SharedStrings=shared}, nil
+end
+local function getStudioLiteServerFuncs()
+    local slFolder = ReplicatedStorage:FindFirstChild("StudioLiteFolder")
+    return slFolder and slFolder:FindFirstChild("ServerFunctions")
+end
+local function triggerServerLoad(idStr)
+    local serverFuncs = getStudioLiteServerFuncs()
+    if not serverFuncs or not idStr or idStr == "" then return end
+    local id = tostring(idStr):match("%d+")
+    if id then pcall(function() serverFuncs:InvokeServer("LoadMeshToRuntimeMeshes", tonumber(id)) end) end
+end
+local FAST_IMPORT = true
+local ASSET_WORKERS = 6
+local ASSET_QUEUE = {}
+local ASSET_SEEN = {}
+local function queueServerLoad(value)
+    if value == nil or value == "" then return end
+    local id
+    if type(value) == "number" then
+        id = math.floor(value)
+    else
+        id = tonumber(tostring(value):match("%d+"))
+    end
+    if not id or id <= 0 or ASSET_SEEN[id] then return end
+    ASSET_SEEN[id] = true
+    ASSET_QUEUE[#ASSET_QUEUE + 1] = id
+end
+local function flushServerLoadsAsync()
+    if #ASSET_QUEUE == 0 then return end
+    local jobs = ASSET_QUEUE
+    ASSET_QUEUE = {}
+    ASSET_SEEN = {}
+    local cursor = 0
+    for _ = 1, math.min(ASSET_WORKERS, #jobs) do
+        task.spawn(function()
+            while true do
+                cursor = cursor + (1)
+                local index = cursor
+                local id = jobs[index]
+                if not id then break end
+                triggerServerLoad(id)
+                task.wait()
+            end
+        end)
+    end
+end
+local SL_CACHE = {}
+local function injectStudioLiteUI(scr, sourceMap)
+    if not scr:IsA("LuaSourceContainer") then return end
+    local path = scr.ClassName .. ":" .. scr.Name
+    local realSource = _G.Hyaz_RAW_SOURCES[scr] or (sourceMap and sourceMap[path])
+    if not realSource then pcall(function() realSource = scr.Source end) end
+    if realSource and #realSource > 0 then
+        local _nullpat = string.char(0)
+        realSource = realSource:gsub(_nullpat .. "*$", "")
+    else
+        realSource = ""
+    end
+    _G.Hyaz_RAW_SOURCES[scr] = realSource
+    local UI_TEXT = realSource
+    if #UI_TEXT > 150000 then
+        UI_TEXT = "-- [SOURCE CODE EXCEEDS PREVIEW LIMIT]"
+    end
+    local existingTB = scr:FindFirstChild("SL_CodeTextBox")
+    if existingTB then
+        existingTB.Text = UI_TEXT
+        if scr.ClassName == "ModuleScript" then
+            local ro = scr:FindFirstChild("SL_1ReadOnly")
+            if ro then ro.ContentText = UI_TEXT; ro.Text = UI_TEXT end
+        end
+        return
+    end
+    local serverFuncs = getStudioLiteServerFuncs()
+    if not serverFuncs then return end
+    local map = { Script = "InsertScriptScript", LocalScript = "InsertLocalScriptLocalScript", ModuleScript = "InsertModuleScriptModuleScript" }
+    local assetName = map[scr.ClassName]
+    if not assetName then return end
+    if not SL_CACHE[assetName] then
+        pcall(function()
+            serverFuncs:InvokeServer("LoadAssetToPlayerGui", assetName)
+            local guiF = LocalPlayer:WaitForChild("PlayerGui"):WaitForChild(assetName, 3)
+            if guiF then
+                SL_CACHE[assetName] = {}
+                for _, c in ipairs(guiF:GetChildren()) do table.insert(SL_CACHE[assetName], c:Clone()) end
+                serverFuncs:InvokeServer("ClearAssetFromPlayerGui", assetName)
+            end
+        end)
+    end
+    if not SL_CACHE[assetName] then return end
+    pcall(function()
+        for _, c in ipairs(SL_CACHE[assetName]) do c:Clone().Parent = scr end
+        local tb = scr:FindFirstChild("SL_CodeTextBox")
+        if tb then
+            tb.Text = UI_TEXT
+            if scr.ClassName == "ModuleScript" then
+                local ro = scr:FindFirstChild("SL_1ReadOnly")
+                if ro then ro.ContentText = UI_TEXT; ro.Text = UI_TEXT end
+            end
+        end
+    end)
+end
+local function ApplyStudioLiteProperties(obj)
+    if not obj then return end
+    pcall(function()
+        if obj:IsA("BasePart") then
+            local originalAnchor = obj.Anchored
+            local originalCollide = obj.CanCollide
+            obj.Anchored = true
+            if obj:GetAttribute("SL_Anchored") == nil then obj:SetAttribute("SL_Anchored", originalAnchor) end
+            if obj:GetAttribute("SL_CanCollide") == nil then obj:SetAttribute("SL_CanCollide", originalCollide) end
+        end
+    end)
+    for _, child in ipairs(obj:GetChildren()) do ApplyStudioLiteProperties(child) end
+end
+local function LoadAssetsToSLServer(obj)
+    local function scan(node)
+        pcall(function()
+            if node:IsA("MeshPart") then triggerServerLoad(node.MeshId); triggerServerLoad(node.TextureID)
+            elseif node:IsA("Decal") or node:IsA("Texture") then triggerServerLoad(node.Texture)
+            elseif node:IsA("SpecialMesh") then triggerServerLoad(node.MeshId); triggerServerLoad(node.TextureId)
+            elseif node:IsA("Clothing") or node:IsA("ShirtGraphic") then triggerServerLoad(node.ClassName == "ShirtGraphic" and node.Graphic or node[node.ClassName.."Template"])
+            elseif node:IsA("UnionOperation") or node:IsA("PartOperation") then triggerServerLoad(node.AssetId) end
+        end)
+        for _, child in ipairs(node:GetChildren()) do scan(child) end
+    end
+    scan(obj)
+end
+local function setEnumFromValue(obj, propName, rawValue)
+    local okCurrent, current = pcall(function() return obj[propName] end)
+    if not okCurrent or typeof(current) ~= "EnumItem" then return false end
+    local okType, enumType = pcall(function() return current.EnumType end)
+    if not okType or not enumType then return false end
+    for _, item in ipairs(enumType:GetEnumItems()) do
+        if item.Value == rawValue then
+            return pcall(function() obj[propName] = item end)
+        end
+    end
+    return false
+end
+local READONLY_GEOMETRY_PROPS = {
+    MeshId = true,
+    MeshID = true,
+    MeshContent = true,
+    MeshSize = true,
+    InitialSize = true,
+    PhysicsData = true,
+    PhysicalConfigData = true,
+    EditableMeshString = true,
+    AssetId = true,
+    ChildData = true,
+    ChildData2 = true,
+    MeshData = true,
+    MeshData2 = true,
+}
+local SERIALIZED_PROPERTY_ALIAS = {
+    size = "Size",
+    shape = "Shape",
+    Color3uint8 = "Color",
+    MaterialVariantSerialized = "MaterialVariant",
+}
+local function runtimePropertyName(propName)
+    return SERIALIZED_PROPERTY_ALIAS[propName] or propName
+end
+local function applyDecodedProperty(obj, propName, value, typeID)
+    if value == nil then return true end
+    if propName == "Source" or propName == "ContentText" then
+        if obj:IsA("LuaSourceContainer") and type(value) == "string" then
+            local clean = value:gsub(string.char(0) .. "*$", "")
+            _G.Hyaz_RAW_SOURCES[obj] = clean
+            local refKey = obj:GetAttribute("HYAZ_Ref")
+            if refKey ~= nil then
+                _G.Hyaz_RAW_SOURCE_BY_REF[tostring(refKey)] = clean
+            end
+        end
+        return true
+    end
+    if typeID == 0x13 then return true end
+    if typeID == 0x1F or typeID == 0x21 then return true end
+    if typeID == 0x22 and type(value) == "table" then return true end
+    if READONLY_GEOMETRY_PROPS[propName] then
+        return true
+    end
+    local runtimeName = runtimePropertyName(propName)
+    if runtimeName == "MaterialVariant" and value == "" then
+        return true
+    end
+    if typeID == 0x12 and type(value) == "number" then
+        if setEnumFromValue(obj, runtimeName, value) then
+            return true
+        end
+    end
+    return pcall(function()
+        obj[runtimeName] = value
+    end)
+end
+local function assetIdFromValue(v)
+    if v == nil then return nil end
+    if type(v) == "number" then
+        if v > 0 then return math.floor(v) end
+        return nil
+    end
+    if type(v) == "string" then
+        local id = v:match("rbxassetid://(%d+)")
+            or v:match("[?&]id=(%d+)")
+            or v:match("(%d+)")
+        return id and tonumber(id) or nil
+    end
+    local okUri, uri = pcall(function()
+        if typeof(v) == "Content" and v.Uri then return v.Uri end
+        return tostring(v)
+    end)
+    if okUri and uri then
+        local id = tostring(uri):match("(%d+)")
+        return id and tonumber(id) or nil
+    end
+    return nil
+end
+local function contentFromAssetIdCompat(id)
+    if not id then return nil end
+    local okContent, content = pcall(function()
+        if Content and type(Content.fromAssetId) == "function" then
+            return Content.fromAssetId(id)
+        end
+        if Content and type(Content.fromUri) == "function" then
+            return Content.fromUri("rbxassetid://" .. tostring(id))
+        end
+        return nil
+    end)
+    if okContent and content then
+        return content
+    end
+    return "rbxassetid://" .. tostring(id)
+end
+local function detachFirstGeometry(root, wantedClass)
+    if not root then return nil end
+    local candidate
+    if root:IsA("BasePart") then
+        if not wantedClass or root.ClassName == wantedClass then
+            candidate = root
+        end
+    end
+    if not candidate then
+        for _, d in ipairs(root:GetDescendants()) do
+            if d:IsA("BasePart") then
+                if not wantedClass or d.ClassName == wantedClass then
+                    candidate = d
+                    break
+                end
+            end
+        end
+    end
+    if not candidate and root:IsA("BasePart") then
+        candidate = root
+    end
+    if not candidate then
+        for _, d in ipairs(root:GetDescendants()) do
+            if d:IsA("BasePart") then
+                candidate = d
+                break
+            end
+        end
+    end
+    if not candidate then return nil end
+    candidate.Parent = nil
+    if root ~= candidate then
+        pcall(function() root:Destroy() end)
+    end
+    return candidate
+end
+local function tryGameGetObjectsGeometry(id, wantedClass)
+    if not id then return nil end
+    local ok, objects = pcall(function()
+        return game:GetObjects("rbxassetid://" .. tostring(id))
+    end)
+    if not ok or type(objects) ~= "table" then return nil end
+    for _, root in ipairs(objects) do
+        local geo = detachFirstGeometry(root, wantedClass)
+        if geo then
+            for _, other in ipairs(objects) do
+                if other ~= geo and other.Parent == nil then
+                    pcall(function() other:Destroy() end)
+                end
+            end
+            return geo
+        end
+    end
+    for _, root in ipairs(objects) do
+        pcall(function() root:Destroy() end)
+    end
+    return nil
+end
+local function tryAssetServiceMesh(id)
+    if not id then return nil, "no mesh id" end
+    local content = contentFromAssetIdCompat(id)
+    local errors = {}
+    local ok1, mesh1 = pcall(function()
+        return AssetService:CreateMeshPartAsync(content, {})
+    end)
+    if ok1 and mesh1 and mesh1:IsA("MeshPart") then
+        return mesh1, "AssetService"
+    end
+    if not ok1 then table.insert(errors, tostring(mesh1)) end
+    local ok2, mesh2 = pcall(function()
+        return AssetService:CreateMeshPartAsync("rbxassetid://" .. tostring(id), {})
+    end)
+    if ok2 and mesh2 and mesh2:IsA("MeshPart") then
+        return mesh2, "AssetServiceLegacy"
+    end
+    if not ok2 then table.insert(errors, tostring(mesh2)) end
+    local getObj = tryGameGetObjectsGeometry(id, "MeshPart")
+    if getObj and getObj:IsA("BasePart") then
+        return getObj, "GetObjects"
+    end
+    return nil, table.concat(errors, " | ")
+end
+local function serializedSize(p)
+    if not p then return nil end
+    local s = p.size or p.Size
+    if typeof(s) == "Vector3" then
+        return Vector3.new(
+            math.max(math.abs(s.X), 0.001),
+            math.max(math.abs(s.Y), 0.001),
+            math.max(math.abs(s.Z), 0.001)
+        )
+    end
+    return nil
+end
+local function serializedColor(p)
+    if not p then return nil end
+    local c = p.Color3uint8 or p.Color
+    if typeof(c) == "Color3" then return c end
+    return nil
+end
+local function applyBaseVisualState(obj, p)
+    if not obj or not obj:IsA("BasePart") or not p then return end
+    local s = serializedSize(p)
+    if s then pcall(function() obj.Size = s end) end
+    if typeof(p.CFrame) == "CFrame" then
+        pcall(function() obj.CFrame = p.CFrame end)
+    end
+    local c = serializedColor(p)
+    if c then pcall(function() obj.Color = c end) end
+    if p.Transparency ~= nil then
+        pcall(function() obj.Transparency = p.Transparency end)
+    end
+    if p.Reflectance ~= nil then
+        pcall(function() obj.Reflectance = p.Reflectance end)
+    end
+    if p.Material ~= nil and type(p.Material) == "number" then
+        pcall(function()
+            setEnumFromValue(obj, "Material", p.Material)
+        end)
+    end
+    pcall(function() obj.Anchored = true end)
+end
+local function configureSpecialMeshScale(mesh, p)
+    if not mesh or not p then return end
+    local wantedSize = serializedSize(p)
+    local originalSize = p.InitialSize or p.MeshSize
+    if wantedSize
+        and typeof(originalSize) == "Vector3"
+        and math.abs(originalSize.X) > 1e-6
+        and math.abs(originalSize.Y) > 1e-6
+        and math.abs(originalSize.Z) > 1e-6 then
+        mesh.Scale = Vector3.new(
+            wantedSize.X / originalSize.X,
+            wantedSize.Y / originalSize.Y,
+            wantedSize.Z / originalSize.Z
+        )
+    else
+        mesh.Scale = Vector3.new(1, 1, 1)
+    end
+end
+local function makeSpecialMeshFallback(node, meshId)
+    local p = node.Properties or {}
+    local part = Instance.new("Part")
+    part.Name = tostring(p.Name or "MeshPart")
+    part.CanCollide = false
+    applyBaseVisualState(part, p)
+    local mesh = Instance.new("SpecialMesh")
+    mesh.Name = "__HYAZ_MeshVisual"
+    mesh.MeshType = Enum.MeshType.FileMesh
+    mesh.MeshId = "rbxassetid://" .. tostring(meshId)
+    local texId = assetIdFromValue(p.TextureID or p.TextureId or p.TextureContent)
+    if texId then
+        pcall(function()
+            mesh.TextureId = "rbxassetid://" .. tostring(texId)
+        end)
+    end
+    configureSpecialMeshScale(mesh, p)
+    mesh.Parent = part
+    return part
+end
+local function isMeshPartOnlyChildClass(className)
+    return className == "SurfaceAppearance"
+        or className == "WrapLayer"
+        or className == "WrapTarget"
+end
+local function nodeNeedsNativeMeshPart(node)
+    for _, child in ipairs(node.Children or {}) do
+        if child.ClassName == "WrapLayer"
+            or child.ClassName == "WrapTarget" then
+            return true
+        end
+    end
+    return false
+end
+local function tryCreateMeshPartNode(node)
+    local p = node.Properties or {}
+    local meshId = assetIdFromValue(p.MeshId or p.MeshID or p.MeshContent)
+    if not meshId then
+        return nil, "unresolved", "MeshId missing"
+    end
+    queueServerLoad(meshId)
+    queueServerLoad(p.TextureID or p.TextureId or p.TextureContent)
+    local needsNative = nodeNeedsNativeMeshPart(node)
+    if FAST_IMPORT and not needsNative then
+        local fallback = makeSpecialMeshFallback(node, meshId)
+        return fallback, "fallback", "TurboSpecialMesh"
+    end
+    local native, method = tryAssetServiceMesh(meshId)
+    if native then
+        return native, "native", needsNative and "NativeForBaseWrap" or method
+    end
+    local fallback = makeSpecialMeshFallback(node, meshId)
+    return fallback, "fallback", needsNative and "BaseWrapFallback" or "SpecialMesh"
+end
+local function makeCSGVisualFallback(node, assetId)
+    local p = node.Properties or {}
+    local part = Instance.new("Part")
+    part.Name = tostring(p.Name or node.ClassName)
+    part.CanCollide = false
+    applyBaseVisualState(part, p)
+    if assetId then
+        local mesh = Instance.new("SpecialMesh")
+        mesh.Name = "__HYAZ_CSGVisual"
+        mesh.MeshType = Enum.MeshType.FileMesh
+        mesh.MeshId = "rbxassetid://" .. tostring(assetId)
+        configureSpecialMeshScale(mesh, p)
+        mesh.Parent = part
+    end
+    return part
+end
+local function tryLoadPartOperationNode(node)
+    local p = node.Properties or {}
+    local assetId = assetIdFromValue(p.AssetId)
+    if assetId then
+        queueServerLoad(assetId)
+        if FAST_IMPORT then
+            return makeCSGVisualFallback(node, assetId), "visual"
+        end
+        local obj = tryGameGetObjectsGeometry(assetId, node.ClassName)
+        if obj then
+            applyBaseVisualState(obj, p)
+            return obj, "asset"
+        end
+        local meshPart = tryAssetServiceMesh(assetId)
+        if meshPart and meshPart:IsA("BasePart") then
+            applyBaseVisualState(meshPart, p)
+            return meshPart, "mesh"
+        end
+        return makeCSGVisualFallback(node, assetId), "visual"
+    end
+    return makeCSGVisualFallback(node, nil), "proxy"
+end
+local function preloadNodeAssets(node)
+    if not node or not node.Properties then return end
+    local p = node.Properties
+    if node.ClassName == "MeshPart" then
+        queueServerLoad(p.MeshId or p.MeshContent)
+        queueServerLoad(p.TextureID or p.TextureId or p.TextureContent)
+    elseif node.ClassName == "SpecialMesh" then
+        queueServerLoad(p.MeshId)
+        queueServerLoad(p.TextureId or p.TextureID)
+    elseif node.ClassName == "Decal" or node.ClassName == "Texture" then
+        queueServerLoad(p.Texture)
+    elseif node.ClassName == "Shirt" then
+        queueServerLoad(p.ShirtTemplate)
+    elseif node.ClassName == "Pants" then
+        queueServerLoad(p.PantsTemplate)
+    elseif node.ClassName == "ShirtGraphic" then
+        queueServerLoad(p.Graphic)
+    elseif node.ClassName == "UnionOperation"
+        or node.ClassName == "PartOperation"
+        or node.ClassName == "IntersectOperation" then
+        queueServerLoad(p.AssetId)
+    end
+end
+local function setScriptEnabledState(obj, enabled)
+    if not obj or not obj:IsA("LuaSourceContainer") then
+        return false
+    end
+    enabled = enabled ~= false
+    local wrote = false
+    local okEnabled = pcall(function()
+        obj.Enabled = enabled
+    end)
+    if okEnabled then wrote = true end
+    local okDisabled = pcall(function()
+        obj.Disabled = not enabled
+    end)
+    if okDisabled then wrote = true end
+    return wrote
+end
+local function getOriginalScriptEnabled(obj, node)
+    local p = node and node.Properties or {}
+    if p.Enabled ~= nil then
+        return p.Enabled == true
+    end
+    if p.Disabled ~= nil then
+        return p.Disabled ~= true
+    end
+    local okEnabled, enabled = pcall(function()
+        return obj.Enabled
+    end)
+    if okEnabled and type(enabled) == "boolean" then
+        return enabled
+    end
+    local okDisabled, disabled = pcall(function()
+        return obj.Disabled
+    end)
+    if okDisabled and type(disabled) == "boolean" then
+        return not disabled
+    end
+    return true
+end
+local function importedScriptShouldRun(obj)
+    if not obj or not obj:IsA("LuaSourceContainer") then
+        return false
+    end
+    local originalEnabled = obj:GetAttribute("HYAZ_OriginalEnabled")
+    if originalEnabled ~= nil then
+        return originalEnabled == true
+    end
+    local legacyDisabled = obj:GetAttribute("HYAZ_OriginalDisabled")
+    if legacyDisabled ~= nil then
+        return legacyDisabled == false
+    end
+    return true
+end
+local function importRootName(fileName)
+    local base = tostring(fileName or "RBXL")
+    base = base:gsub("%.rbxl$", "")
+    base = base:gsub("%.RBXL$", "")
+    base = base:gsub("[%c/\\:*?\"<>|]", "_")
+    base = base:gsub("^%s+", ""):gsub("%s+$", "")
+    if base == "" then base = "RBXL" end
+    return base .. " IMPORTER"
+end
+local function reportImportProgress(value, message)
+    local cb = _G.HYAZ_IMPORT_PROGRESS_CB
+    if type(cb) == "function" then
+        pcall(cb, value, message)
+    end
+end
+local function buildRBXL(parsed, sourceFileName)
+    local made = {}
+    local skipped = 0
+    local failedProperties = 0
+    local progressTotal = math.max(
+        tonumber(parsed.Header and parsed.Header.InstanceCount) or 1,
+        1
+    )
+    local progressMade = 0
+    reportImportProgress(0.20, "BUILDING INSTANCES")
+    local meshNative = 0
+    local meshFallback = 0
+    local meshUnresolved = 0
+    local csgAsset = 0
+    local csgProxy = 0
+    local rootName = importRootName(sourceFileName)
+    local oldRoot = workspace:FindFirstChild(rootName)
+    if oldRoot then pcall(function() oldRoot:Destroy() end) end
+    local importRoot = Instance.new("Folder")
+    importRoot.Name = rootName
+    importRoot:SetAttribute("HYAZ_RBXL_IMPORT", true)
+    importRoot:SetAttribute("HYAZ_SourceFile", tostring(sourceFileName or ""))
+    importRoot:SetAttribute("HYAZ_InMemoryStaging", true)
+    importRoot.Parent = nil
+    local containers = {}
+    local function newServiceFolder(key, displayName)
+        local folder = Instance.new("Folder")
+        folder.Name = displayName
+        folder:SetAttribute("HYAZ_ServiceKey", key)
+        folder.Parent = importRoot
+        containers[key] = folder
+        return folder
+    end
+    newServiceFolder("WS",  "workspace(ws)")
+    newServiceFolder("RS",  "replicate storage(rs)")
+    newServiceFolder("RF",  "replicate first(rf)")
+    newServiceFolder("L",   "lighting(l)")
+    newServiceFolder("P",   "players(p)")
+    newServiceFolder("SG",  "starter gui(sg)")
+    newServiceFolder("STP", "starter pack(stp)")
+    newServiceFolder("SP",  "starter player(sp)")
+    newServiceFolder("SPS", "starter player script(sps)")
+    newServiceFolder("SCS", "starter character script(scs)")
+    newServiceFolder("SSS", "serverscriptservice(sss)")
+    newServiceFolder("SS",  "server storage(ss)")
+    newServiceFolder("TEAM", "teams(team)")
+    newServiceFolder("SND",  "sound service(sound)")
+    newServiceFolder("MAT",   "material service(mat)")
+    newServiceFolder("TCS",   "text chat service(tcs)")
+    newServiceFolder("CHAT",  "chat(chat)")
+    newServiceFolder("LOC",   "localization service(loc)")
+    newServiceFolder("TEST",  "test service(test)")
+    newServiceFolder("HTTP",  "http service(http)")
+    newServiceFolder("INS",   "insert service(ins)")
+    newServiceFolder("TWEEN", "tween service(tween)")
+    local serviceKeyByName = {
+        Workspace = "WS",
+        ReplicatedStorage = "RS",
+        ReplicatedFirst = "RF",
+        Lighting = "L",
+        Players = "P",
+        StarterGui = "SG",
+        StarterPack = "STP",
+        StarterPlayer = "SP",
+        StarterPlayerScripts = "SPS",
+        StarterCharacterScripts = "SCS",
+        ServerScriptService = "SSS",
+        ServerStorage = "SS",
+        Teams = "TEAM",
+        SoundService = "SND",
+        MaterialService = "MAT",
+        TextChatService = "TCS",
+        Chat = "CHAT",
+        LocalizationService = "LOC",
+        TestService = "TEST",
+        HttpService = "HTTP",
+        InsertService = "INS",
+        TweenService = "TWEEN",
+    }
+    local function routeForNode(node, inheritedKey)
+        local className = tostring(node.ClassName or "")
+        local nodeName = tostring((node.Properties and node.Properties.Name) or "")
+        local direct = serviceKeyByName[className] or serviceKeyByName[nodeName]
+        if direct then return direct end
+        if inheritedKey == "SP" then
+            if className == "StarterPlayerScripts" or nodeName == "StarterPlayerScripts" then
+                return "SPS"
+            elseif className == "StarterCharacterScripts" or nodeName == "StarterCharacterScripts" then
+                return "SCS"
+            end
+        end
+        return inheritedKey or "WS"
+    end
+    local function rememberStudioLiteState(obj, node)
+        if not obj:IsA("BasePart") then return end
+        local originalAnchored = false
+        local originalCanCollide = true
+        if node.Properties.Anchored ~= nil then
+            originalAnchored = node.Properties.Anchored
+        else
+            pcall(function() originalAnchored = obj.Anchored end)
+        end
+        if node.Properties.CanCollide ~= nil then
+            originalCanCollide = node.Properties.CanCollide
+        else
+            pcall(function() originalCanCollide = obj.CanCollide end)
+        end
+        pcall(function()
+            obj:SetAttribute("SL_Anchored", originalAnchored)
+            obj:SetAttribute("SL_CanCollide", originalCanCollide)
+            obj.Anchored = true
+        end)
+    end
+    local function disableImportedScript(obj, node)
+        if not obj:IsA("LuaSourceContainer") then return end
+        local originalEnabled = getOriginalScriptEnabled(obj, node)
+        pcall(function()
+            obj:SetAttribute("HYAZ_OriginalEnabled", originalEnabled)
+            obj:SetAttribute("HYAZ_OriginalDisabled", not originalEnabled)
+            obj:SetAttribute("HYAZ_StagedDisabled", true)
+        end)
+        setScriptEnabledState(obj, false)
+    end
+    local function normalizePartGeometry(obj, node)
+        if not obj:IsA("BasePart") then return end
+        local p = node.Properties or {}
+        applyBaseVisualState(obj, p)
+        local special = obj:FindFirstChild("__HYAZ_MeshVisual")
+            or obj:FindFirstChild("__HYAZ_CSGVisual")
+        if special and special:IsA("SpecialMesh") then
+            configureSpecialMeshScale(special, p)
+        end
+    end
+    local function instantiateNode(node)
+        if node.ClassName == "MeshPart" then
+            local obj, mode = tryCreateMeshPartNode(node)
+            if obj then
+                if mode == "native" then
+                    meshNative = meshNative + (1)
+                elseif mode == "fallback" then
+                    meshFallback = meshFallback + (1)
+                else
+                    meshUnresolved = meshUnresolved + (1)
+                end
+                return obj
+            end
+            meshUnresolved = meshUnresolved + (1)
+            return nil
+        end
+        if node.ClassName == "UnionOperation" or node.ClassName == "PartOperation" or node.ClassName == "IntersectOperation" then
+            local obj, mode = tryLoadPartOperationNode(node)
+            if obj then
+                if mode == "asset" or mode == "mesh" or mode == "visual" then
+                    csgAsset = csgAsset + (1)
+                else
+                    csgProxy = csgProxy + (1)
+                end
+                return obj
+            end
+            csgProxy = csgProxy + (1)
+            return nil
+        end
+        local ok, obj = pcall(Instance.new, node.ClassName)
+        if ok then return obj end
+        return nil
+    end
+    local buildBurstCount = 0
+    local function createNode(node, parent, inheritedKey)
+        local routeKey = routeForNode(node, inheritedKey)
+        if isMeshPartOnlyChildClass(node.ClassName)
+            and (not parent or not parent:IsA("MeshPart")) then
+            skipped = skipped + (1)
+            return nil
+        end
+        local nodeName = tostring((node.Properties and node.Properties.Name) or "")
+        local isServiceLike = node.IsService or node.Service
+            or serviceKeyByName[node.ClassName]
+            or serviceKeyByName[nodeName]
+        if isServiceLike then
+            local target = containers[routeKey] or containers.WS
+            for _, child in ipairs(node.Children) do
+                local childKey = routeForNode(child, routeKey)
+                createNode(child, target, childKey)
+            end
+            return nil
+        end
+        preloadNodeAssets(node)
+        local obj = instantiateNode(node)
+        if not obj then
+            skipped = skipped + (1)
+            for _, child in ipairs(node.Children) do
+                createNode(child, parent or containers[routeKey] or containers.WS, routeKey)
+            end
+            return nil
+        end
+        made[node.Ref] = obj
+        pcall(function()
+            obj:SetAttribute("HYAZ_ImportedObject", true)
+            obj:SetAttribute("HYAZ_Ref", tostring(node.Ref))
+        end)
+        if node.Properties.Name ~= nil then
+            local okName = pcall(function()
+                obj.Name = tostring(node.Properties.Name)
+            end)
+            if not okName then failedProperties = failedProperties + (1) end
+        end
+        for propName, value in pairs(node.Properties) do
+            if propName ~= "Name" then
+                local okProp = applyDecodedProperty(
+                    obj,
+                    propName,
+                    value,
+                    node.PropertyTypes and node.PropertyTypes[propName]
+                )
+                if not okProp then failedProperties = failedProperties + (1) end
+            end
+        end
+        rememberStudioLiteState(obj, node)
+        disableImportedScript(obj, node)
+        normalizePartGeometry(obj, node)
+        obj.Parent = parent or containers[routeKey] or containers.WS
+        buildBurstCount = buildBurstCount + (1)
+        progressMade = progressMade + (1)
+        if progressMade == 1 or progressMade % 120 == 0 then
+            local ratio = math.min(progressMade / progressTotal, 1)
+            reportImportProgress(
+                0.20 + ratio * 0.55,
+                ("GENERATING %d / %d"):format(progressMade, progressTotal)
+            )
+        end
+        if buildBurstCount >= 600 then
+            buildBurstCount = 0
+            task.wait()
+        end
+        for _, child in ipairs(node.Children) do
+            local meshPartOnly = isMeshPartOnlyChildClass(child.ClassName)
+            if not (meshPartOnly and not obj:IsA("MeshPart")) then
+                createNode(child, obj, routeKey)
+            else
+                skipped = skipped + (1)
+            end
+        end
+        return obj
+    end
+    for _, root in ipairs(parsed.Roots) do
+        local key = routeForNode(root, "WS")
+        local rootNameProp = tostring((root.Properties and root.Properties.Name) or "")
+        if root.IsService or root.Service
+            or serviceKeyByName[root.ClassName]
+            or serviceKeyByName[rootNameProp] then
+            createNode(root, containers[key], key)
+        else
+            createNode(root, containers.WS, "WS")
+        end
+    end
+    for ref, node in pairs(parsed.Nodes) do
+        local obj = made[ref]
+        if obj and node.PropertyTypes then
+            for propName, typeID in pairs(node.PropertyTypes) do
+                if typeID == 0x13 then
+                    local targetRef = node.Properties[propName]
+                    local targetObj = made[targetRef]
+                    if targetObj then
+                        local okRef = pcall(function()
+                            obj[propName] = targetObj
+                        end)
+                        if not okRef then failedProperties = failedProperties + (1) end
+                    end
+                elseif typeID == 0x22 then
+                    local contentValue = node.Properties[propName]
+                    if type(contentValue) == "table" and contentValue.__ContentObjectRef then
+                        local targetObj = made[contentValue.__ContentObjectRef]
+                        if targetObj then
+                            local okRef = pcall(function()
+                                obj[propName] = targetObj
+                            end)
+                            if not okRef then failedProperties = failedProperties + (1) end
+                        end
+                    end
+                end
+            end
+        end
+    end
+    for ref, node in pairs(parsed.Nodes) do
+        local obj = made[ref]
+        if obj and obj:IsA("BasePart") then
+            normalizePartGeometry(obj, node)
+            pcall(function() obj.Anchored = true end)
+        end
+    end
+    task.spawn(function()
+        local scriptBatch = 0
+        for _, obj in pairs(made) do
+            if obj and obj.Parent and obj:IsA("LuaSourceContainer") then
+                pcall(function()
+                    injectStudioLiteUI(obj, {})
+                end)
+                scriptBatch = scriptBatch + (1)
+                if scriptBatch >= 40 then
+                    scriptBatch = 0
+                    task.wait()
+                end
+            end
+        end
+    end)
+    flushServerLoadsAsync()
+    local madeCount = 0
+    for _ in pairs(made) do madeCount = madeCount + (1) end
+    reportImportProgress(0.78, ("BUILD COMPLETE • %d INSTANCES"):format(madeCount))
+    return madeCount, skipped, failedProperties,
+        meshNative, meshFallback, meshUnresolved, csgAsset, csgProxy, importRoot
+end
+local function safeReadFile(path)
+    if type(readfile) ~= "function" then
+        return nil, "readfile tidak tersedia"
+    end
+    local ok, data = pcall(readfile, path)
+    if not ok then return nil, tostring(data) end
+    if type(data) ~= "string" or #data == 0 then
+        return nil, "file kosong / tidak terbaca"
+    end
+    return data
+end
+local function importRBXL(fileInfo)
+    reportImportProgress(0.02, "READING RBXL")
+    if type(string.unpack) ~= "function" then
+        return false, "COMPAT ERROR: string.unpack tidak tersedia"
+    end
+    if type(bit32) ~= "table" then
+        return false, "COMPAT ERROR: bit32 tidak tersedia"
+    end
+    local data, readErr = safeReadFile(fileInfo.path)
+    reportImportProgress(0.08, "RBXL LOADED")
+    if not data then
+        return false, "READ ERROR: " .. tostring(readErr)
+    end
+    if data:sub(1, 8) ~= "<roblox!" then
+        return false, "File bukan RBXL binary yang valid"
+    end
+    reportImportProgress(0.12, "PARSING RBXL")
+    local okParse, parsed, parseErr = pcall(parseRBXLBinary, data)
+    if not okParse then
+        return false, "PARSER CRASH: " .. tostring(parsed)
+    end
+    if not parsed then
+        return false, "PARSE ERROR: " .. tostring(parseErr or "unknown")
+    end
+    reportImportProgress(
+        0.18,
+        ("PARSED • %d INSTANCES"):format(
+            tonumber(parsed.Header and parsed.Header.InstanceCount) or 0
+        )
+    )
+    local okBuild, madeCount, skipped, failedProperties,
+        meshNative, meshFallback, meshUnresolved, csgAsset, csgProxy, importRoot = pcall(
+            buildRBXL,
+            parsed,
+            fileInfo.name
+        )
+    if not okBuild then
+        return false, "BUILD ERROR: " .. tostring(madeCount)
+    end
+    local rootLabel = importRoot and importRoot.Name or importRootName(fileInfo.name)
+    return true, ("TURBO OK %d | %s | mesh N:%d F:%d U:%d | CSG A:%d P:%d | prop:%d"):format(
+        madeCount or 0,
+        rootLabel,
+        meshNative or 0,
+        meshFallback or 0,
+        meshUnresolved or 0,
+        csgAsset or 0,
+        csgProxy or 0,
+        failedProperties or 0
+    ), importRoot
+end
+local HYAZ_MODULE_CACHE = setmetatable({}, {__mode = "k"})
+local HYAZ_MODULE_LOADING = setmetatable({}, {__mode = "k"})
+local function rawSourceFor(scr)
+    if not scr or not scr:IsA("LuaSourceContainer") then
+        return nil
+    end
+    local direct = _G.Hyaz_RAW_SOURCES[scr]
+    if type(direct) == "string" and direct ~= "" then
+        return direct
+    end
+    local refKey = scr:GetAttribute("HYAZ_Ref")
+    if refKey ~= nil then
+        local byRef = _G.Hyaz_RAW_SOURCE_BY_REF[tostring(refKey)]
+        if type(byRef) == "string" and byRef ~= "" then
+            return byRef
+        end
+    end
+    return nil
+end
+local function canReadExecutableSource(scr)
+    local ok, source = pcall(function()
+        return scr.Source
+    end)
+    return ok and type(source) == "string" and #source > 0, source
+end
+local runtimeRequire
+local function compileRuntimeSource(scr, source)
+    if type(loadstring) ~= "function" then
+        return nil, "loadstring tidak tersedia"
+    end
+    local wrapped =
+        "return function(script, require, ...)\n"
+        .. source
+        .. "\nend"
+    local okCompile, loaderOrErr = pcall(
+        loadstring,
+        wrapped,
+        "=RBXL/" .. tostring(scr:GetFullName())
+    )
+    if not okCompile or type(loaderOrErr) ~= "function" then
+        return nil, tostring(loaderOrErr)
+    end
+    local okFactory, runnerOrErr = pcall(loaderOrErr)
+    if not okFactory or type(runnerOrErr) ~= "function" then
+        return nil, tostring(runnerOrErr)
+    end
+    return runnerOrErr
+end
+runtimeRequire = function(target)
+    if typeof(target) == "Instance" and target:IsA("ModuleScript") then
+        if HYAZ_MODULE_CACHE[target] ~= nil then
+            return HYAZ_MODULE_CACHE[target]
+        end
+        if HYAZ_MODULE_LOADING[target] then
+            error("Runtime require circular dependency: " .. target:GetFullName())
+        end
+        local source = rawSourceFor(target)
+        if source then
+            HYAZ_MODULE_LOADING[target] = true
+            local runner, compileErr = compileRuntimeSource(target, source)
+            if not runner then
+                HYAZ_MODULE_LOADING[target] = nil
+                error("Module compile failed: " .. tostring(compileErr))
+            end
+            local results = table.pack(
+                pcall(runner, target, runtimeRequire)
+            )
+            HYAZ_MODULE_LOADING[target] = nil
+            if not results[1] then
+                error(results[2])
+            end
+            local result = results[2]
+            HYAZ_MODULE_CACHE[target] = result
+            return result
+        end
+    end
+    return require(target)
+end
+local function runLocalScriptBridge(scr)
+    if not scr or not scr:IsA("LocalScript") then
+        return false, "not_local_script"
+    end
+    if not importedScriptShouldRun(scr) then
+        return false, "originally_disabled"
+    end
+    if scr:GetAttribute("HYAZ_RuntimeStarted") then
+        return true, "already_started"
+    end
+    local source = rawSourceFor(scr)
+    if not source then
+        return false, "source_missing"
+    end
+    local runner, compileErr = compileRuntimeSource(scr, source)
+    if not runner then
+        return false, "compile: " .. tostring(compileErr)
+    end
+    scr:SetAttribute("HYAZ_RuntimeStarted", true)
+    task.spawn(function()
+        local ok, runtimeErr = pcall(
+            runner,
+            scr,
+            runtimeRequire
+        )
+        if not ok then
+            warn(
+                "[LIVE SCRIPT ERROR] "
+                .. scr:GetFullName()
+                .. " :: "
+                .. tostring(runtimeErr)
+            )
+            scr:SetAttribute("HYAZ_RuntimeError", tostring(runtimeErr))
+        end
+    end)
+    return true, "runtime_bridge"
+end
+local function prepareLocalScriptsForClone(root)
+    if not root then return end
+    if root:IsA("LocalScript") then
+        setScriptEnabledState(root, false)
+    end
+    for _, obj in ipairs(root:GetDescendants()) do
+        if obj:IsA("LocalScript") then
+            setScriptEnabledState(obj, false)
+        end
+    end
+end
+local function activateLocalScriptsInLiveRoot(root)
+    local stats = {
+        native = 0,
+        bridge = 0,
+        failed = 0,
+        skipped = 0,
+    }
+    if not root then
+        return stats
+    end
+    local list = {}
+    if root:IsA("LocalScript") then
+        list[#list + 1] = root
+    end
+    for _, obj in ipairs(root:GetDescendants()) do
+        if obj:IsA("LocalScript") then
+            list[#list + 1] = obj
+        end
+    end
+    for _, scr in ipairs(list) do
+        if not importedScriptShouldRun(scr) then
+            stats.skipped = stats.skipped + (1)
+            setScriptEnabledState(scr, false)
+        else
+            local hasRealSource = canReadExecutableSource(scr)
+            if hasRealSource then
+                local ok = setScriptEnabledState(scr, true)
+                if ok then
+                    stats.native = stats.native + (1)
+                else
+                    stats.failed = stats.failed + (1)
+                end
+            else
+                setScriptEnabledState(scr, false)
+                local ok = runLocalScriptBridge(scr)
+                if ok then
+                    stats.bridge = stats.bridge + (1)
+                else
+                    stats.failed = stats.failed + (1)
+                end
+            end
+        end
+    end
+    return stats
+end
+local function mergeLiveStats(dst, src)
+    dst.native = dst.native + (src.native or 0)
+    dst.bridge = dst.bridge + (src.bridge or 0)
+    dst.failed = dst.failed + (src.failed or 0)
+    dst.skipped = dst.skipped + (src.skipped or 0)
+end
+local function findStudioLiteRemote(name)
+    local sl = ReplicatedStorage:FindFirstChild("StudioLiteFolder")
+    if not sl then return nil end
+    return sl:FindFirstChild(name, true)
+end
+local function tryWriteRealScriptSource(scr)
+    if not scr or not scr:IsA("LuaSourceContainer") then
+        return false, "not_script"
+    end
+    local source = _G.Hyaz_RAW_SOURCES[scr]
+    if type(source) ~= "string" or source == "" then
+        return false, "source_missing"
+    end
+    source = source:gsub(string.char(0) .. "*$", "")
+    local directOK = false
+    if type(setscriptable) == "function" then
+        pcall(setscriptable, scr, "Source", true)
+    end
+    directOK = pcall(function()
+        scr.Source = source
+    end)
+    if directOK then
+        return true, "direct"
+    end
+    local saveRemote = findStudioLiteRemote("SaveScriptSourceServerFunction")
+    if saveRemote and saveRemote:IsA("RemoteFunction") then
+        local ok = pcall(function()
+            saveRemote:InvokeServer(scr.ClassName .. scr.Name, source)
+        end)
+        if ok then
+            return true, "studio_lite_remote"
+        end
+    elseif saveRemote and saveRemote:IsA("RemoteEvent") then
+        local ok = pcall(function()
+            saveRemote:FireServer(scr.ClassName .. scr.Name, source)
+        end)
+        if ok then
+            return true, "studio_lite_remote"
+        end
+    end
+    return false, "runtime_source_locked"
+end
+local function restoreImportedRuntimeState(root)
+    local stats = {
+        scripts = 0,
+        scriptSourceOK = 0,
+        scriptSourceFailed = 0,
+        parts = 0,
+    }
+    local all = {root}
+    for _, d in ipairs(root:GetDescendants()) do
+        all[#all + 1] = d
+    end
+    for _, obj in ipairs(all) do
+        if obj:IsA("LuaSourceContainer") then
+            stats.scripts = stats.scripts + (1)
+            local ok = tryWriteRealScriptSource(obj)
+            if ok then
+                stats.scriptSourceOK = stats.scriptSourceOK + (1)
+            else
+                stats.scriptSourceFailed = stats.scriptSourceFailed + (1)
+            end
+        end
+    end
+    for _, obj in ipairs(all) do
+        if obj:IsA("BasePart") then
+            stats.parts = stats.parts + (1)
+            local originalAnchored = obj:GetAttribute("SL_Anchored")
+            local originalCanCollide = obj:GetAttribute("SL_CanCollide")
+            if originalCanCollide ~= nil then
+                pcall(function()
+                    obj.CanCollide = originalCanCollide
+                end)
+            end
+            pcall(function()
+                obj.Anchored = true
+                obj:SetAttribute("HYAZ_AutoAnchored", true)
+            end)
+        end
+    end
+    return stats
+end
+local function moveChildren(source, destination, onMoved)
+    if not source or not destination then return 0 end
+    local moved = 0
+    local children = source:GetChildren()
+    for _, child in ipairs(children) do
+        local ok = pcall(function()
+            child.Parent = destination
+        end)
+        if ok then
+            moved = moved + (1)
+            if onMoved then
+                pcall(onMoved, child, destination)
+            end
+        end
+    end
+    return moved
+end
+local function activateImportRoot(importRoot)
+    if not importRoot then
+        return false, "Import root tidak ditemukan"
+    end
+    reportImportProgress(0.80, "PREPARING SERVICES")
+    local forcedServiceCount = 0
+    local reusedServiceCount = 0
+    local createdServiceCount = 0
+    local proxyServiceCount = 0
+    local missingRealServices = 0
+    local serviceModes = {}
+    local function getTopLevelChildrenNamed(serviceName)
+        local matches = {}
+        local ok, children = pcall(function()
+            return game:GetChildren()
+        end)
+        if not ok or type(children) ~= "table" then
+            return matches
+        end
+        for _, child in ipairs(children) do
+            local childName = ""
+            pcall(function()
+                childName = child.Name
+            end)
+            if childName == serviceName then
+                matches[#matches + 1] = child
+            end
+        end
+        return matches
+    end
+    local function isHyazGeneratedService(obj)
+        if not obj then return false end
+        local generated = false
+        pcall(function()
+            generated =
+                obj:GetAttribute("HYAZ_ForcedRealService") == true
+                or obj:GetAttribute("HYAZ_ForcedVisibleService") == true
+                or obj:GetAttribute("HYAZ_CreatedService") == true
+        end)
+        return generated
+    end
+    local function mergeChildrenInto(source, destination)
+        if not source or not destination or source == destination then
+            return 0
+        end
+        local moved = 0
+        local children = {}
+        pcall(function()
+            children = source:GetChildren()
+        end)
+        for _, child in ipairs(children) do
+            local okMove = pcall(function()
+                child.Parent = destination
+            end)
+            if okMove then
+                moved = moved + (1)
+            end
+        end
+        return moved
+    end
+    local function findExistingService(serviceName)
+        local matches = getTopLevelChildrenNamed(serviceName)
+        if #matches == 0 then
+            return nil
+        end
+        local chosen = nil
+        for _, obj in ipairs(matches) do
+            if not isHyazGeneratedService(obj) then
+                chosen = obj
+                break
+            end
+        end
+        chosen = chosen or matches[1]
+        for _, obj in ipairs(matches) do
+            if obj ~= chosen and isHyazGeneratedService(obj) then
+                mergeChildrenInto(obj, chosen)
+                pcall(function()
+                    obj:Destroy()
+                end)
+            end
+        end
+        return chosen
+    end
+    local function forceGetService(serviceName)
+        local existing = findExistingService(serviceName)
+        if existing then
+            reusedServiceCount = reusedServiceCount + (1)
+            serviceModes[serviceName] = "REUSED_STUDIO_LITE"
+            return existing
+        end
+        local created
+        local okCreate, createErr = pcall(function()
+            created = Instance.new(serviceName)
+            created.Name = serviceName
+            created:SetAttribute("HYAZ_ForcedRealService", true)
+            created:SetAttribute("HYAZ_ServiceRole", serviceName)
+            created.Parent = game
+        end)
+        if okCreate and created then
+            createdServiceCount = createdServiceCount + (1)
+            serviceModes[serviceName] = "CREATED_MISSING"
+            return created
+        end
+        local okGet, service = pcall(function()
+            return game:GetService(serviceName)
+        end)
+        if okGet and service then
+            forcedServiceCount = forcedServiceCount + (1)
+            serviceModes[serviceName] = "GETSERVICE_MISSING"
+            pcall(function()
+                service:SetAttribute("HYAZ_ServiceRole", serviceName)
+            end)
+            return service
+        end
+        missingRealServices = missingRealServices + (1)
+        serviceModes[serviceName] = "FAILED"
+        warn(
+            "[RBXL] SERVICE FAILED: "
+            .. serviceName
+            .. " tidak tersedia di Studio Lite runtime ini. "
+            .. tostring(createErr)
+        )
+        return nil
+    end
+    local function tryForceVisibleService(serviceName, realService)
+        if not realService or findExistingService(serviceName) then
+            return nil
+        end
+        local roots = {game}
+        for _, candidate in ipairs({_G.sss, _G.ss}) do
+            if candidate and candidate.Parent then
+                local duplicate = false
+                for _, root in ipairs(roots) do
+                    if root == candidate.Parent then
+                        duplicate = true
+                        break
+                    end
+                end
+                if not duplicate then
+                    roots[#roots + 1] = candidate.Parent
+                end
+            end
+        end
+        pcall(function()
+            realService.Archivable = true
+        end)
+        for _, root in ipairs(roots) do
+            local clone
+            local okClone = pcall(function()
+                clone = realService:Clone()
+            end)
+            if okClone and clone then
+                local className = ""
+                pcall(function() className = clone.ClassName end)
+                if className == serviceName then
+                    local okParent = pcall(function()
+                        clone.Name = serviceName
+                        clone:SetAttribute("HYAZ_ExplorerVisibleService", true)
+                        clone.Parent = root
+                    end)
+                    if okParent then
+                        serviceModes[serviceName] = "VISIBLE_REAL_CLONE"
+                        return clone
+                    end
+                end
+                pcall(function() clone:Destroy() end)
+            end
+        end
+        return nil
+    end
+    local WorkspaceService       = forceGetService("Workspace")
+    local PlayersSvc             = forceGetService("Players")
+    local LightingSvc            = forceGetService("Lighting")
+    local ReplicatedFirstSvc     = forceGetService("ReplicatedFirst")
+    local ReplicatedStorageSvc   = forceGetService("ReplicatedStorage")
+    local StarterGuiSvc          = forceGetService("StarterGui")
+    local StarterPackSvc         = forceGetService("StarterPack")
+    local StarterPlayerSvc       = forceGetService("StarterPlayer")
+    local TeamsSvc               = forceGetService("Teams")
+    local ServerScriptServiceSvc = forceGetService("ServerScriptService")
+    local ServerStorageSvc       = forceGetService("ServerStorage")
+    local SoundServiceSvc        = forceGetService("SoundService")
+    local MaterialServiceSvc     = forceGetService("MaterialService")
+    local TextChatServiceSvc     = forceGetService("TextChatService")
+    local ChatSvc                = forceGetService("Chat")
+    local LocalizationServiceSvc = forceGetService("LocalizationService")
+    local TestServiceSvc         = forceGetService("TestService")
+    local HttpServiceSvc         = forceGetService("HttpService")
+    local InsertServiceSvc       = forceGetService("InsertService")
+    local TweenServiceSvc        = forceGetService("TweenService")
+    local visibleServiceClones = {
+        SoundService = tryForceVisibleService("SoundService", SoundServiceSvc),
+        MaterialService = tryForceVisibleService("MaterialService", MaterialServiceSvc),
+        TextChatService = tryForceVisibleService("TextChatService", TextChatServiceSvc),
+        Chat = tryForceVisibleService("Chat", ChatSvc),
+        LocalizationService = tryForceVisibleService("LocalizationService", LocalizationServiceSvc),
+        TestService = tryForceVisibleService("TestService", TestServiceSvc),
+        HttpService = tryForceVisibleService("HttpService", HttpServiceSvc),
+        InsertService = tryForceVisibleService("InsertService", InsertServiceSvc),
+        TweenService = tryForceVisibleService("TweenService", TweenServiceSvc),
+    }
+    reportImportProgress(0.84, "SERVICES READY")
+    local function ensureStarterContainer(parent, className, name)
+        if not parent then return nil end
+        local existing = parent:FindFirstChild(name)
+        if existing then
+            return existing
+        end
+        local created
+        local ok = pcall(function()
+            created = Instance.new(className)
+            created.Name = name
+            created.Parent = parent
+        end)
+        if ok and created then
+            return created
+        end
+        local fallback = Instance.new("Folder")
+        fallback.Name = name
+        fallback:SetAttribute("HYAZ_StarterContainerFallback", true)
+        fallback.Parent = parent
+        return fallback
+    end
+    local starterPlayerScripts = ensureStarterContainer(
+        StarterPlayerSvc,
+        "StarterPlayerScripts",
+        "StarterPlayerScripts"
+    )
+    local starterCharacterScripts = ensureStarterContainer(
+        StarterPlayerSvc,
+        "StarterCharacterScripts",
+        "StarterCharacterScripts"
+    )
+    local destinationByKey = {
+        WS   = WorkspaceService,
+        RS   = ReplicatedStorageSvc,
+        RF   = ReplicatedFirstSvc,
+        L    = LightingSvc,
+        P    = PlayersSvc,
+        SG   = StarterGuiSvc,
+        STP  = StarterPackSvc,
+        SP   = StarterPlayerSvc,
+        SPS  = starterPlayerScripts,
+        SCS  = starterCharacterScripts,
+        SSS  = ServerScriptServiceSvc,
+        SS   = ServerStorageSvc,
+        TEAM = TeamsSvc,
+        SND  = SoundServiceSvc,
+        MAT   = MaterialServiceSvc,
+        TCS   = TextChatServiceSvc,
+        CHAT  = ChatSvc,
+        LOC   = LocalizationServiceSvc,
+        TEST  = TestServiceSvc,
+        HTTP  = HttpServiceSvc,
+        INS   = InsertServiceSvc,
+        TWEEN = TweenServiceSvc,
+    }
+    local StarterPlayer = StarterPlayerSvc
+    local Teams = TeamsSvc
+    local SoundService = SoundServiceSvc
+    local MaterialService = MaterialServiceSvc
+    local TextChatService = TextChatServiceSvc
+    local Chat = ChatSvc
+    local LocalizationService = LocalizationServiceSvc
+    local TestService = TestServiceSvc
+    local HttpService = HttpServiceSvc
+    local InsertServiceForced = InsertServiceSvc
+    local TweenServiceForced = TweenServiceSvc
+    local runtimeStats = restoreImportedRuntimeState(importRoot)
+    reportImportProgress(0.87, "RESTORING SCRIPT SOURCES")
+    local moved = 0
+    local failedServices = 0
+    local stagedCounts = {}
+    local stagedScriptCounts = {}
+    for _, serviceFolder in ipairs(importRoot:GetChildren()) do
+        if serviceFolder:IsA("Folder") then
+            local key = serviceFolder:GetAttribute("HYAZ_ServiceKey")
+            if key then
+                stagedCounts[key] = #serviceFolder:GetChildren()
+                local scriptCount = 0
+                for _, d in ipairs(serviceFolder:GetDescendants()) do
+                    if d:IsA("LuaSourceContainer") then
+                        scriptCount = scriptCount + (1)
+                    end
+                end
+                stagedScriptCounts[key] = scriptCount
+            end
+        end
+    end
+    for _, serviceFolder in ipairs(importRoot:GetChildren()) do
+        if serviceFolder:IsA("Folder") then
+            local key = serviceFolder:GetAttribute("HYAZ_ServiceKey")
+            local destination = destinationByKey[key]
+            if destination then
+                moved = moved + (moveChildren(serviceFolder, destination))
+            elseif #serviceFolder:GetChildren() > 0 then
+                failedServices = failedServices + (1)
+            end
+        end
+    end
+    reportImportProgress(0.91, ("DEPLOYED • %d OBJECTS"):format(moved))
+    local activatedScripts = 0
+    local function restoreOneImportedScript(obj)
+        if not obj:IsA("LuaSourceContainer")
+            or not obj:GetAttribute("HYAZ_StagedDisabled") then
+            return
+        end
+        local shouldRun = importedScriptShouldRun(obj)
+        setScriptEnabledState(obj, shouldRun)
+        pcall(function()
+            obj:SetAttribute("HYAZ_StagedDisabled", nil)
+        end)
+        if shouldRun then
+            activatedScripts = activatedScripts + (1)
+        end
+    end
+    for _, obj in ipairs(importRoot:GetDescendants()) do
+        restoreOneImportedScript(obj)
+    end
+    for _, service in pairs(destinationByKey) do
+        if service then
+            for _, obj in ipairs(service:GetDescendants()) do
+                restoreOneImportedScript(obj)
+            end
+        end
+    end
+    local liveStats = {
+        native = 0,
+        bridge = 0,
+        failed = 0,
+        skipped = 0,
+    }
+    local function cloneImportedChildren(sourceContainer, destinationContainer)
+        if not sourceContainer or not destinationContainer then return end
+        for _, child in ipairs(sourceContainer:GetChildren()) do
+            if child:GetAttribute("HYAZ_ImportedObject") == true then
+                local existing = destinationContainer:FindFirstChild(child.Name)
+                if existing and existing:GetAttribute("HYAZ_LiveClone") == true then
+                    pcall(function()
+                        existing:Destroy()
+                    end)
+                end
+                local clone
+                local okClone = pcall(function()
+                    clone = child:Clone()
+                end)
+                if okClone and clone then
+                    clone:SetAttribute("HYAZ_LiveClone", true)
+                    prepareLocalScriptsForClone(clone)
+                    clone.Parent = destinationContainer
+                    local s = activateLocalScriptsInLiveRoot(clone)
+                    mergeLiveStats(liveStats, s)
+                end
+            end
+        end
+    end
+    local playerGui = LocalPlayer and LocalPlayer:FindFirstChildOfClass("PlayerGui")
+    if playerGui then
+        cloneImportedChildren(StarterGuiSvc, playerGui)
+    end
+    local playerScripts = LocalPlayer and LocalPlayer:FindFirstChild("PlayerScripts")
+    if playerScripts and starterPlayerScripts then
+        cloneImportedChildren(starterPlayerScripts, playerScripts)
+    end
+    local character = LocalPlayer and LocalPlayer.Character
+    if character and starterCharacterScripts then
+        cloneImportedChildren(starterCharacterScripts, character)
+    end
+    local backpack = LocalPlayer and LocalPlayer:FindFirstChildOfClass("Backpack")
+    if backpack then
+        cloneImportedChildren(StarterPackSvc, backpack)
+    end
+    if ReplicatedFirstSvc then
+        for _, obj in ipairs(ReplicatedFirstSvc:GetDescendants()) do
+        if obj:IsA("LocalScript")
+            and obj:GetAttribute("HYAZ_ImportedObject") == true then
+            local hasRealSource = canReadExecutableSource(obj)
+            if hasRealSource then
+                setScriptEnabledState(obj, true)
+                liveStats.native = liveStats.native + (1)
+            else
+                setScriptEnabledState(obj, false)
+                local ok = runLocalScriptBridge(obj)
+                if ok then
+                    liveStats.bridge = liveStats.bridge + (1)
+                else
+                    liveStats.failed = liveStats.failed + (1)
+                end
+            end
+        end
+        end
+    end
+    reportImportProgress(0.95, "FINALIZING SCRIPT EDITORS")
+    local deployedScriptCount = 0
+    local editorInjectedCount = 0
+    local sourceVisibleCount = 0
+    local sssImportedScripts = 0
+    local ssImportedScripts = 0
+    local function restoreEditorForService(service, serviceKey)
+        if not service then return end
+        for _, obj in ipairs(service:GetDescendants()) do
+            if obj:IsA("LuaSourceContainer")
+                and obj:GetAttribute("HYAZ_ImportedObject") == true then
+                deployedScriptCount = deployedScriptCount + (1)
+                if serviceKey == "SSS" then
+                    sssImportedScripts = sssImportedScripts + (1)
+                elseif serviceKey == "SS" then
+                    ssImportedScripts = ssImportedScripts + (1)
+                end
+                local refKey = obj:GetAttribute("HYAZ_Ref")
+                local source = _G.Hyaz_RAW_SOURCES[obj]
+                if (type(source) ~= "string" or source == "")
+                    and refKey ~= nil then
+                    source = _G.Hyaz_RAW_SOURCE_BY_REF[tostring(refKey)]
+                    if type(source) == "string" and source ~= "" then
+                        _G.Hyaz_RAW_SOURCES[obj] = source
+                    end
+                end
+                if type(source) == "string" and source ~= "" then
+                    sourceVisibleCount = sourceVisibleCount + (1)
+                    pcall(function()
+                        tryWriteRealScriptSource(obj)
+                    end)
+                    local okEditor = pcall(function()
+                        injectStudioLiteUI(obj, {})
+                    end)
+                    if okEditor then
+                        editorInjectedCount = editorInjectedCount + (1)
+                    end
+                end
+            end
+        end
+    end
+    restoreEditorForService(ServerScriptServiceSvc, "SSS")
+    restoreEditorForService(ServerStorageSvc, "SS")
+    restoreEditorForService(ReplicatedStorageSvc, "RS")
+    restoreEditorForService(ReplicatedFirstSvc, "RF")
+    restoreEditorForService(StarterGuiSvc, "SG")
+    restoreEditorForService(StarterPlayerSvc, "SP")
+    restoreEditorForService(StarterPackSvc, "STP")
+    for _, service in pairs(destinationByKey) do
+        if service then
+            for _, obj in ipairs(service:GetDescendants()) do
+                if obj:IsA("LuaSourceContainer")
+                    and obj:GetAttribute("HYAZ_ImportedObject") == true then
+                    setScriptEnabledState(
+                        obj,
+                        importedScriptShouldRun(obj)
+                    )
+                end
+            end
+        end
+    end
+    for _, service in pairs(destinationByKey) do
+        if service then
+            for _, obj in ipairs(service:GetDescendants()) do
+                if obj:IsA("BasePart")
+                    and obj:GetAttribute("HYAZ_ImportedObject") == true then
+                    pcall(function()
+                        obj.Anchored = true
+                        obj:SetAttribute("HYAZ_AutoAnchored", true)
+                    end)
+                end
+            end
+        end
+    end
+    importRoot:SetAttribute("HYAZ_Activated", true)
+    local remainingStagedObjects = 0
+    for _, serviceFolder in ipairs(importRoot:GetChildren()) do
+        if serviceFolder:IsA("Folder") then
+            remainingStagedObjects = remainingStagedObjects + (#serviceFolder:GetChildren())
+        end
+    end
+    if remainingStagedObjects == 0 then
+        pcall(function()
+            importRoot:Destroy()
+        end)
+    end
+    reportImportProgress(1.00, "RBXL GENERATION COMPLETE")
+    return true, ("ACTIVE • moved:%d • scripts:%d active:%d • source:%d/%d • SSS:%d SS:%d • editor:%d/%d • service reused:%d real-created:%d getservice:%d real-failed:%d"):format(
+        moved,
+        runtimeStats.scripts,
+        activatedScripts,
+        runtimeStats.scriptSourceOK,
+        runtimeStats.scripts,
+        sssImportedScripts,
+        ssImportedScripts,
+        editorInjectedCount,
+        sourceVisibleCount,
+        reusedServiceCount,
+        createdServiceCount,
+        forcedServiceCount,
+        missingRealServices
+    )
+end
+local function safeListFiles(path)
+    if type(listfiles) ~= "function" then return nil end
+    local ok, result = pcall(listfiles, path)
+    return ok and result or nil
+end
+local function getFileName(path)
+    return path:match("([^/\\]+)$") or path
+end
+local function looksFolder(path)
+    return not getFileName(path):match("%.[%a%d]+$")
+end
+local SCAN_PATHS = {
+    "workspace",
+    "Delta/workspace",
+    "delta/workspace",
+    "Android/Delta/workspace",
+    "/sdcard/Delta/workspace",
+    "/sdcard/Android/Delta/workspace",
+    "../workspace",
+    ".",
+    ""
+}
+local function normalizeFsPath(path)
+    local p = tostring(path or ""):gsub("\\", "/"):lower()
+    p = p:gsub("/+", "/")
+    p = p:gsub("^%./", "")
+    p = p:gsub("^%.%./", "")
+    p = p:gsub("/$", "")
+    return p
+end
+local function canonicalWorkspacePath(path)
+    local p = normalizeFsPath(path)
+    local lastWorkspace
+    local searchFrom = 1
+    while true do
+        local s, e = p:find("workspace/", searchFrom, true)
+        if not s then break end
+        lastWorkspace = e + 1
+        searchFrom = e + 1
+    end
+    if lastWorkspace then
+        return p:sub(lastWorkspace)
+    end
+    if p == "workspace" then
+        return ""
+    end
+    return p
+end
+local function scanDeep(folder, depth, results, seenFolders, seenFiles)
+    if depth > 4 then return end
+    local folderKey = canonicalWorkspacePath(folder)
+    if folderKey == "" then
+        folderKey = "__workspace_root__"
+    end
+    if seenFolders[folderKey] then return end
+    seenFolders[folderKey] = true
+    local list = safeListFiles(folder)
+    if not list then return end
+    for _, path in ipairs(list) do
+        local name = getFileName(path)
+        local lower = name:lower()
+        if lower:match("%.rbxl$") then
+            local fileKey = canonicalWorkspacePath(path)
+            if fileKey == "" then
+                fileKey = lower
+            end
+            if not seenFiles[fileKey] then
+                seenFiles[fileKey] = true
+                table.insert(results, {
+                    name = name,
+                    path = path,
+                    folder = folder,
+                    ftype = "RBXL",
+                    canonicalKey = fileKey
+                })
+            end
+        elseif looksFolder(path) then
+            scanDeep(path, depth + 1, results, seenFolders, seenFiles)
+        end
+    end
+end
+local function scanAllRBXL()
+    local results = {}
+    local seenFolders = {}
+    local seenFiles = {}
+    for _, path in ipairs(SCAN_PATHS) do
+        if safeListFiles(path) then
+            scanDeep(path, 0, results, seenFolders, seenFiles)
+        end
+    end
+    table.sort(results, function(a, b)
+        local an = a.name:lower()
+        local bn = b.name:lower()
+        if an == bn then
+            return tostring(a.canonicalKey or a.path) < tostring(b.canonicalKey or b.path)
+        end
+        return an < bn
+    end)
+    return results
+end
+
+task.spawn(function()
+    pcall(function()
+        if type(hookmetamethod) ~= "function"
+            or type(getnamecallmethod) ~= "function"
+            or type(checkcaller) ~= "function" then
+            return
+        end
+        local oldNamecall
+        oldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
+            local method = getnamecallmethod()
+            local args = {...}
+            if not checkcaller() and method == "InvokeServer" then
+                if self.Name == "GetScriptSourceServerFunction" then
+                    local target = tostring(args[1])
+                    for obj, source in pairs(_G.Hyaz_RAW_SOURCES) do
+                        if typeof(obj) == "Instance"
+                            and (obj.ClassName .. obj.Name) == target
+                            and source and source ~= "" then
+                            return source
+                        end
+                    end
+                elseif self.Name == "SaveScriptSourceServerFunction" then
+                    local target = tostring(args[1])
+                    local newSource = tostring(args[2])
+                    for obj in pairs(_G.Hyaz_RAW_SOURCES) do
+                        if typeof(obj) == "Instance"
+                            and (obj.ClassName .. obj.Name) == target then
+                            _G.Hyaz_RAW_SOURCES[obj] = newSource
+                            break
+                        end
+                    end
+                end
+            end
+            return oldNamecall(self, ...)
+        end)
+    end)
+end)
+setStatus("READY  •  PRESS SCAN RBXL", Theme.success)
+updateCount()
+task.delay(0.25, function()
+    if gui and gui.Parent then
+        scanNow()
+    end
+end)
+
+
+        return {
+            scanAll = scanAllRBXL,
+            import = importRBXL,
+            activate = activateImportRoot,
+        }
+    end
+
+    local RbxlEngine = createRbxlEngine()
+
+    -- ------------------------------------------------------------------------
+    -- UI Components for PageRBXL
+    -- ------------------------------------------------------------------------
+    local RbxlHeader = Instance.new("Frame")
+    RbxlHeader.Size = UDim2.new(1, 0, 0, 28)
+    RbxlHeader.BackgroundTransparency = 1
+    RbxlHeader.ZIndex = 13
+    RbxlHeader.Parent = PageRBXL
+
+    local RbxlTitleLbl = Instance.new("TextLabel")
+    RbxlTitleLbl.Size = UDim2.new(1, -80, 0, 16)
+    RbxlTitleLbl.Position = UDim2.new(0, 0, 0, 0)
+    RbxlTitleLbl.BackgroundTransparency = 1
+    RbxlTitleLbl.Text = "RBXL IMPORTER (STUDIO LITE)"
+    RbxlTitleLbl.Font = Enum.Font.GothamBold
+    RbxlTitleLbl.TextSize = 11
+    RbxlTitleLbl.TextColor3 = Color3.fromRGB(245, 245, 255)
+    RbxlTitleLbl.TextXAlignment = Enum.TextXAlignment.Left
+    RbxlTitleLbl.ZIndex = 14
+    RbxlTitleLbl.Parent = RbxlHeader
+
+    local RbxlSubLbl = Instance.new("TextLabel")
+    RbxlSubLbl.Size = UDim2.new(1, -80, 0, 12)
+    RbxlSubLbl.Position = UDim2.new(0, 0, 0, 16)
+    RbxlSubLbl.BackgroundTransparency = 1
+    RbxlSubLbl.Text = "Scan .rbxl files in executor workspace & auto-activate to services"
+    RbxlSubLbl.Font = Enum.Font.Gotham
+    RbxlSubLbl.TextSize = 7.5
+    RbxlSubLbl.TextColor3 = Color3.fromRGB(130, 135, 155)
+    RbxlSubLbl.TextXAlignment = Enum.TextXAlignment.Left
+    RbxlSubLbl.ZIndex = 14
+    RbxlSubLbl.Parent = RbxlHeader
+
+    -- Toolbar
+    local RbxlToolbar = Instance.new("Frame")
+    RbxlToolbar.Size = UDim2.new(1, 0, 0, 26)
+    RbxlToolbar.Position = UDim2.new(0, 0, 0, 32)
+    RbxlToolbar.BackgroundTransparency = 1
+    RbxlToolbar.ZIndex = 13
+    RbxlToolbar.Parent = PageRBXL
+
+    local RbxlSearchCard = Instance.new("Frame")
+    RbxlSearchCard.Size = UDim2.new(1, -94, 0, 24)
+    RbxlSearchCard.BackgroundColor3 = Color3.fromRGB(16, 18, 26)
+    RbxlSearchCard.BorderSizePixel = 0
+    RbxlSearchCard.ZIndex = 14
+    RbxlSearchCard.Parent = RbxlToolbar
+    makeCorner(RbxlSearchCard, 6)
+    makeStroke(RbxlSearchCard, Color3.fromRGB(40, 44, 60), 1)
+
+    local RbxlSearchBox = Instance.new("TextBox")
+    RbxlSearchBox.Size = UDim2.new(1, -16, 1, 0)
+    RbxlSearchBox.Position = UDim2.new(0, 8, 0, 0)
+    RbxlSearchBox.BackgroundTransparency = 1
+    RbxlSearchBox.PlaceholderText = "Search .rbxl file..."
+    RbxlSearchBox.PlaceholderColor3 = Color3.fromRGB(100, 105, 125)
+    RbxlSearchBox.Text = ""
+    RbxlSearchBox.TextColor3 = Color3.fromRGB(240, 240, 250)
+    RbxlSearchBox.Font = Enum.Font.Gotham
+    RbxlSearchBox.TextSize = 8.5
+    RbxlSearchBox.TextXAlignment = Enum.TextXAlignment.Left
+    RbxlSearchBox.ClearTextOnFocus = false
+    RbxlSearchBox.ZIndex = 15
+    RbxlSearchBox.Parent = RbxlSearchCard
+
+    local RbxlScanBtn = Instance.new("TextButton")
+    RbxlScanBtn.Size = UDim2.new(0, 88, 0, 24)
+    RbxlScanBtn.Position = UDim2.new(1, -88, 0, 0)
+    RbxlScanBtn.BackgroundColor3 = Color3.fromRGB(88, 101, 242)
+    RbxlScanBtn.Text = "SCAN FILES"
+    RbxlScanBtn.Font = Enum.Font.GothamBold
+    RbxlScanBtn.TextSize = 9
+    RbxlScanBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    RbxlScanBtn.AutoButtonColor = false
+    RbxlScanBtn.ZIndex = 15
+    RbxlScanBtn.Parent = RbxlToolbar
+    makeCorner(RbxlScanBtn, 6)
+    makeStroke(RbxlScanBtn, Color3.fromRGB(114, 137, 218), 1, 0.4)
+
+    -- Status & Info Bar
+    local RbxlInfoBar = Instance.new("Frame")
+    RbxlInfoBar.Size = UDim2.new(1, 0, 0, 20)
+    RbxlInfoBar.Position = UDim2.new(0, 0, 0, 60)
+    RbxlInfoBar.BackgroundColor3 = Color3.fromRGB(13, 15, 22)
+    RbxlInfoBar.BorderSizePixel = 0
+    RbxlInfoBar.ZIndex = 13
+    RbxlInfoBar.Parent = PageRBXL
+    makeCorner(RbxlInfoBar, 5)
+    makeStroke(RbxlInfoBar, Color3.fromRGB(30, 34, 48), 1)
+
+    local RbxlStatusDot = Instance.new("Frame")
+    RbxlStatusDot.Size = UDim2.fromOffset(5, 5)
+    RbxlStatusDot.Position = UDim2.new(0, 8, 0.5, -2.5)
+    RbxlStatusDot.BackgroundColor3 = Color3.fromRGB(79, 211, 145)
+    RbxlStatusDot.BorderSizePixel = 0
+    RbxlStatusDot.ZIndex = 14
+    RbxlStatusDot.Parent = RbxlInfoBar
+    makeCorner(RbxlStatusDot, 3)
+
+    local RbxlStatusText = Instance.new("TextLabel")
+    RbxlStatusText.Size = UDim2.new(1, -120, 1, 0)
+    RbxlStatusText.Position = UDim2.new(0, 20, 0, 0)
+    RbxlStatusText.BackgroundTransparency = 1
+    RbxlStatusText.Text = "READY"
+    RbxlStatusText.TextColor3 = Color3.fromRGB(160, 165, 185)
+    RbxlStatusText.Font = Enum.Font.GothamMedium
+    RbxlStatusText.TextSize = 7.5
+    RbxlStatusText.TextXAlignment = Enum.TextXAlignment.Left
+    RbxlStatusText.TextTruncate = Enum.TextTruncate.AtEnd
+    RbxlStatusText.ZIndex = 14
+    RbxlStatusText.Parent = RbxlInfoBar
+
+    local RbxlCountText = Instance.new("TextLabel")
+    RbxlCountText.Size = UDim2.new(0, 95, 1, 0)
+    RbxlCountText.Position = UDim2.new(1, -100, 0, 0)
+    RbxlCountText.BackgroundTransparency = 1
+    RbxlCountText.Text = "FILES 0 • IMP 0"
+    RbxlCountText.TextColor3 = Color3.fromRGB(140, 145, 165)
+    RbxlCountText.Font = Enum.Font.GothamBold
+    RbxlCountText.TextSize = 7.5
+    RbxlCountText.TextXAlignment = Enum.TextXAlignment.Right
+    RbxlCountText.ZIndex = 14
+    RbxlCountText.Parent = RbxlInfoBar
+
+    -- Inline Progress Bar
+    local RbxlProgressTrack = Instance.new("Frame")
+    RbxlProgressTrack.Name = "RbxlProgressTrack"
+    RbxlProgressTrack.Size = UDim2.new(1, 0, 0, 3)
+    RbxlProgressTrack.Position = UDim2.new(0, 0, 1, -3)
+    RbxlProgressTrack.BackgroundColor3 = Color3.fromRGB(22, 24, 34)
+    RbxlProgressTrack.BorderSizePixel = 0
+    RbxlProgressTrack.Visible = false
+    RbxlProgressTrack.ZIndex = 15
+    RbxlProgressTrack.Parent = RbxlInfoBar
+    makeCorner(RbxlProgressTrack, 2)
+
+    local RbxlProgressFill = Instance.new("Frame")
+    RbxlProgressFill.Size = UDim2.new(0, 0, 1, 0)
+    RbxlProgressFill.BackgroundColor3 = Color3.fromRGB(88, 101, 242)
+    RbxlProgressFill.BorderSizePixel = 0
+    RbxlProgressFill.ZIndex = 16
+    RbxlProgressFill.Parent = RbxlProgressTrack
+    makeCorner(RbxlProgressFill, 2)
+
+    -- Scroll Container
+    local RbxlScroll = Instance.new("ScrollingFrame")
+    RbxlScroll.Size = UDim2.new(1, 0, 1, -84)
+    RbxlScroll.Position = UDim2.new(0, 0, 0, 84)
+    RbxlScroll.BackgroundColor3 = Color3.fromRGB(12, 13, 19)
+    RbxlScroll.BorderSizePixel = 0
+    RbxlScroll.ScrollBarThickness = 2
+    RbxlScroll.ScrollBarImageColor3 = Color3.fromRGB(88, 101, 242)
+    RbxlScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    RbxlScroll.CanvasSize = UDim2.new()
+    RbxlScroll.ZIndex = 13
+    RbxlScroll.Parent = PageRBXL
+    makeCorner(RbxlScroll, 6)
+    makeStroke(RbxlScroll, Color3.fromRGB(28, 30, 44), 1)
+
+    local RbxlPad = Instance.new("UIPadding")
+    RbxlPad.PaddingTop = UDim.new(0, 5)
+    RbxlPad.PaddingBottom = UDim.new(0, 5)
+    RbxlPad.PaddingLeft = UDim.new(0, 5)
+    RbxlPad.PaddingRight = UDim.new(0, 5)
+    RbxlPad.Parent = RbxlScroll
+
+    local RbxlLayout = Instance.new("UIListLayout")
+    RbxlLayout.Padding = UDim.new(0, 4)
+    RbxlLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    RbxlLayout.Parent = RbxlScroll
+
+    local RbxlEmpty = Instance.new("TextLabel")
+    RbxlEmpty.Size = UDim2.new(1, -10, 0, 80)
+    RbxlEmpty.BackgroundTransparency = 1
+    RbxlEmpty.Text = "NO .RBXL FILES FOUND\nClick 'SCAN FILES' to search workspace"
+    RbxlEmpty.TextColor3 = Color3.fromRGB(120, 125, 145)
+    RbxlEmpty.Font = Enum.Font.GothamMedium
+    RbxlEmpty.TextSize = 8.5
+    RbxlEmpty.TextWrapped = true
+    RbxlEmpty.ZIndex = 14
+    RbxlEmpty.Parent = RbxlScroll
+
+    local rbxlCards = {}
+    local rbxlFileCount = 0
+    local rbxlImportedCount = 0
+
+    local function setRbxlStatus(text, color)
+        RbxlStatusText.Text = tostring(text)
+        RbxlStatusDot.BackgroundColor3 = color or Color3.fromRGB(88, 101, 242)
+    end
+
+    local function setRbxlProgress(value, message)
+        value = math.clamp(tonumber(value) or 0, 0, 1)
+        RbxlProgressTrack.Visible = (value > 0 and value < 1)
+        RbxlProgressFill.Size = UDim2.new(value, 0, 1, 0)
+        if message and message ~= "" then
+            RbxlStatusText.Text = ("[%d%%] %s"):format(math.floor(value * 100 + 0.5), tostring(message))
+        end
+        if value >= 1 then
+            RbxlProgressFill.Size = UDim2.new(1, 0, 1, 0)
+            task.delay(1.5, function()
+                if RbxlProgressTrack and RbxlProgressTrack.Parent then
+                    RbxlProgressTrack.Visible = false
+                    RbxlProgressFill.Size = UDim2.new(0, 0, 1, 0)
+                end
+            end)
+        end
+    end
+    _G.HYAZ_IMPORT_PROGRESS_CB = setRbxlProgress
+
+    local function updateRbxlCount()
+        RbxlCountText.Text = ("FILES %d • IMP %d"):format(rbxlFileCount, rbxlImportedCount)
+    end
+
+    local function clearRbxlCards()
+        for _, item in ipairs(rbxlCards) do
+            if item.card then item.card:Destroy() end
+        end
+        rbxlCards = {}
+    end
+
+    local function filterRbxlCards()
+        local q = RbxlSearchBox.Text:lower():gsub("^%s+", ""):gsub("%s+$", "")
+        for _, item in ipairs(rbxlCards) do
+            local match = (q == "")
+                or (item.info.name:lower():find(q, 1, true) ~= nil)
+                or (item.info.path:lower():find(q, 1, true) ~= nil)
+            item.card.Visible = match
+        end
+        RbxlEmpty.Visible = (#rbxlCards == 0)
+    end
+
+    local function makeRbxlCard(info)
+        RbxlEmpty.Visible = false
+        local card = Instance.new("Frame")
+        card.Size = UDim2.new(1, -2, 0, 36)
+        card.BackgroundColor3 = Color3.fromRGB(18, 20, 28)
+        card.BorderSizePixel = 0
+        card.ZIndex = 14
+        card.Parent = RbxlScroll
+        makeCorner(card, 6)
+        makeStroke(card, Color3.fromRGB(36, 40, 54), 1)
+
+        local badge = Instance.new("TextLabel")
+        badge.Size = UDim2.fromOffset(34, 16)
+        badge.Position = UDim2.fromOffset(6, 10)
+        badge.BackgroundColor3 = Color3.fromRGB(44, 25, 35)
+        badge.Text = "RBXL"
+        badge.TextColor3 = Color3.fromRGB(255, 120, 140)
+        badge.Font = Enum.Font.GothamBold
+        badge.TextSize = 6.5
+        badge.ZIndex = 15
+        badge.Parent = card
+        makeCorner(badge, 4)
+
+        local nameLbl = Instance.new("TextLabel")
+        nameLbl.Size = UDim2.new(1, -125, 0, 14)
+        nameLbl.Position = UDim2.fromOffset(46, 4)
+        nameLbl.BackgroundTransparency = 1
+        nameLbl.Text = info.name
+        nameLbl.TextColor3 = Color3.fromRGB(240, 242, 250)
+        nameLbl.Font = Enum.Font.GothamBold
+        nameLbl.TextSize = 7.5
+        nameLbl.TextXAlignment = Enum.TextXAlignment.Left
+        nameLbl.TextTruncate = Enum.TextTruncate.AtEnd
+        nameLbl.ZIndex = 15
+        nameLbl.Parent = card
+
+        local pathLbl = Instance.new("TextLabel")
+        pathLbl.Size = UDim2.new(1, -125, 0, 11)
+        pathLbl.Position = UDim2.fromOffset(46, 19)
+        pathLbl.BackgroundTransparency = 1
+        pathLbl.Text = info.path
+        pathLbl.TextColor3 = Color3.fromRGB(125, 130, 150)
+        pathLbl.Font = Enum.Font.Code
+        pathLbl.TextSize = 6
+        pathLbl.TextXAlignment = Enum.TextXAlignment.Left
+        pathLbl.TextTruncate = Enum.TextTruncate.AtEnd
+        pathLbl.ZIndex = 15
+        pathLbl.Parent = card
+
+        local importBtn = Instance.new("TextButton")
+        importBtn.Size = UDim2.fromOffset(66, 22)
+        importBtn.Position = UDim2.new(1, -72, 0.5, -11)
+        importBtn.BackgroundColor3 = Color3.fromRGB(88, 101, 242)
+        importBtn.Text = "IMPORT"
+        importBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+        importBtn.Font = Enum.Font.GothamBold
+        importBtn.TextSize = 7.5
+        importBtn.AutoButtonColor = false
+        importBtn.ZIndex = 15
+        importBtn.Parent = card
+        makeCorner(importBtn, 5)
+        makeStroke(importBtn, Color3.fromRGB(114, 137, 218), 1, 0.4)
+
+        local importedRoot = nil
+        importBtn.MouseButton1Click:Connect(function()
+            if importBtn.Text == "IMPORTING" or importBtn.Text == "ACTIVATING" then
+                return
+            end
+            if importBtn.Text == "ACTIVE" then
+                setRbxlStatus("ALREADY ACTIVE • " .. info.name, Color3.fromRGB(79, 211, 145))
+                return
+            end
+            importBtn.Text = "IMPORTING"
+            importBtn.BackgroundColor3 = Color3.fromRGB(170, 100, 30)
+            setRbxlProgress(0.01, "Reading file " .. info.name)
+            setRbxlStatus("IMPORTING " .. info.name, Color3.fromRGB(241, 173, 74))
+
+            task.spawn(function()
+                local ok, message, root = RbxlEngine.import(info)
+                if ok then
+                    rbxlImportedCount = rbxlImportedCount + (1)
+                    updateRbxlCount()
+                    importedRoot = root
+                    importBtn.Text = "ACTIVATING"
+                    importBtn.BackgroundColor3 = Color3.fromRGB(130, 80, 25)
+                    setRbxlStatus(message .. " • ACTIVATING", Color3.fromRGB(241, 173, 74))
+
+                    local activateOK, activateMessage = RbxlEngine.activate(importedRoot)
+                    if activateOK then
+                        importBtn.Text = "ACTIVE"
+                        importBtn.BackgroundColor3 = Color3.fromRGB(35, 120, 75)
+                        setRbxlProgress(1.00, "RBXL GENERATION COMPLETE")
+                        setRbxlStatus(activateMessage, Color3.fromRGB(79, 211, 145))
+                        showToast("RBXL Loaded: " .. info.name, Color3.fromRGB(40, 160, 90))
+                    else
+                        importBtn.Text = "ACTIVATE"
+                        importBtn.BackgroundColor3 = Color3.fromRGB(140, 60, 30)
+                        setRbxlStatus("AUTO ACTIVATE ERROR: " .. tostring(activateMessage), Color3.fromRGB(255, 79, 99))
+                        showToast("RBXL Activate Error", Color3.fromRGB(200, 50, 50))
+                    end
+                else
+                    importBtn.Text = "FAILED"
+                    importBtn.BackgroundColor3 = Color3.fromRGB(160, 40, 50)
+                    setRbxlStatus(message, Color3.fromRGB(255, 79, 99))
+                    showToast("RBXL Import Failed", Color3.fromRGB(200, 50, 50))
+                    task.wait(2.5)
+                    if importBtn and importBtn.Parent then
+                        importBtn.Text = "IMPORT"
+                        importBtn.BackgroundColor3 = Color3.fromRGB(88, 101, 242)
+                    end
+                end
+            end)
+        end)
+
+        table.insert(rbxlCards, { info = info, card = card })
+    end
+
+    local function scanAllRbxlNow()
+        RbxlScanBtn.Text = "SCANNING..."
+        RbxlScanBtn.BackgroundColor3 = Color3.fromRGB(60, 70, 140)
+        setRbxlStatus("SCANNING WORKSPACE...", Color3.fromRGB(241, 173, 74))
+        clearRbxlCards()
+        rbxlFileCount = 0
+        rbxlImportedCount = 0
+        updateRbxlCount()
+        RbxlEmpty.Visible = true
+        RbxlEmpty.Text = "SCANNING WORKSPACE FOLDERS..."
+
+        task.spawn(function()
+            if type(listfiles) ~= "function" then
+                RbxlEmpty.Text = "listfiles() API tidak tersedia di executor ini"
+                setRbxlStatus("ERROR: listfiles() not supported", Color3.fromRGB(255, 79, 99))
+                RbxlScanBtn.Text = "SCAN FILES"
+                RbxlScanBtn.BackgroundColor3 = Color3.fromRGB(88, 101, 242)
+                return
+            end
+            local ok, results = pcall(RbxlEngine.scanAll)
+            if not ok then
+                RbxlEmpty.Text = "SCAN FAILED: " .. tostring(results)
+                setRbxlStatus("SCAN ERROR: " .. tostring(results), Color3.fromRGB(255, 79, 99))
+                RbxlScanBtn.Text = "SCAN FILES"
+                RbxlScanBtn.BackgroundColor3 = Color3.fromRGB(88, 101, 242)
+                return
+            end
+            for _, info in ipairs(results) do
+                makeRbxlCard(info)
+                task.wait()
+            end
+            rbxlFileCount = #results
+            updateRbxlCount()
+            if rbxlFileCount == 0 then
+                RbxlEmpty.Visible = true
+                RbxlEmpty.Text = "NO .RBXL FILES FOUND IN WORKSPACE\nPlace .rbxl in Delta/workspace or workspace/"
+                setRbxlStatus("SCAN COMPLETE • 0 FILES", Color3.fromRGB(241, 173, 74))
+            else
+                RbxlEmpty.Visible = false
+                setRbxlStatus(("SCAN COMPLETE • %d RBXL FILES FOUND"):format(rbxlFileCount), Color3.fromRGB(79, 211, 145))
+            end
+            RbxlScanBtn.Text = "SCAN FILES"
+            RbxlScanBtn.BackgroundColor3 = Color3.fromRGB(88, 101, 242)
+            filterRbxlCards()
+        end)
+    end
+
+    RbxlSearchBox:GetPropertyChangedSignal("Text"):Connect(filterRbxlCards)
+    RbxlScanBtn.MouseButton1Click:Connect(scanAllRbxlNow)
+
+    -- Auto scan on first switch to RBXL tab
+    local hasScannedRbxl = false
+    local oldSwitchTab = switchTab
+    switchTab = function(tabKey)
+        oldSwitchTab(tabKey)
+        if tabKey == "RBXL" and not hasScannedRbxl then
+            hasScannedRbxl = true
+            task.delay(0.2, scanAllRbxlNow)
+        end
+    end
+end
+initPageRBXL()
+
+
+
 RbxmHeader.Size = UDim2.new(1, 0, 0, 28); RbxmHeader.BackgroundTransparency = 1; RbxmHeader.ZIndex = 13; RbxmHeader.Parent = PageRBXM
 
 local RbxmTitleLbl = Instance.new("TextLabel")
@@ -2051,7 +5295,7 @@ local function renderRbxmCards()
         makeCorner(edBtn, 6)
         makeStroke(edBtn, Color3.fromRGB(255,255,255), 1, 0.7)
 
-        edBtn.MouseButton1Click:Connect(function()
+        edBtn.Activated:Connect(function()
             local code = lookupScriptSource(file.name:gsub("%.rbxm.*", ""))
             if not code or code == "" then
                 local d = safeReadFile(file.path)
@@ -2075,7 +5319,7 @@ local function renderRbxmCards()
         insertBtn.Parent = card
         makeCorner(insertBtn, 6)
 
-        insertBtn.MouseButton1Click:Connect(function()
+        insertBtn.Activated:Connect(function()
             if insertBtn.Text == "..." then return end
             insertBtn.Text = "..."
             task.spawn(function()
@@ -2100,7 +5344,7 @@ local function renderRbxmCards()
     RbxmScroll.CanvasSize = UDim2.new(0, 0, 0, RbxmList.AbsoluteContentSize.Y + 20)
 end
 
-RbxmScanBtn.MouseButton1Click:Connect(renderRbxmCards)
+RbxmScanBtn.Activated:Connect(renderRbxmCards)
 
 local function inspectAsset(id, name, creator)
     currentInspId = tostring(id)
@@ -2118,14 +5362,14 @@ local function inspectAsset(id, name, creator)
     end
 end
 
-TbDetCopy.MouseButton1Click:Connect(function()
+TbDetCopy.Activated:Connect(function()
     if currentInspId ~= "" and clipFn then
         pcall(clipFn, currentInspId); TbDetCopy.Text = "COPIED!"
         task.delay(1.2, function() if TbDetCopy and TbDetCopy.Parent then TbDetCopy.Text = "COPY ID" end end)
     end
 end)
 
-TbDetInsert.MouseButton1Click:Connect(function()
+TbDetInsert.Activated:Connect(function()
     if currentInspId ~= "" then
         TbDetInsert.Text = "..."
         task.spawn(function()
@@ -2214,11 +5458,11 @@ local function renderGrid(data)
         cBtn.Font = Enum.Font.GothamBold; cBtn.TextSize = 8
         cBtn.TextColor3 = Color3.fromRGB(0, 0, 0); cBtn.Active = true; cBtn.Parent = btnRow; makeCorner(cBtn, 4)
 
-        cBtn.MouseButton1Click:Connect(function()
+        cBtn.Activated:Connect(function()
             if clipFn then pcall(clipFn, assetId); cBtn.Text = "OK!"
                 task.delay(1.2, function() if cBtn and cBtn.Parent then cBtn.Text = "COPY" end end) end
         end)
-        iBtn.MouseButton1Click:Connect(function()
+        iBtn.Activated:Connect(function()
             iBtn.Text = "..."; TbStatusLbl.Text = "[.] Inserting "..assetId
             task.spawn(function()
                 local ok, m = smartInsert(assetId); TbStatusLbl.Text = "[.] "..m
@@ -2231,7 +5475,7 @@ local function renderGrid(data)
 
         local hitbox = Instance.new("TextButton")
         hitbox.Size = UDim2.new(1, 0, 0, 86); hitbox.BackgroundTransparency = 1; hitbox.Text = ""; hitbox.Active = true; hitbox.Parent = card
-        hitbox.MouseButton1Click:Connect(function() inspectAsset(assetId, nameL.Text, creator) end)
+        hitbox.Activated:Connect(function() inspectAsset(assetId, nameL.Text, creator) end)
 
         task.spawn(function()
             local num = tonumber(assetId); if not num then return end
@@ -2257,10 +5501,10 @@ local function execSearch()
         end)
     end
 end
-TbSearchBtn.MouseButton1Click:Connect(execSearch)
+TbSearchBtn.Activated:Connect(execSearch)
 TbSearchBox.FocusLost:Connect(function(enter) if enter then execSearch() end end)
 
-TbInsertIdBtn.MouseButton1Click:Connect(function()
+TbInsertIdBtn.Activated:Connect(function()
     local id = TbIdBox.Text:gsub("%D+", "")
     if id ~= "" then
         inspectAsset(id, "Memuat...", "?"); TbInsertIdBtn.Text = "..."
@@ -3040,9 +6284,12 @@ initReplacerPage()
 
 
 -- =====================================================
--- AVATAR CHANGER (STUDIO LITE - CLEAN NO BRANDING)
+-- PAGE 5: AVATAR CHANGER (AvatarStudio Embedded)
 -- =====================================================
 local function initAvatarPage()
+    local old_avatar = PageAvatar:FindFirstChild("Body")
+    if old_avatar then old_avatar:Destroy() end
+
 --[[ =============================================================================
   Avatar Studio  -  Quantum Edition
   Visual-only: item, avatar, dan animasi yang dipilih langsung dipasang di
@@ -3270,7 +6517,7 @@ local function button(parent, o)
 		tween(b, { BackgroundColor3 = b:GetAttribute("Base") or bg }, 0.15)
 	end)
 	if o.onClick then
-		b.MouseButton1Click:Connect(o.onClick)
+		b.Activated:Connect(o.onClick)
 	end
 	return b
 end
@@ -6528,7 +9775,7 @@ local function addHeart(card, isFav, onToggle)
 		h.TextColor3 = f and T.Danger or T.Text
 	end
 	paint()
-	h.MouseButton1Click:Connect(function()
+	h.Activated:Connect(function()
 		onToggle()
 		paint()
 	end)
@@ -6618,7 +9865,7 @@ local function makeCard(parent, item)
 			E.prefetchBundle(item.Id)
 		end
 	end)
-	card.MouseButton1Click:Connect(function()
+	card.Activated:Connect(function()
 		if isBundle then
 			if obj.loading then
 				return
@@ -6847,7 +10094,7 @@ local function buildCatalog(page, group)
 		corner(c, 8)
 		pad(c, 10, 0, 10, 0)
 		chipRefs[cat.id] = c
-		c.MouseButton1Click:Connect(function()
+		c.Activated:Connect(function()
 			selectCat(cat)
 		end)
 	end
@@ -6960,7 +10207,7 @@ local function userCard(parent, userId, name, order, sub)
 	end)
 
 	local busyCard = false
-	card.MouseButton1Click:Connect(function()
+	card.Activated:Connect(function()
 		if busyCard then
 			return
 		end
@@ -7198,7 +10445,7 @@ local function buildAvatars(page)
 		})
 		corner(c, 8)
 		chips[d[1]] = c
-		c.MouseButton1Click:Connect(function()
+		c.Activated:Connect(function()
 			showSection(d[1])
 		end)
 	end
@@ -7695,7 +10942,7 @@ local function buildAvatars(page)
 		end
 	end
 	for k, c in pairs(modeChips) do
-		c.MouseButton1Click:Connect(function()
+		c.Activated:Connect(function()
 			setSortMode(k)
 		end)
 	end
@@ -7794,13 +11041,13 @@ local function buildAvatars(page)
 			loadMore()
 		end
 	end)
-	searchBtn.MouseButton1Click:Connect(doSearch)
+	searchBtn.Activated:Connect(doSearch)
 	box.FocusLost:Connect(function(enter)
 		if enter then
 			doSearch()
 		end
 	end)
-	randBtn.MouseButton1Click:Connect(function()
+	randBtn.Activated:Connect(function()
 		box.Text = ""
 		startFeed(false)
 	end)
@@ -8214,7 +11461,7 @@ local function buildFavorites(page)
 		corner(c, 8)
 		pad(c, 10, 0, 10, 0)
 		chips[d[1]] = c
-		c.MouseButton1Click:Connect(function()
+		c.Activated:Connect(function()
 			show(d[1])
 		end)
 	end
@@ -8326,17 +11573,14 @@ end
 -- [11] SHELL UI (gaya AVATAR CHANGER v2): header, sidebar 5 tab, drag, resize
 ----------------------------------------------------------------------------
 local MAIN_W, MAIN_H = 660, 360
-local State = { tab = "avatars", open = true, sbw = 64 }
+local State = { tab = "avatars", open = true, sbw = 60 }
 local UI = { builders = {}, built = {}, pages = {}, refreshers = {} }
 
-UI.gui = mk("ScreenGui", {
-	Name = "AvatarStudio", ResetOnSpawn = false, IgnoreGuiInset = true,
-	ZIndexBehavior = Enum.ZIndexBehavior.Sibling, DisplayOrder = 50, Parent = playerGui,
-})
+UI.gui = ScreenGui
 
 toastHolder = mk("Frame", {
 	AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 14), Size = UDim2.fromOffset(420, 300),
-	BackgroundTransparency = 1, ZIndex = 200, Parent = UI.gui,
+	BackgroundTransparency = 1, ZIndex = 200, Parent = ScreenGui,
 })
 mk("UIListLayout", {
 	FillDirection = Enum.FillDirection.Vertical, Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder,
@@ -8344,8 +11588,7 @@ mk("UIListLayout", {
 })
 
 local mainFrame = PageAvatar
--- UIScale must be an Instance; TweenService cannot tween a plain Lua table.
-local mainScale = mk("UIScale", { Name = "AvatarUIScale", Scale = 1, Parent = mainFrame })
+local mainScale = { Scale = 1 }
 
 local function computeScale()
 	local cam = Workspace.CurrentCamera
@@ -8372,7 +11615,7 @@ local logo = createLogo(UDim2.fromOffset(26, 26), -12)
 logo.Position = UDim2.new(0, 16, 0, 13)
 logo.Parent = header
 local logBtn = mk("TextButton", { Size = UDim2.fromOffset(30, 30), Position = UDim2.new(0, 14, 0, 11), BackgroundTransparency = 1, Text = "", ZIndex = 5, Parent = header })
-logBtn.MouseButton1Click:Connect(function()
+logBtn.Activated:Connect(function()
 	local okC = pcall(function()
 		local txt = table.concat(LOG, "\n")
 		if setclipboard then
@@ -8399,11 +11642,33 @@ local closeBtn = mk("TextButton", {
 })
 corner(closeBtn, 10)
 stroke(closeBtn, Theme.CardBorder, 1.5)
-closeBtn.MouseButton1Click:Connect(function()
+closeBtn.Activated:Connect(function()
 	ToggleMainUI(false)
 end)
 
--- promo removed
+local waBtn = mk("TextButton", {
+	Size = UDim2.fromOffset(120, 26), Position = UDim2.new(1, -175, 0, 13), BackgroundColor3 = Theme.WaGreen,
+	Text = "💬 SALURAN WA", Font = Enum.Font.GothamBold, TextSize = 9, TextColor3 = Theme.TextPrimary,
+	AutoButtonColor = false, Parent = header,
+})
+corner(waBtn, 8)
+stroke(waBtn, Theme.WaDarkGreen, 1.5)
+waBtn.Activated:Connect(function()
+	pcall(function()
+		if setclipboard then
+			setclipboard(WA_CHANNEL_LINK)
+		elseif toclipboard then
+			toclipboard(WA_CHANNEL_LINK)
+		end
+	end)
+	local orig = "💬 SALURAN WA"
+	waBtn.Text = "✓ COPIED!"
+	task.delay(1.5, function()
+		if waBtn.Parent then
+			waBtn.Text = orig
+		end
+	end)
+end)
 
 mk("Frame", { Size = UDim2.new(1, -32, 0, 1), Position = UDim2.new(0, 16, 0, 48), BackgroundColor3 = Theme.CardBorder, BorderSizePixel = 0, Parent = mainFrame })
 -- bar loading di bawah header (aktif saat avatar / item sedang diproses)
@@ -8431,7 +11696,7 @@ task.spawn(function()
 end)
 
 -- body: sidebar + content
-local bodyFrame = mk("Frame", { Name = "AvatarBody", Size = UDim2.new(1, -4, 1, -4), Position = UDim2.new(0, 2, 0, 2), BackgroundTransparency = 1, Parent = PageAvatar })
+local bodyFrame = mk("Frame", { Name = "Body", Size = UDim2.new(1, -12, 1, -8), Position = UDim2.new(0, 6, 0, 4), BackgroundTransparency = 1, Parent = PageAvatar })
 local sidebar = mk("ScrollingFrame", {
 	Name = "Sidebar", Size = UDim2.new(0, State.sbw, 1, 0), BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 0,
 	AutomaticCanvasSize = Enum.AutomaticSize.Y, CanvasSize = UDim2.new(), Parent = bodyFrame,
@@ -8477,10 +11742,8 @@ UI.builders.worn = function(p)
 end
 for _, tab in ipairs(TABS) do
 	if tab.group then
-		local tabKey = tab.key
-		local tabGroup = tab.group
-		UI.builders[tabKey] = function(p)
-			UI.refreshers[tabKey] = buildCatalog(p, tabGroup)
+		UI.builders[tab.key] = function(p)
+			UI.refreshers[tab.key] = buildCatalog(p, tab.group)
 		end
 	end
 end
@@ -8503,20 +11766,14 @@ local function setTab(index)
 	contentTitle.Text = tab.title or string.upper(tab.name)
 	updateSub()
 	if not UI.built[tab.key] then
+		UI.built[tab.key] = true
 		local okB, errB = pcall(UI.builders[tab.key], UI.pages[tab.key])
-		if okB then
-			UI.built[tab.key] = true
-		else
-			UI.built[tab.key] = false
+		if not okB then
 			logf("GAGAL membuat halaman %s: %s", tab.key, tostring(errB))
-			for _, child in ipairs(UI.pages[tab.key]:GetChildren()) do
-				if child.Name == "BuildError" then child:Destroy() end
-			end
 			mk("TextLabel", {
-				Name = "BuildError",
 				Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency = 1, TextWrapped = true, TextColor3 = T.Danger,
 				TextSize = 12, Font = Enum.Font.GothamMedium, TextXAlignment = Enum.TextXAlignment.Left,
-				TextYAlignment = Enum.TextYAlignment.Top, Text = "Halaman gagal dibuat. Ketuk tab lagi untuk mencoba ulang.\n" .. tostring(errB),
+				TextYAlignment = Enum.TextYAlignment.Top, Text = "⚠ Halaman gagal dibuat:\n" .. tostring(errB),
 				Parent = UI.pages[tab.key],
 			})
 		end
@@ -8544,7 +11801,7 @@ for i, tab in ipairs(TABS) do
 		Text = string.upper(tab.name), Parent = b,
 	})
 	table.insert(tabBtns, { frame = b, stroke = sk, label = lb, indicator = ind })
-	b.MouseButton1Click:Connect(function()
+	b.Activated:Connect(function()
 		setTab(i)
 	end)
 	UI.pages[tab.key] = mk("Frame", { Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency = 1, Visible = false, Parent = pageHolder })
@@ -8557,7 +11814,7 @@ end
 --   Kamera otomatis menyesuaikan ukuran avatar (kecil / tinggi) dan ukuran panel.
 ----------------------------------------------------------------------------
 do
-local MIRROR_W = 116
+local MIRROR_W = 115
 local Mirror = { on = true, spin = 0, auto = true, dragging = false, pauseUntil = 0, sig = nil, stage = nil, model = nil, token = 0 }
 
 local mirrorPanel = mk("Frame", {
@@ -8794,7 +12051,7 @@ local mirrorAutoBtn = button(mirrorPanel, {
 	text = "⏸ Putar", textSize = 11, bg = Theme.CardBg, size = UDim2.new(1, -12, 0, 26),
 	position = UDim2.new(0, 6, 1, -32), radius = 8, onClick = function() end,
 })
-mirrorAutoBtn.MouseButton1Click:Connect(function()
+mirrorAutoBtn.Activated:Connect(function()
 	Mirror.auto = not Mirror.auto
 	mirrorAutoBtn.Text = Mirror.auto and "⏸ Putar" or "▶ Putar"
 end)
@@ -8849,7 +12106,7 @@ end
 local fab = mk("TextButton", {
 	Name = "FloatingToggleBtn", Size = UDim2.fromOffset(44, 44), AnchorPoint = Vector2.new(0, 0.5),
 	Position = UDim2.new(0, 20, 0.4, 0), BackgroundColor3 = Theme.Background, BorderSizePixel = 0,
-	Visible = false, Active = true, Text = "", ZIndex = 20, Parent = UI.gui,
+	Visible = false, Active = true, Text = "", ZIndex = 20, Parent = ScreenGui,
 })
 corner(fab, 11)
 stroke(fab, Theme.Accent, 1.5)
@@ -8893,24 +12150,24 @@ UserInputService.InputChanged:Connect(function(input)
 	if not moveType then
 		return
 	end
-	if dragging and dragStart and dragOrigin then
+	if dragging then
 		local d = input.Position - dragStart
-		mainFrame.Position = UDim2.new(dragOrigin.X.Scale, (dragOrigin.X.Offset or 0) + d.X, dragOrigin.Y.Scale, (dragOrigin.Y.Offset or 0) + d.Y)
+		mainFrame.Position = UDim2.new(dragOrigin.X.Scale, dragOrigin.X.Offset + d.X, dragOrigin.Y.Scale, dragOrigin.Y.Offset + d.Y)
 	end
-	if resizing and resizeStart and sizeOrigin then
-		local d = (input.Position - resizeStart) / math.max(tonumber(mainScale.Scale) or 1, 0.1)
+	if resizing then
+		local d = (input.Position - resizeStart) / math.max(mainScale.Scale, 0.1)
 		mainFrame.Size = UDim2.fromOffset(
-			math.clamp((sizeOrigin.X.Offset or 0) + d.X, 300, 1000),
-			math.clamp((sizeOrigin.Y.Offset or 0) + d.Y, 260, 720)
+			math.clamp(sizeOrigin.X.Offset + d.X, 560, 1000),
+			math.clamp(sizeOrigin.Y.Offset + d.Y, 300, 650)
 		)
 	end
-	if floating and floatStart and floatOrigin then
+	if floating then
 		local d = input.Position - floatStart
 		if math.abs(d.X) + math.abs(d.Y) > 8 then
 			floatMoved = true
 		end
 		if floatMoved then
-			fab.Position = UDim2.new(floatOrigin.X.Scale, (floatOrigin.X.Offset or 0) + d.X, floatOrigin.Y.Scale, (floatOrigin.Y.Offset or 0) + d.Y)
+			fab.Position = UDim2.new(floatOrigin.X.Scale, floatOrigin.X.Offset + d.X, floatOrigin.Y.Scale, floatOrigin.Y.Offset + d.Y)
 		end
 	end
 end)
@@ -8919,33 +12176,26 @@ UserInputService.InputEnded:Connect(function(input)
 		dragging, resizing, floating = false, false, false
 	end
 end)
-fab.MouseButton1Click:Connect(function()
+fab.Activated:Connect(function()
 	if not floatMoved then
-		-- mounted in PageAvatar
+		-- embedded in PageAvatar
 	end
 end)
 
-ToggleMainUI = function(show)
-	show = (show == true)
+ToggleMainUI = function(show) end
+local _unused_ToggleMainUI = function(show)
 	State.open = show
 	if show then
 		mainFrame.Visible = true
+		mainScale.Scale = 0
 		fab.Visible = false
-		mainScale.Scale = 0.92
 		tween(mainScale, { Scale = computeScale() }, 0.22, Enum.EasingStyle.Back)
 	else
+		mainScale.Scale = 0
 		mainFrame.Visible = false
 		fab.Visible = true
-		mainScale.Scale = computeScale()
 	end
 end
-
--- Tombol mengambang benar-benar membuka kembali panel setelah ditutup.
-fab.MouseButton1Click:Connect(function()
-	if not floatMoved then
-		ToggleMainUI(true)
-	end
-end)
 
 UserInputService.InputBegan:Connect(function(input, gp)
 	if gp or E.uiDestroyed or stale() then
@@ -9002,7 +12252,7 @@ end)
 -- [12] BOOT + START
 ----------------------------------------------------------------------------
 setTab(1)
--- mounted in PageAvatar
+-- embedded in PageAvatar
 
 task.spawn(function()
 	local ok, err = pcall(E.init)
@@ -9032,10 +12282,11 @@ task.delay(3, function()
 		end
 	end
 end)
+
 end
 initAvatarPage()
 
 
--- Select first tab (Toolbox)
-Window:SelectTab(1)
-print("[Quantum | ID] Studio Lite PC Loaded!")
+-- Set default open tab to Toolbox
+switchTab("Toolbox")
+print("[Quantum Engine] Studio Lite PC Loaded Successfully!")
