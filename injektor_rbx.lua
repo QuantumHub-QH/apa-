@@ -573,7 +573,7 @@ local TitleIcon = Instance.new("TextLabel")
 TitleIcon.Size = UDim2.new(0, 28, 1, 0)
 TitleIcon.Position = UDim2.new(0, 8, 0, 0)
 TitleIcon.BackgroundTransparency = 1
-TitleIcon.Text = "⚛"
+TitleIcon.Text = "Q"
 TitleIcon.Font = Enum.Font.GothamBold
 TitleIcon.TextSize = 18
 TitleIcon.TextColor3 = Color3.fromRGB(88, 101, 242)
@@ -598,7 +598,7 @@ local CloseBtn = Instance.new("TextButton")
 CloseBtn.Size = UDim2.new(0, 26, 0, 24)
 CloseBtn.Position = UDim2.new(1, -30, 0, 6)
 CloseBtn.BackgroundColor3 = Color3.fromRGB(30, 33, 44)
-CloseBtn.Text = "✕"
+CloseBtn.Text = "X"
 CloseBtn.Font = Enum.Font.GothamBold
 CloseBtn.TextSize = 11
 CloseBtn.TextColor3 = Color3.fromRGB(200, 205, 220)
@@ -860,10 +860,10 @@ local function addNavButton(tabKey, icon, labelText, order)
 end
 
 -- Add all tabs on the left
-addNavButton("Toolbox",  "📦", "TOOLBOX ASET",     1)
-addNavButton("Avatar",   "👤", "AVATAR CHANGER",   2)
-addNavButton("RBXL",     "🏗️", "RBXL IMPORTER",    3)
-addNavButton("RBXM",     "📁", "INSERT RBXM",      4)
+addNavButton("Toolbox",  "TB", "TOOLBOX",          1)
+addNavButton("Avatar",   "AV", "AVATAR CHANGER",    2)
+addNavButton("RBXL",     "XL", "RBXL IMPORTER",     3)
+addNavButton("RBXM",     "XM", "RBXM IMPORTER",     4)
 
 
 -- Compatibility helper for existing code that calls showPage
@@ -3035,19 +3035,17 @@ local function tryWriteRealScriptSource(scr)
     end
     local saveRemote = findStudioLiteRemote("SaveScriptSourceServerFunction")
     if saveRemote and saveRemote:IsA("RemoteFunction") then
-        local ok = pcall(function()
-            saveRemote:InvokeServer(scr.ClassName .. scr.Name, source)
+        task.spawn(function()
+            pcall(function()
+                saveRemote:InvokeServer(scr.ClassName .. scr.Name, source)
+            end)
         end)
-        if ok then
-            return true, "studio_lite_remote"
-        end
+        return true, "studio_lite_remote"
     elseif saveRemote and saveRemote:IsA("RemoteEvent") then
-        local ok = pcall(function()
+        pcall(function()
             saveRemote:FireServer(scr.ClassName .. scr.Name, source)
         end)
-        if ok then
-            return true, "studio_lite_remote"
-        end
+        return true, "studio_lite_remote"
     end
     return false, "runtime_source_locked"
 end
@@ -3506,66 +3504,43 @@ local function activateImportRoot(importRoot)
     local sourceVisibleCount = 0
     local sssImportedScripts = 0
     local ssImportedScripts = 0
-    local function restoreEditorForService(service, serviceKey)
-        if not service then return end
-        for _, obj in ipairs(service:GetDescendants()) do
-            if obj:IsA("LuaSourceContainer")
-                and obj:GetAttribute("HYAZ_ImportedObject") == true then
-                deployedScriptCount = deployedScriptCount + (1)
-                if serviceKey == "SSS" then
-                    sssImportedScripts = sssImportedScripts + (1)
-                elseif serviceKey == "SS" then
-                    ssImportedScripts = ssImportedScripts + (1)
-                end
-                local refKey = obj:GetAttribute("HYAZ_Ref")
-                local source = _G.Hyaz_RAW_SOURCES[obj]
-                if (type(source) ~= "string" or source == "")
-                    and refKey ~= nil then
-                    source = _G.Hyaz_RAW_SOURCE_BY_REF[tostring(refKey)]
-                    if type(source) == "string" and source ~= "" then
-                        _G.Hyaz_RAW_SOURCES[obj] = source
-                    end
-                end
-                if type(source) == "string" and source ~= "" then
-                    sourceVisibleCount = sourceVisibleCount + (1)
-                    pcall(function()
-                        tryWriteRealScriptSource(obj)
-                    end)
-                    local okEditor = pcall(function()
-                        injectStudioLiteUI(obj, {})
-                    end)
-                    if okEditor then
-                        editorInjectedCount = editorInjectedCount + (1)
-                    end
-                end
-            end
-        end
-    end
-    restoreEditorForService(WorkspaceService, "WS")
-    restoreEditorForService(ServerScriptServiceSvc, "SSS")
-    restoreEditorForService(ServerStorageSvc, "SS")
-    restoreEditorForService(ReplicatedStorageSvc, "RS")
-    restoreEditorForService(ReplicatedFirstSvc, "RF")
-    restoreEditorForService(StarterGuiSvc, "SG")
-    restoreEditorForService(StarterPlayerSvc, "SP")
-    restoreEditorForService(StarterPackSvc, "STP")
-    -- Sweep all remaining services to ensure 100% of imported scripts are editable!
-    for _, service in pairs(destinationByKey) do
+    local processedScripts = {}
+    local scriptBatchYield = 0
+
+    -- Single optimized pass across all destination services
+    for key, service in pairs(destinationByKey) do
         if service then
             for _, obj in ipairs(service:GetDescendants()) do
-                if obj:IsA("LuaSourceContainer") and obj:GetAttribute("HYAZ_ImportedObject") == true then
-                    local refKey = obj:GetAttribute("HYAZ_Ref")
-                    local src = _G.Hyaz_RAW_SOURCES[obj]
-                    if (type(src) ~= "string" or src == "") and refKey ~= nil then
-                        src = _G.Hyaz_RAW_SOURCE_BY_REF[tostring(refKey)]
+                if obj:IsA("LuaSourceContainer")
+                    and obj:GetAttribute("HYAZ_ImportedObject") == true
+                    and not processedScripts[obj] then
+                    processedScripts[obj] = true
+                    deployedScriptCount = deployedScriptCount + 1
+                    if key == "SSS" then
+                        sssImportedScripts = sssImportedScripts + 1
+                    elseif key == "SS" then
+                        ssImportedScripts = ssImportedScripts + 1
                     end
-                    if type(src) == "string" and src ~= "" then
-                        _G.Hyaz_RAW_SOURCES[obj] = src
-                        storeScriptSource(obj, src)
-                        storeScriptSource(obj.Name, src)
-                        storeScriptSource(obj.ClassName .. obj.Name, src)
+                    local refKey = obj:GetAttribute("HYAZ_Ref")
+                    local source = _G.Hyaz_RAW_SOURCES[obj]
+                    if (type(source) ~= "string" or source == "") and refKey ~= nil then
+                        source = _G.Hyaz_RAW_SOURCE_BY_REF[tostring(refKey)]
+                        if type(source) == "string" and source ~= "" then
+                            _G.Hyaz_RAW_SOURCES[obj] = source
+                        end
+                    end
+                    if type(source) == "string" and source ~= "" then
+                        sourceVisibleCount = sourceVisibleCount + 1
+                        storeScriptSource(obj, source)
                         pcall(function() tryWriteRealScriptSource(obj) end)
-                        pcall(function() injectStudioLiteUI(obj, {}) end)
+                        local okEditor = pcall(function() injectStudioLiteUI(obj, {}) end)
+                        if okEditor then
+                            editorInjectedCount = editorInjectedCount + 1
+                        end
+                    end
+                    scriptBatchYield = scriptBatchYield + 1
+                    if scriptBatchYield % 30 == 0 then
+                        task.wait()
                     end
                 end
             end
@@ -3829,12 +3804,12 @@ end)
     RbxlSearchBox.Size = UDim2.new(1, -16, 1, 0)
     RbxlSearchBox.Position = UDim2.new(0, 8, 0, 0)
     RbxlSearchBox.BackgroundTransparency = 1
-    RbxlSearchBox.PlaceholderText = "Search .rbxl file..."
+    RbxlSearchBox.PlaceholderText = "Cari file .rbxl..."
     RbxlSearchBox.PlaceholderColor3 = Color3.fromRGB(100, 105, 125)
     RbxlSearchBox.Text = ""
     RbxlSearchBox.TextColor3 = Color3.fromRGB(240, 240, 250)
     RbxlSearchBox.Font = Enum.Font.Gotham
-    RbxlSearchBox.TextSize = 8.5
+    RbxlSearchBox.TextSize = 9.5
     RbxlSearchBox.TextXAlignment = Enum.TextXAlignment.Left
     RbxlSearchBox.ClearTextOnFocus = false
     RbxlSearchBox.ZIndex = 15
@@ -3844,9 +3819,9 @@ end)
     RbxlScanBtn.Size = UDim2.new(0, 88, 0, 24)
     RbxlScanBtn.Position = UDim2.new(1, -88, 0, 0)
     RbxlScanBtn.BackgroundColor3 = Color3.fromRGB(88, 101, 242)
-    RbxlScanBtn.Text = "SCAN FILES"
+    RbxlScanBtn.Text = "SCAN RBXL"
     RbxlScanBtn.Font = Enum.Font.GothamBold
-    RbxlScanBtn.TextSize = 9
+    RbxlScanBtn.TextSize = 9.5
     RbxlScanBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
     RbxlScanBtn.AutoButtonColor = false
     RbxlScanBtn.ZIndex = 15
@@ -3881,7 +3856,7 @@ end)
     RbxlStatusText.Text = "READY"
     RbxlStatusText.TextColor3 = Color3.fromRGB(160, 165, 185)
     RbxlStatusText.Font = Enum.Font.GothamMedium
-    RbxlStatusText.TextSize = 7.5
+    RbxlStatusText.TextSize = 8.5
     RbxlStatusText.TextXAlignment = Enum.TextXAlignment.Left
     RbxlStatusText.TextTruncate = Enum.TextTruncate.AtEnd
     RbxlStatusText.ZIndex = 14
@@ -3894,7 +3869,7 @@ end)
     RbxlCountText.Text = "FILES 0 • IMP 0"
     RbxlCountText.TextColor3 = Color3.fromRGB(140, 145, 165)
     RbxlCountText.Font = Enum.Font.GothamBold
-    RbxlCountText.TextSize = 7.5
+    RbxlCountText.TextSize = 8.5
     RbxlCountText.TextXAlignment = Enum.TextXAlignment.Right
     RbxlCountText.ZIndex = 14
     RbxlCountText.Parent = RbxlInfoBar
@@ -4010,7 +3985,7 @@ end)
     local function makeRbxlCard(info)
         RbxlEmpty.Visible = false
         local card = Instance.new("Frame")
-        card.Size = UDim2.new(1, -2, 0, 36)
+        card.Size = UDim2.new(1, -4, 0, 44)
         card.BackgroundColor3 = Color3.fromRGB(18, 20, 28)
         card.BorderSizePixel = 0
         card.ZIndex = 14
@@ -4019,51 +3994,51 @@ end)
         makeStroke(card, Color3.fromRGB(36, 40, 54), 1)
 
         local badge = Instance.new("TextLabel")
-        badge.Size = UDim2.fromOffset(34, 16)
-        badge.Position = UDim2.fromOffset(6, 10)
+        badge.Size = UDim2.fromOffset(38, 20)
+        badge.Position = UDim2.fromOffset(8, 12)
         badge.BackgroundColor3 = Color3.fromRGB(44, 25, 35)
         badge.Text = "RBXL"
         badge.TextColor3 = Color3.fromRGB(255, 120, 140)
         badge.Font = Enum.Font.GothamBold
-        badge.TextSize = 6.5
+        badge.TextSize = 8
         badge.ZIndex = 15
         badge.Parent = card
         makeCorner(badge, 4)
 
         local nameLbl = Instance.new("TextLabel")
-        nameLbl.Size = UDim2.new(1, -125, 0, 14)
-        nameLbl.Position = UDim2.fromOffset(46, 4)
+        nameLbl.Size = UDim2.new(1, -135, 0, 16)
+        nameLbl.Position = UDim2.fromOffset(52, 6)
         nameLbl.BackgroundTransparency = 1
         nameLbl.Text = info.name
         nameLbl.TextColor3 = Color3.fromRGB(240, 242, 250)
         nameLbl.Font = Enum.Font.GothamBold
-        nameLbl.TextSize = 7.5
+        nameLbl.TextSize = 10
         nameLbl.TextXAlignment = Enum.TextXAlignment.Left
         nameLbl.TextTruncate = Enum.TextTruncate.AtEnd
         nameLbl.ZIndex = 15
         nameLbl.Parent = card
 
         local pathLbl = Instance.new("TextLabel")
-        pathLbl.Size = UDim2.new(1, -125, 0, 11)
-        pathLbl.Position = UDim2.fromOffset(46, 19)
+        pathLbl.Size = UDim2.new(1, -135, 0, 14)
+        pathLbl.Position = UDim2.fromOffset(52, 23)
         pathLbl.BackgroundTransparency = 1
         pathLbl.Text = info.path
         pathLbl.TextColor3 = Color3.fromRGB(125, 130, 150)
         pathLbl.Font = Enum.Font.Code
-        pathLbl.TextSize = 6
+        pathLbl.TextSize = 8
         pathLbl.TextXAlignment = Enum.TextXAlignment.Left
         pathLbl.TextTruncate = Enum.TextTruncate.AtEnd
         pathLbl.ZIndex = 15
         pathLbl.Parent = card
 
         local importBtn = Instance.new("TextButton")
-        importBtn.Size = UDim2.fromOffset(66, 22)
-        importBtn.Position = UDim2.new(1, -72, 0.5, -11)
+        importBtn.Size = UDim2.fromOffset(72, 26)
+        importBtn.Position = UDim2.new(1, -78, 0.5, -13)
         importBtn.BackgroundColor3 = Color3.fromRGB(88, 101, 242)
         importBtn.Text = "IMPORT"
         importBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
         importBtn.Font = Enum.Font.GothamBold
-        importBtn.TextSize = 7.5
+        importBtn.TextSize = 9
         importBtn.AutoButtonColor = false
         importBtn.ZIndex = 15
         importBtn.Parent = card
@@ -4139,7 +4114,7 @@ end)
             if type(listfiles) ~= "function" then
                 RbxlEmpty.Text = "listfiles() API tidak tersedia di executor ini"
                 setRbxlStatus("ERROR: listfiles() not supported", Color3.fromRGB(255, 79, 99))
-                RbxlScanBtn.Text = "SCAN FILES"
+                RbxlScanBtn.Text = "SCAN RBXL"
                 RbxlScanBtn.BackgroundColor3 = Color3.fromRGB(88, 101, 242)
                 return
             end
@@ -4147,7 +4122,7 @@ end)
             if not ok then
                 RbxlEmpty.Text = "SCAN FAILED: " .. tostring(results)
                 setRbxlStatus("SCAN ERROR: " .. tostring(results), Color3.fromRGB(255, 79, 99))
-                RbxlScanBtn.Text = "SCAN FILES"
+                RbxlScanBtn.Text = "SCAN RBXL"
                 RbxlScanBtn.BackgroundColor3 = Color3.fromRGB(88, 101, 242)
                 return
             end
@@ -4165,7 +4140,7 @@ end)
                 RbxlEmpty.Visible = false
                 setRbxlStatus(("SCAN COMPLETE • %d RBXL FILES FOUND"):format(rbxlFileCount), Color3.fromRGB(79, 211, 145))
             end
-            RbxlScanBtn.Text = "SCAN FILES"
+            RbxlScanBtn.Text = "SCAN RBXL"
             RbxlScanBtn.BackgroundColor3 = Color3.fromRGB(88, 101, 242)
             filterRbxlCards()
         end)
@@ -9106,13 +9081,13 @@ end
 local function addHeart(card, isFav, onToggle)
 	local h = mk("TextButton", {
 		Size = UDim2.fromOffset(20, 20), Position = UDim2.fromOffset(4, 4), BackgroundColor3 = Color3.new(0, 0, 0),
-		BackgroundTransparency = 0.45, BorderSizePixel = 0, Text = "♡", TextSize = 14, Font = Enum.Font.GothamBold,
+		BackgroundTransparency = 0.45, BorderSizePixel = 0, Text = "+", TextSize = 14, Font = Enum.Font.GothamBold,
 		TextColor3 = T.Text, AutoButtonColor = false, ZIndex = 5, Parent = card,
 	})
 	corner(h, 10)
 	local function paint()
 		local f = isFav()
-		h.Text = f and "♥" or "♡"
+		h.Text = f and "[*]" or "[+]"
 		h.TextColor3 = f and T.Danger or T.Text
 	end
 	paint()
@@ -9156,13 +9131,13 @@ local function makeCard(parent, item)
 	end
 	local badge = mk("TextLabel", {
 		Size = UDim2.fromOffset(18, 18), AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -8, 0, 8),
-		BackgroundColor3 = T.Ok, Text = "✓", TextColor3 = Color3.new(1, 1, 1), TextSize = 12, Font = Enum.Font.GothamBold,
+		BackgroundColor3 = T.Ok, Text = "OK", TextColor3 = Color3.new(1, 1, 1), TextSize = 12, Font = Enum.Font.GothamBold,
 		BorderSizePixel = 0, Visible = false, ZIndex = 3, Parent = card,
 	})
 	corner(badge, 9)
 	local overlay = mk("TextLabel", {
 		Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.new(0, 0, 0), BackgroundTransparency = 0.45,
-		Text = "⏳", TextSize = 22, Visible = false, ZIndex = 6, Parent = card,
+		Text = "...", TextSize = 22, Visible = false, ZIndex = 6, Parent = card,
 	})
 	corner(overlay, 10)
 
@@ -9180,7 +9155,7 @@ local function makeCard(parent, item)
 				worn = E.isWorn(item.Id)
 			end
 		end
-		badge.Text = "✓"
+		badge.Text = "OK"
 		badge.BackgroundColor3 = T.Ok
 		badge.Visible = worn
 		st.Color = worn and T.Ok or T.Stroke
@@ -9220,7 +9195,7 @@ local function makeCard(parent, item)
 				E.loadingBundles = math.max(0, E.loadingBundles - 1)
 			end, item.slot, item.slotName)
 		else
-			badge.Text = "⏳"
+			badge.Text = "..."
 			badge.BackgroundColor3 = T.Warn
 			badge.Visible = true
 			E.pendingClicks = E.pendingClicks + 1
@@ -9262,7 +9237,7 @@ local function buildCatalog(page, group)
 	stroke(sbFrame, T.Stroke, 1)
 	local sbBox = mk("TextBox", {
 		Size = UDim2.new(1, -14, 1, 0), Position = UDim2.fromOffset(8, 0), BackgroundTransparency = 1, Text = "",
-		PlaceholderText = "🔍 Cari (Enter)", PlaceholderColor3 = T.Dim, TextColor3 = T.Text, ClearTextOnFocus = false,
+		PlaceholderText = "Cari aset (Enter)...", PlaceholderColor3 = T.Dim, TextColor3 = T.Text, ClearTextOnFocus = false,
 		TextSize = 12, Font = Enum.Font.GothamMedium, TextXAlignment = Enum.TextXAlignment.Left, Parent = sbFrame,
 	})
 	local startQuery
@@ -9331,7 +9306,7 @@ local function buildCatalog(page, group)
 				if not items then
 					logf("katalog gagal: %s", tostring(err))
 					if q.total == 0 then
-						showMsg("⚠ Gagal memuat katalog:\n" .. tostring(err))
+						showMsg("Gagal memuat katalog:\n" .. tostring(err))
 					end
 					break
 				end
@@ -9348,7 +9323,7 @@ local function buildCatalog(page, group)
 					end
 				end
 				if q.total == 0 then
-					showMsg("🔎 Tidak ada hasil. Coba kata kunci lain atau matikan filter Gratis.")
+					showMsg("Tidak ada hasil. Coba kata kunci lain.")
 					break
 				end
 			end
@@ -9399,8 +9374,8 @@ local function buildCatalog(page, group)
 		local fc = st.freeOnly and T.Ok or T.Surface2
 		freeBtn.BackgroundColor3 = fc
 		freeBtn:SetAttribute("Base", fc)
-		freeBtn.Text = (st.freeOnly and "✓ " or "") .. "Gratis"
-		showMsg("⏳ Memuat...")
+		freeBtn.Text = (st.freeOnly and "[x] " or "[ ] ") .. "Gratis"
+		showMsg("Memuat...")
 		currentQuery = newQuery(st.cat, st.keyword, st.sortIdx, st.freeOnly)
 		loadPage(token)
 	end
@@ -9568,7 +9543,7 @@ local function userCard(parent, userId, name, order, sub)
 				ok = E.applyUser(userId, name)
 			end
 			busyCard = false
-			hint.Text = ok and string.format("✓ %.1f dtk", os.clock() - t0) or (card:GetAttribute("Idle") or idleText)
+			hint.Text = ok and string.format("%.1f dtk", os.clock() - t0) or (card:GetAttribute("Idle") or idleText)
 			task.delay(1.5, function()
 				if card.Parent and not busyCard then
 					hint.Text = card:GetAttribute("Idle") or idleText
@@ -9695,7 +9670,7 @@ local function buildAvatars(page)
 	stroke(sbFrame, T.Stroke, 1)
 	local box = mk("TextBox", {
 		Size = UDim2.new(1, -16, 1, 0), Position = UDim2.fromOffset(10, 0), BackgroundTransparency = 1, Text = "",
-		PlaceholderText = "🔍 Username / nama / UserId", PlaceholderColor3 = T.Dim, TextColor3 = T.Text,
+		PlaceholderText = "Username / UserId...", PlaceholderColor3 = T.Dim, TextColor3 = T.Text,
 		ClearTextOnFocus = false, TextSize = 12, Font = Enum.Font.GothamMedium, TextXAlignment = Enum.TextXAlignment.Left,
 		Parent = sbFrame,
 	})
@@ -9723,7 +9698,7 @@ local function buildAvatars(page)
 		Parent = modeRow,
 	})
 	local modeChips = {}
-	local MODE_DEFS = { { "most", "🏆 Item terbanyak" }, { "cowo", "♂ Cowo" }, { "cewe", "♀ Cewe" } }
+	local MODE_DEFS = { { "most", "Terpopuler" }, { "cowo", "Cowok" }, { "cewe", "Cewek" } }
 	local function markModes()
 		for k, c in pairs(modeChips) do
 			local active = k == sortMode
@@ -9947,7 +9922,7 @@ local function buildAvatars(page)
 		end
 	end
 	local function genderSym(g)
-		return (g == "cewe" and "♀") or (g == "cowo" and "♂") or "•"
+		return (g == "cewe" and "F") or (g == "cowo" and "M") or "-"
 	end
 
 	-- deklarasi awal: dipakai feedBatchRandom, diisi di bagian pipeline di bawah
@@ -10308,7 +10283,7 @@ local function buildAvatars(page)
 				if count > 0 then
 					setStatus(count .. " pemain" .. ((searchState and searchState.cursor) and "+" or "") .. " hasil")
 				else
-					setStatus("⚠ " .. string.sub(tostring(errMsg or "tidak ada hasil"), 1, 60))
+					setStatus(string.sub(tostring(errMsg or "tidak ada hasil"), 1, 60))
 				end
 			end
 		end
@@ -10792,8 +10767,8 @@ local function buildFavorites(page)
 		end
 		local empty = (k == "avatar" and nAv == 0) or (k == "item" and nIt == 0)
 		emptyMsg.Visible = empty
-		emptyMsg.Text = k == "avatar" and "Belum ada avatar favorit.\nTekan ♡ di kartu avatar."
-			or "Belum ada item favorit.\nTekan ♡ di kartu item (karakter / animasi / sepatu)."
+		emptyMsg.Text = k == "avatar" and "Belum ada avatar favorit.\nTekan [+] di kartu avatar."
+			or "Belum ada item favorit.\nTekan [+] di kartu item (karakter / animasi / sepatu)."
 	end
 	for i, d in ipairs({ { "avatar", "Avatar" }, { "item", "Item" } }) do
 		local c = mk("TextButton", { Size = UDim2.fromOffset(0, 24), AutomaticSize = Enum.AutomaticSize.X, BackgroundColor3 = T.Surface2,
@@ -11017,7 +10992,7 @@ local function setTab(index)
 			mk("TextLabel", {
 				Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency = 1, TextWrapped = true, TextColor3 = T.Danger,
 				TextSize = 12, Font = Enum.Font.GothamMedium, TextXAlignment = Enum.TextXAlignment.Left,
-				TextYAlignment = Enum.TextYAlignment.Top, Text = "⚠ Halaman gagal dibuat:\n" .. tostring(errB),
+				TextYAlignment = Enum.TextYAlignment.Top, Text = "Gagal memuat halaman:\n" .. tostring(errB),
 				Parent = UI.pages[tab.key],
 			})
 		end
@@ -11292,12 +11267,12 @@ end)
 
 -- tombol bawah: putar otomatis
 local mirrorAutoBtn = button(mirrorPanel, {
-	text = "⏸ Putar", textSize = 11, bg = Theme.CardBg, size = UDim2.new(1, -12, 0, 26),
+	text = "Putar", textSize = 11, bg = Theme.CardBg, size = UDim2.new(1, -12, 0, 26),
 	position = UDim2.new(0, 6, 1, -32), radius = 8, onClick = function() end,
 })
 mirrorAutoBtn.Activated:Connect(function()
 	Mirror.auto = not Mirror.auto
-	mirrorAutoBtn.Text = Mirror.auto and "⏸ Putar" or "▶ Putar"
+	mirrorAutoBtn.Text = Mirror.auto and "Stop" or "Putar"
 end)
 
 
