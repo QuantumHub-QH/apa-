@@ -1928,14 +1928,22 @@ local function injectStudioLiteUI(scr, sourceMap)
             local guiF = LocalPlayer:WaitForChild("PlayerGui"):WaitForChild(assetName, 3)
             if guiF then
                 SL_CACHE[assetName] = {}
-                for _, c in ipairs(guiF:GetChildren()) do table.insert(SL_CACHE[assetName], c:Clone()) end
+                for _, c in ipairs(guiF:GetChildren()) do
+                    if c.Name ~= "SL_1ReadOnly" then
+                        table.insert(SL_CACHE[assetName], c:Clone())
+                    end
+                end
                 serverFuncs:InvokeServer("ClearAssetFromPlayerGui", assetName)
             end
         end)
     end
     if not SL_CACHE[assetName] then return end
     pcall(function()
-        for _, c in ipairs(SL_CACHE[assetName]) do c:Clone().Parent = scr end
+        for _, c in ipairs(SL_CACHE[assetName]) do
+            if c.Name ~= "SL_1ReadOnly" then c:Clone().Parent = scr end
+        end
+        local _ro = scr:FindFirstChild("SL_1ReadOnly")
+        if _ro then pcall(function() _ro:Destroy() end) end
         local tb = scr:FindFirstChild("SL_CodeTextBox")
         if tb then
             tb.Text = UI_TEXT
@@ -7843,11 +7851,7 @@ function E.renderSkinPuppet(desc, added)
 	end
 	model.Name = SKIN_NAME
 	model.Parent = char
-	E.skinConn = RunService.RenderStepped:Connect(function()
-		for _, l in ipairs(links) do
-			l[2].Transform = l[1].Transform
-		end
-	end)
+	E.skinConn = nil
 	E.skinActive = true
 	E.skinAcc = nAcc
 	E.rendered = 0
@@ -11589,7 +11593,7 @@ local function buildFavorites(page)
 end
 
 ----------------------------------------------------------------------------
--- [11] SHELL UI (gaya AVATAR CHANGER v2): header, sidebar 5 tab, drag, resize
+-- [11] AVATAR CHANGER TAB (embedded, no floating window)
 ----------------------------------------------------------------------------
 local MAIN_W, MAIN_H = 660, 360
 local State = { tab = "avatars", open = true, sbw = 60 }
@@ -11617,106 +11621,8 @@ local function computeScale()
 end
 
 -- logo "F"
-local function createLogo(size, rotation)
-	local box = mk("Frame", { Size = size, BackgroundTransparency = 1, Rotation = rotation or -12 })
-	local function bar(sz, pos)
-		local f = mk("Frame", { Size = sz, Position = pos, BackgroundColor3 = Theme.Accent, BorderSizePixel = 0, Parent = box })
-		corner(f, 2)
-	end
-	bar(UDim2.new(1, 0, 0, math.floor(size.Y.Offset * 0.28)), UDim2.new())
-	bar(UDim2.new(0.68, 0, 0, math.floor(size.Y.Offset * 0.24)), UDim2.new(0.2, 0, 0.4, 0))
-	bar(UDim2.new(0, math.floor(size.X.Offset * 0.28), 1, 0), UDim2.new(0.08, 0, 0, 0))
-	return box
-end
 
--- header
-local header = mk("Frame", { Name = "Header", Size = UDim2.new(1, 0, 0, 52), BackgroundTransparency = 1, Active = true, Parent = mainFrame })
-local logo = createLogo(UDim2.fromOffset(26, 26), -12)
-logo.Position = UDim2.new(0, 16, 0, 13)
-logo.Parent = header
-local logBtn = mk("TextButton", { Size = UDim2.fromOffset(30, 30), Position = UDim2.new(0, 14, 0, 11), BackgroundTransparency = 1, Text = "", ZIndex = 5, Parent = header })
-logBtn.Activated:Connect(function()
-	local okC = pcall(function()
-		local txt = table.concat(LOG, "\n")
-		if setclipboard then
-			setclipboard(txt)
-		elseif toclipboard then
-			toclipboard(txt)
-		else
-			error("tidak ada clipboard")
-		end
-	end)
-	toast(okC and "Log disalin ke clipboard (tempel ke chat kalau ada error)" or "Clipboard tidak ada di executor ini, lihat Output/F9", okC and "ok" or "warn")
-end)
-mk("TextLabel", {
-	Font = Enum.Font.GothamBold, TextSize = 20, TextColor3 = Theme.Accent, BackgroundTransparency = 1,
-	Size = UDim2.new(0, 200, 0, 26), Position = UDim2.new(0, 50, 0, 13), TextXAlignment = Enum.TextXAlignment.Left,
-	Text = "AVATAR CHANGER", Parent = header,
-})
-
-local ToggleMainUI
-
-local closeBtn = mk("TextButton", {
-	Size = UDim2.fromOffset(36, 36), Position = UDim2.new(1, -44, 0, 8), BackgroundColor3 = Theme.CardBg, Text = "X",
-	Font = Enum.Font.GothamBold, TextSize = 16, TextColor3 = Theme.TextPrimary, AutoButtonColor = false, Parent = header,
-})
-corner(closeBtn, 10)
-stroke(closeBtn, Theme.CardBorder, 1.5)
-closeBtn.Activated:Connect(function()
-	ToggleMainUI(false)
-end)
-
-local waBtn = mk("TextButton", {
-	Size = UDim2.fromOffset(120, 26), Position = UDim2.new(1, -175, 0, 13), BackgroundColor3 = Theme.WaGreen,
-	Text = "💬 SALURAN WA", Font = Enum.Font.GothamBold, TextSize = 9, TextColor3 = Theme.TextPrimary,
-	AutoButtonColor = false, Parent = header,
-})
-corner(waBtn, 8)
-stroke(waBtn, Theme.WaDarkGreen, 1.5)
-waBtn.Activated:Connect(function()
-	pcall(function()
-		if setclipboard then
-			setclipboard(WA_CHANNEL_LINK)
-		elseif toclipboard then
-			toclipboard(WA_CHANNEL_LINK)
-		end
-	end)
-	local orig = "💬 SALURAN WA"
-	waBtn.Text = "✓ COPIED!"
-	task.delay(1.5, function()
-		if waBtn.Parent then
-			waBtn.Text = orig
-		end
-	end)
-end)
-
-mk("Frame", { Size = UDim2.new(1, -32, 0, 1), Position = UDim2.new(0, 16, 0, 48), BackgroundColor3 = Theme.CardBorder, BorderSizePixel = 0, Parent = mainFrame })
--- bar loading di bawah header (aktif saat avatar / item sedang diproses)
-local loadTrack = mk("Frame", { Size = UDim2.new(1, -32, 0, 3), Position = UDim2.new(0, 16, 0, 47), BackgroundTransparency = 1,
-	ClipsDescendants = true, ZIndex = 8, Parent = mainFrame })
-local loadBar = mk("Frame", { Size = UDim2.fromScale(0.35, 1), Position = UDim2.fromScale(-0.35, 0), BackgroundColor3 = Theme.Accent,
-	BorderSizePixel = 0, Visible = false, ZIndex = 8, Parent = loadTrack })
-corner(loadBar, 2)
-task.spawn(function()
-	local x = -0.35
-	while not stale() and UI.gui.Parent do
-		if E.busy or E.worker or E.pending ~= nil or E.loadingBundles > 0 or E.pendingClicks > 0 then
-			loadBar.Visible = true
-			x = x + 0.045
-			if x > 1 then
-				x = -0.35
-			end
-			loadBar.Position = UDim2.fromScale(x, 0)
-			task.wait(0.016)
-		else
-			loadBar.Visible = false
-			task.wait(0.1)
-		end
-	end
-end)
-
--- body: sidebar + content
-local bodyFrame = mk("Frame", { Name = "Body", Size = UDim2.new(1, -12, 1, -8), Position = UDim2.new(0, 6, 0, 4), BackgroundTransparency = 1, Parent = PageAvatar })
+local bodyFrame = mk("Frame", { Name = "Body", Size = UDim2.new(1, -8, 1, -8), Position = UDim2.new(0, 4, 0, 4), BackgroundTransparency = 1, Parent = PageAvatar })
 local sidebar = mk("ScrollingFrame", {
 	Name = "Sidebar", Size = UDim2.new(0, State.sbw, 1, 0), BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 0,
 	AutomaticCanvasSize = Enum.AutomaticSize.Y, CanvasSize = UDim2.new(), Parent = bodyFrame,
@@ -12122,107 +12028,12 @@ end)
 Mirror.queue(1.5)
 end
 
--- tombol mengambang (muncul saat UI ditutup)
-local fab = mk("TextButton", {
-	Name = "FloatingToggleBtn", Size = UDim2.fromOffset(44, 44), AnchorPoint = Vector2.new(0, 0.5),
-	Position = UDim2.new(0, 20, 0.4, 0), BackgroundColor3 = Theme.Background, BorderSizePixel = 0,
-	Visible = false, Active = true, Text = "", ZIndex = 20, Parent = ScreenGui,
-})
-corner(fab, 11)
-stroke(fab, Theme.Accent, 1.5)
-local fabLogo = createLogo(UDim2.fromOffset(20, 20), -12)
-fabLogo.Position = UDim2.new(0.5, -10, 0.5, -10)
-fabLogo.Parent = fab
-
--- resize handle
-local resizeHandle = mk("TextButton", {
-	Name = "ResizeHandle", Size = UDim2.fromOffset(18, 18), AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, 0, 1, 0),
-	BackgroundColor3 = Theme.Accent, Text = "◢", Font = Enum.Font.GothamBold, TextSize = 9, TextColor3 = Theme.Background,
-	AutoButtonColor = false, ZIndex = 10, Parent = mainFrame,
-})
-corner(resizeHandle, 5)
-
--- drag / resize / drag tombol mengambang
-local dragging, dragStart, dragOrigin
-local resizing, resizeStart, sizeOrigin
-local floating, floatStart, floatOrigin, floatMoved = false, nil, nil, false
-
-header.InputBegan:Connect(function(input)
-	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-		dragging, dragStart, dragOrigin = true, input.Position, mainFrame.Position
-	end
-end)
-resizeHandle.InputBegan:Connect(function(input)
-	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-		resizing, resizeStart, sizeOrigin = true, input.Position, mainFrame.Size
-	end
-end)
-fab.InputBegan:Connect(function(input)
-	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-		floating, floatStart, floatOrigin, floatMoved = true, input.Position, fab.Position, false
-	end
-end)
-UserInputService.InputChanged:Connect(function(input)
-	if stale() then
-		return
-	end
-	local moveType = input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch
-	if not moveType then
-		return
-	end
-	if dragging then
-		local d = input.Position - dragStart
-		mainFrame.Position = UDim2.new(dragOrigin.X.Scale, dragOrigin.X.Offset + d.X, dragOrigin.Y.Scale, dragOrigin.Y.Offset + d.Y)
-	end
-	if resizing then
-		local d = (input.Position - resizeStart) / math.max(mainScale.Scale, 0.1)
-		mainFrame.Size = UDim2.fromOffset(
-			math.clamp(sizeOrigin.X.Offset + d.X, 560, 1000),
-			math.clamp(sizeOrigin.Y.Offset + d.Y, 300, 650)
-		)
-	end
-	if floating then
-		local d = input.Position - floatStart
-		if math.abs(d.X) + math.abs(d.Y) > 8 then
-			floatMoved = true
-		end
-		if floatMoved then
-			fab.Position = UDim2.new(floatOrigin.X.Scale, floatOrigin.X.Offset + d.X, floatOrigin.Y.Scale, floatOrigin.Y.Offset + d.Y)
-		end
-	end
-end)
-UserInputService.InputEnded:Connect(function(input)
-	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-		dragging, resizing, floating = false, false, false
-	end
-end)
-fab.Activated:Connect(function()
-	if not floatMoved then
-		-- embedded in PageAvatar
-	end
-end)
-
-ToggleMainUI = function(show) end
-local _unused_ToggleMainUI = function(show)
-	State.open = show
-	if show then
-		mainFrame.Visible = true
-		mainScale.Scale = 0
-		fab.Visible = false
-		tween(mainScale, { Scale = computeScale() }, 0.22, Enum.EasingStyle.Back)
-	else
-		mainScale.Scale = 0
-		mainFrame.Visible = false
-		fab.Visible = true
-	end
-end
-
 UserInputService.InputBegan:Connect(function(input, gp)
 	if gp or E.uiDestroyed or stale() then
 		return
 	end
 	if input.KeyCode == TOGGLE_KEY then
-		ToggleMainUI(not State.open)
+		-- Avatar tab embedded, no toggle needed
 		return
 	end
 	local ctrl = UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) or UserInputService:IsKeyDown(Enum.KeyCode.RightControl)
