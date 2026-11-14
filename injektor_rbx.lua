@@ -83,11 +83,14 @@ local function storeScriptSource(key, src)
     local clean = stripRichText(src)
     _G.BLUE_RAW_SOURCES[key] = clean
     _G.LANGZ_RAW_SOURCES[key] = clean
+    _G.Hyaz_RAW_SOURCES[key] = clean
     if typeof(key) == "Instance" then
         _G.BLUE_RAW_SOURCES[key.Name] = clean
         _G.LANGZ_RAW_SOURCES[key.Name] = clean
+        _G.Hyaz_RAW_SOURCES[key.Name] = clean
         _G.BLUE_RAW_SOURCES[key.ClassName .. key.Name] = clean
         _G.LANGZ_RAW_SOURCES[key.ClassName .. key.Name] = clean
+        _G.Hyaz_RAW_SOURCES[key.ClassName .. key.Name] = clean
     end
 end
 
@@ -95,29 +98,39 @@ local function lookupScriptSource(searchKey)
     if not searchKey or searchKey == "" then return nil end
     local sKey = tostring(searchKey):lower():gsub("%s+", "")
 
-    -- Exact match in memory tables
-    for k, v in pairs(_G.BLUE_RAW_SOURCES) do
-        local kname = typeof(k) == "Instance" and (k.ClassName .. k.Name) or tostring(k)
-        if kname:lower():gsub("%s+", "") == sKey then
-            if type(v) == "string" and #v > 0 then return stripRichText(v) end
-        end
-    end
-    for k, v in pairs(_G.LANGZ_RAW_SOURCES) do
-        local kname = typeof(k) == "Instance" and (k.ClassName .. k.Name) or tostring(k)
-        if kname:lower():gsub("%s+", "") == sKey then
-            if type(v) == "string" and #v > 0 then return stripRichText(v) end
+    -- Exact match in memory tables (BLUE, LANGZ, HYAZ)
+    for _, tbl in ipairs({_G.Hyaz_RAW_SOURCES, _G.BLUE_RAW_SOURCES, _G.LANGZ_RAW_SOURCES}) do
+        if type(tbl) == "table" then
+            for k, v in pairs(tbl) do
+                local kname = typeof(k) == "Instance" and (k.ClassName .. k.Name) or tostring(k)
+                if kname:lower():gsub("%s+", "") == sKey or (typeof(k) == "Instance" and k.Name:lower():gsub("%s+", "") == sKey) then
+                    if type(v) == "string" and #v > 0 then return stripRichText(v) end
+                end
+            end
         end
     end
 
-    -- Match by instance name in hierarchy
-    for _, place in ipairs({workspace, ReplicatedStorage, LP:FindFirstChild("PlayerGui")}) do
+    -- Match by instance name across ALL Roblox services
+    local allPlaces = {
+        workspace,
+        ReplicatedStorage,
+        game:GetService("ServerScriptService"),
+        game:GetService("ServerStorage"),
+        game:GetService("StarterGui"),
+        game:GetService("StarterPack"),
+        game:GetService("StarterPlayer"),
+        game:GetService("ReplicatedFirst"),
+        game:GetService("Lighting"),
+        LP and LP:FindFirstChild("PlayerGui")
+    }
+    for _, place in ipairs(allPlaces) do
         if place then
             for _, obj in ipairs(place:GetDescendants()) do
                 if obj:IsA("LuaSourceContainer") then
                     local fullId = (obj.ClassName .. obj.Name):lower():gsub("%s+", "")
                     local nameId = obj.Name:lower():gsub("%s+", "")
                     if fullId == sKey or nameId == sKey then
-                        local src = _G.BLUE_RAW_SOURCES[obj] or _G.LANGZ_RAW_SOURCES[obj]
+                        local src = _G.Hyaz_RAW_SOURCES[obj] or _G.BLUE_RAW_SOURCES[obj] or _G.LANGZ_RAW_SOURCES[obj]
                         if src and #src > 0 then return stripRichText(src) end
                         local tb = obj:FindFirstChild("SL_CodeTextBox")
                         if tb and tb.Text and #tb.Text > 0 then return stripRichText(tb.Text) end
@@ -129,7 +142,6 @@ local function lookupScriptSource(searchKey)
         end
     end
 
-    -- NEVER return random scripts from other objects!
     return nil
 end
 
@@ -199,7 +211,18 @@ task.spawn(function()
                         if found and #found > 0 then return found end
                         
                         -- Search in hierarchy
-                        for _, place in ipairs({workspace, ReplicatedStorage, LP:FindFirstChild("PlayerGui")}) do
+                        local searchServices = {
+                            workspace,
+                            ReplicatedStorage,
+                            game:GetService("ServerScriptService"),
+                            game:GetService("ServerStorage"),
+                            game:GetService("StarterGui"),
+                            game:GetService("StarterPack"),
+                            game:GetService("StarterPlayer"),
+                            game:GetService("ReplicatedFirst"),
+                            LP and LP:FindFirstChild("PlayerGui")
+                        }
+                        for _, place in ipairs(searchServices) do
                             if place then
                                 for _, obj in ipairs(place:GetDescendants()) do
                                     if obj:IsA("LuaSourceContainer") and (obj.Name == target or (obj.ClassName .. obj.Name) == target) then
@@ -216,7 +239,18 @@ task.spawn(function()
                         
                         -- Immediate synchronization to instance in workspace
                         pcall(function()
-                            for _, place in ipairs({workspace, ReplicatedStorage, LP:FindFirstChild("PlayerGui")}) do
+                            local searchServices = {
+                            workspace,
+                            ReplicatedStorage,
+                            game:GetService("ServerScriptService"),
+                            game:GetService("ServerStorage"),
+                            game:GetService("StarterGui"),
+                            game:GetService("StarterPack"),
+                            game:GetService("StarterPlayer"),
+                            game:GetService("ReplicatedFirst"),
+                            LP and LP:FindFirstChild("PlayerGui")
+                        }
+                        for _, place in ipairs(searchServices) do
                                 if place then
                                     for _, obj in ipairs(place:GetDescendants()) do
                                         if obj:IsA("LuaSourceContainer") and (obj.Name == target or (obj.ClassName .. obj.Name) == target) then
@@ -712,16 +746,14 @@ local PageSplash   = PageToolbox -- Aliased to PageToolbox for backward compatib
 local PageAvatar   = Instance.new("Frame")
 local PageRBXL     = Instance.new("Frame")
 local PageRBXM     = Instance.new("Frame")
-local PageText3D   = Instance.new("Frame")
-local PageReplacer = Instance.new("Frame")
+-- [Text3D and Replacer removed]
 
 local ALL_PAGES = {
     Toolbox  = PageToolbox,
     Avatar   = PageAvatar,
     RBXL     = PageRBXL,
     RBXM     = PageRBXM,
-    Text3D   = PageText3D,
-    Replacer = PageReplacer,
+
 }
 
 for name, pg in pairs(ALL_PAGES) do
@@ -832,8 +864,7 @@ addNavButton("Toolbox",  "📦", "TOOLBOX ASET",     1)
 addNavButton("Avatar",   "👤", "AVATAR CHANGER",   2)
 addNavButton("RBXL",     "🏗️", "RBXL IMPORTER",    3)
 addNavButton("RBXM",     "📁", "INSERT RBXM",      4)
-addNavButton("Text3D",   "🔤", "GENE TEXT 3D",     5)
-addNavButton("Replacer", "🔄", "REPLACER TOOLS",   6)
+
 
 -- Compatibility helper for existing code that calls showPage
 local function showPage(target)
@@ -1893,7 +1924,7 @@ local function flushServerLoadsAsync()
 end
 local SL_CACHE = {}
 local function injectStudioLiteUI(scr, sourceMap)
-    if not scr:IsA("LuaSourceContainer") then return end
+    if not scr or not scr:IsA("LuaSourceContainer") then return end
     local path = scr.ClassName .. ":" .. scr.Name
     local realSource = _G.Hyaz_RAW_SOURCES[scr] or (sourceMap and sourceMap[path])
     if not realSource then pcall(function() realSource = scr.Source end) end
@@ -1904,55 +1935,74 @@ local function injectStudioLiteUI(scr, sourceMap)
         realSource = ""
     end
     _G.Hyaz_RAW_SOURCES[scr] = realSource
+    storeScriptSource(scr, realSource)
+    storeScriptSource(scr.Name, realSource)
+    storeScriptSource(scr.ClassName .. scr.Name, realSource)
+    pcall(function() scr.Source = realSource end)
+
+    -- ANTI-READONLY: Destroy SL_1ReadOnly immediately so Studio Lite NEVER locks this script!
+    local ro = scr:FindFirstChild("SL_1ReadOnly")
+    if ro then pcall(function() ro:Destroy() end) end
+
     local UI_TEXT = realSource
     if #UI_TEXT > 150000 then
         UI_TEXT = "-- [SOURCE CODE EXCEEDS PREVIEW LIMIT]"
     end
+
     local existingTB = scr:FindFirstChild("SL_CodeTextBox")
     if existingTB then
         existingTB.Text = UI_TEXT
-        if scr.ClassName == "ModuleScript" then
-            local ro = scr:FindFirstChild("SL_1ReadOnly")
-            if ro then ro.ContentText = UI_TEXT; ro.Text = UI_TEXT end
-        end
         return
     end
+
     local serverFuncs = getStudioLiteServerFuncs()
-    if not serverFuncs then return end
     local map = { Script = "InsertScriptScript", LocalScript = "InsertLocalScriptLocalScript", ModuleScript = "InsertModuleScriptModuleScript" }
     local assetName = map[scr.ClassName]
-    if not assetName then return end
-    if not SL_CACHE[assetName] then
-        pcall(function()
-            serverFuncs:InvokeServer("LoadAssetToPlayerGui", assetName)
-            local guiF = LocalPlayer:WaitForChild("PlayerGui"):WaitForChild(assetName, 3)
-            if guiF then
-                SL_CACHE[assetName] = {}
-                for _, c in ipairs(guiF:GetChildren()) do
-                    if c.Name ~= "SL_1ReadOnly" then
-                        table.insert(SL_CACHE[assetName], c:Clone())
+
+    if serverFuncs and assetName then
+        if not SL_CACHE[assetName] then
+            pcall(function()
+                serverFuncs:InvokeServer("LoadAssetToPlayerGui", assetName)
+                local guiF = LocalPlayer:WaitForChild("PlayerGui"):WaitForChild(assetName, 3)
+                if guiF then
+                    SL_CACHE[assetName] = {}
+                    for _, c in ipairs(guiF:GetChildren()) do
+                        if c.Name ~= "SL_1ReadOnly" then
+                            table.insert(SL_CACHE[assetName], c:Clone())
+                        end
+                    end
+                    serverFuncs:InvokeServer("ClearAssetFromPlayerGui", assetName)
+                end
+            end)
+        end
+
+        if SL_CACHE[assetName] then
+            pcall(function()
+                for _, c in ipairs(SL_CACHE[assetName]) do
+                    if c.Name ~= "SL_1ReadOnly" and not scr:FindFirstChild(c.Name) then
+                        c:Clone().Parent = scr
                     end
                 end
-                serverFuncs:InvokeServer("ClearAssetFromPlayerGui", assetName)
-            end
-        end)
+            end)
+        end
     end
-    if not SL_CACHE[assetName] then return end
-    pcall(function()
-        for _, c in ipairs(SL_CACHE[assetName]) do
-            if c.Name ~= "SL_1ReadOnly" then c:Clone().Parent = scr end
-        end
-        local _ro = scr:FindFirstChild("SL_1ReadOnly")
-        if _ro then pcall(function() _ro:Destroy() end) end
-        local tb = scr:FindFirstChild("SL_CodeTextBox")
-        if tb then
+
+    -- FINAL GUARANTEE: Ensure SL_CodeTextBox is attached and SL_1ReadOnly is destroyed!
+    local roCheck = scr:FindFirstChild("SL_1ReadOnly")
+    if roCheck then pcall(function() roCheck:Destroy() end) end
+
+    local tb = scr:FindFirstChild("SL_CodeTextBox")
+    if not tb then
+        pcall(function()
+            tb = Instance.new("TextBox")
+            tb.Name = "SL_CodeTextBox"
             tb.Text = UI_TEXT
-            if scr.ClassName == "ModuleScript" then
-                local ro = scr:FindFirstChild("SL_1ReadOnly")
-                if ro then ro.ContentText = UI_TEXT; ro.Text = UI_TEXT end
-            end
-        end
-    end)
+            tb.Visible = false
+            tb.Parent = scr
+        end)
+    else
+        tb.Text = UI_TEXT
+    end
 end
 local function ApplyStudioLiteProperties(obj)
     if not obj then return end
@@ -3491,6 +3541,7 @@ local function activateImportRoot(importRoot)
             end
         end
     end
+    restoreEditorForService(WorkspaceService, "WS")
     restoreEditorForService(ServerScriptServiceSvc, "SSS")
     restoreEditorForService(ServerStorageSvc, "SS")
     restoreEditorForService(ReplicatedStorageSvc, "RS")
@@ -3498,6 +3549,28 @@ local function activateImportRoot(importRoot)
     restoreEditorForService(StarterGuiSvc, "SG")
     restoreEditorForService(StarterPlayerSvc, "SP")
     restoreEditorForService(StarterPackSvc, "STP")
+    -- Sweep all remaining services to ensure 100% of imported scripts are editable!
+    for _, service in pairs(destinationByKey) do
+        if service then
+            for _, obj in ipairs(service:GetDescendants()) do
+                if obj:IsA("LuaSourceContainer") and obj:GetAttribute("HYAZ_ImportedObject") == true then
+                    local refKey = obj:GetAttribute("HYAZ_Ref")
+                    local src = _G.Hyaz_RAW_SOURCES[obj]
+                    if (type(src) ~= "string" or src == "") and refKey ~= nil then
+                        src = _G.Hyaz_RAW_SOURCE_BY_REF[tostring(refKey)]
+                    end
+                    if type(src) == "string" and src ~= "" then
+                        _G.Hyaz_RAW_SOURCES[obj] = src
+                        storeScriptSource(obj, src)
+                        storeScriptSource(obj.Name, src)
+                        storeScriptSource(obj.ClassName .. obj.Name, src)
+                        pcall(function() tryWriteRealScriptSource(obj) end)
+                        pcall(function() injectStudioLiteUI(obj, {}) end)
+                    end
+                end
+            end
+        end
+    end
     for _, service in pairs(destinationByKey) do
         if service then
             for _, obj in ipairs(service:GetDescendants()) do
@@ -5551,761 +5624,6 @@ end)
 -- =====================================================
 -- =====================================================
 
--- PAGE 4: 3D TEXT GENERATOR (GENE TEXT 3D) [MODULAR SCOPE]
--- =====================================================
-local function initText3DPage()
--- PAGE 4: 3D TEXT GENERATOR (GENE TEXT 3D)
--- Fitur pembuat teks 3D kustom langsung di map (Extruded Parts)
--- Layout Split: Kiri Realtime Viewport Preview, Kanan Kontrol & Warna Kotak-Kotak
--- =====================================================
-
--- ---- 5x7 BITMAP FONT MATRIX ------------------------------------------------------
-local FONT_5X7 = {
-    ["A"] = {"01110","10001","10001","11111","10001","10001","10001"},
-    ["B"] = {"11110","10001","10001","11110","10001","10001","11110"},
-    ["C"] = {"01111","10000","10000","10000","10000","10000","01111"},
-    ["D"] = {"11110","10001","10001","10001","10001","10001","11110"},
-    ["E"] = {"11111","10000","10000","11110","10000","10000","11111"},
-    ["F"] = {"11111","10000","10000","11110","10000","10000","10000"},
-    ["G"] = {"01111","10000","10000","10111","10001","10001","01111"},
-    ["H"] = {"10001","10001","10001","11111","10001","10001","10001"},
-    ["I"] = {"11111","00100","00100","00100","00100","00100","11111"},
-    ["J"] = {"00111","00010","00010","00010","00010","10010","01100"},
-    ["K"] = {"10001","10010","10100","11000","10100","10010","10001"},
-    ["L"] = {"10000","10000","10000","10000","10000","10000","11111"},
-    ["M"] = {"10001","11011","10101","10001","10001","10001","10001"},
-    ["N"] = {"10001","11001","10101","10011","10001","10001","10001"},
-    ["O"] = {"01110","10001","10001","10001","10001","10001","01110"},
-    ["P"] = {"11110","10001","10001","11110","10000","10000","10000"},
-    ["Q"] = {"01110","10001","10001","10001","10101","10010","01101"},
-    ["R"] = {"11110","10001","10001","11110","10100","10010","10001"},
-    ["S"] = {"01111","10000","10000","01110","00001","00001","11110"},
-    ["T"] = {"11111","00100","00100","00100","00100","00100","00100"},
-    ["U"] = {"10001","10001","10001","10001","10001","10001","01110"},
-    ["V"] = {"10001","10001","10001","10001","10001","01010","00100"},
-    ["W"] = {"10001","10001","10001","10101","10101","11011","10001"},
-    ["X"] = {"10001","10001","01010","00100","01010","10001","10001"},
-    ["Y"] = {"10001","10001","01010","00100","00100","00100","00100"},
-    ["Z"] = {"11111","00001","00010","00100","01000","10000","11111"},
-    ["0"] = {"01110","10011","10101","11001","10001","10001","01110"},
-    ["1"] = {"00100","01100","00100","00100","00100","00100","01110"},
-    ["2"] = {"01110","10001","00001","00110","01000","10000","11111"},
-    ["3"] = {"11110","00001","00001","01110","00001","00001","11110"},
-    ["4"] = {"10001","10001","10001","11111","00001","00001","00001"},
-    ["5"] = {"11111","10000","10000","11110","00001","00001","11110"},
-    ["6"] = {"01110","10000","10000","11110","10001","10001","01110"},
-    ["7"] = {"11111","00001","00010","00100","01000","01000","01000"},
-    ["8"] = {"01110","10001","10001","01110","10001","10001","01110"},
-    ["9"] = {"01110","10001","10001","01111","00001","00001","01110"},
-    [" "] = {"00000","00000","00000","00000","00000","00000","00000"},
-    ["-"] = {"00000","00000","00000","11111","00000","00000","00000"},
-    ["+"] = {"00000","00100","00100","11111","00100","00100","00000"},
-    ["="] = {"00000","00000","11111","00000","11111","00000","00000"},
-    [":"] = {"00000","00100","00000","00000","00100","00000","00000"},
-    ["."] = {"00000","00000","00000","00000","00000","01100","01100"},
-    ["!"] = {"00100","00100","00100","00100","00100","00000","00100"},
-    ["?"] = {"01110","10001","00001","00010","00100","00000","00100"},
-    ["_"] = {"00000","00000","00000","00000","00000","00000","11111"},
-}
-
-local function greedyMeshChar(charStr)
-    local pat = FONT_5X7[charStr] or FONT_5X7["?"]
-    local grid = {}
-    for r = 1, 7 do
-        grid[r] = {}
-        local rowStr = pat[r] or "00000"
-        for c = 1, 5 do
-            grid[r][c] = (rowStr:sub(c, c) == "1") and 1 or 0
-        end
-    end
-
-    local boxes = {}
-    for r = 1, 7 do
-        for c = 1, 5 do
-            if grid[r][c] == 1 then
-                local w = 1
-                while c + w <= 5 and grid[r][c + w] == 1 do
-                    w = w + 1
-                end
-
-                local h = 1
-                while r + h <= 7 do
-                    local fullRow = true
-                    for dc = 0, w - 1 do
-                        if grid[r + h][c + dc] ~= 1 then
-                            fullRow = false
-                            break
-                        end
-                    end
-                    if fullRow then
-                        h = h + 1
-                    else
-                        break
-                    end
-                end
-
-                for dr = 0, h - 1 do
-                    for dc = 0, w - 1 do
-                        grid[r + dr][c + dc] = 0
-                    end
-                end
-
-                table.insert(boxes, { col = c, row = r, w = w, h = h })
-            end
-        end
-    end
-    return boxes
-end
-
--- Core Generator Function (Creates Model)
-local function build3DTextModel(inputText, scale, depth, chosenColor, chosenMaterial)
-    if not inputText or inputText == "" then return nil, 0 end
-    scale = scale or 1.0
-    depth = depth or 1.2
-    chosenColor = chosenColor or Color3.fromRGB(0, 240, 255)
-    chosenMaterial = chosenMaterial or Enum.Material.Neon
-
-    local model = Instance.new("Model")
-    model.Name = "3DText_" .. inputText:sub(1, 15)
-
-    local upperText = inputText:upper()
-    local charSpacing = 1.0 * scale
-    local cursorX = 0
-    local partCount = 0
-
-    for i = 1, #upperText do
-        local ch = upperText:sub(i, i)
-        if ch == " " then
-            cursorX = cursorX + 4 * scale
-        else
-            local boxes = greedyMeshChar(ch)
-            for _, b in ipairs(boxes) do
-                local part = Instance.new("Part")
-                part.Name = ch .. "_" .. b.col .. "_" .. b.row
-                part.Anchored = true
-                part.CanCollide = true
-                part.Material = chosenMaterial
-                part.Color = chosenColor
-                part.TopSurface = Enum.SurfaceType.Smooth
-                part.BottomSurface = Enum.SurfaceType.Smooth
-
-                local pw = b.w * scale
-                local ph = b.h * scale
-                part.Size = Vector3.new(pw, ph, depth)
-
-                local posX = cursorX + (b.col - 1 + b.w / 2) * scale
-                local posY = (7 - b.row - b.h / 2 + 0.5) * scale
-                part.CFrame = CFrame.new(posX, posY, 0)
-                part.Parent = model
-                partCount = partCount + 1
-            end
-            cursorX = cursorX + (5 * scale) + charSpacing
-        end
-    end
-
-    return model, partCount, cursorX
-end
-
-local function generate3DText(inputText, scale, depth, chosenColor, chosenMaterial)
-    local model, partCount = build3DTextModel(inputText, scale, depth, chosenColor, chosenMaterial)
-    if not model or partCount == 0 then
-        if model then model:Destroy() end
-        return false, "Masukkan teks yang valid!"
-    end
-
-    model.Parent = workspace
-    pcall(applyStudioLiteProps, model)
-    positionAndAnchorAsset(model)
-
-    return true, "Sukses membuat 3D Text (" .. partCount .. " parts)!", model
-end
-
--- ---- UI PAGE TEXT 3D BUILDER (SPLIT VIEW) --------------------------
-local T3dHeader = Instance.new("Frame")
-T3dHeader.Size = UDim2.new(1, 0, 0, 32); T3dHeader.BackgroundTransparency = 1
-T3dHeader.ZIndex = 13; T3dHeader.Parent = PageText3D
-
-local T3dTitleLbl = Instance.new("TextLabel")
-T3dTitleLbl.Size = UDim2.new(1, -90, 1, 0); T3dTitleLbl.Position = UDim2.new(0, 8, 0, 0)
-T3dTitleLbl.BackgroundTransparency = 1; T3dTitleLbl.Font = Enum.Font.GothamBold
-T3dTitleLbl.TextSize = 13; T3dTitleLbl.TextColor3 = Color3.fromRGB(255, 255, 255)
-T3dTitleLbl.TextXAlignment = Enum.TextXAlignment.Left; T3dTitleLbl.Text = "[3D] GENERATOR TEKS 3D (SPLIT PREVIEW)"
-T3dTitleLbl.ZIndex = 14; T3dTitleLbl.Parent = T3dHeader
-
-makeBackBtn(T3dHeader, function() showPage(PageSplash) end)
-
--- State Variables
-local t3d_scale = 1.0
-local t3d_depth = 1.2
-local t3d_color = Color3.fromRGB(0, 240, 255)
-local t3d_material = Enum.Material.Neon
-
--- KIRI: PREVIEW REALTIME PANEL
-local T3dLeftCard = Instance.new("Frame")
-T3dLeftCard.Size = UDim2.new(0.42, 0, 1, -40); T3dLeftCard.Position = UDim2.new(0, 0, 0, 36)
-T3dLeftCard.BackgroundColor3 = Color3.fromRGB(16, 16, 22); T3dLeftCard.BorderSizePixel = 0
-T3dLeftCard.ZIndex = 13; T3dLeftCard.Parent = PageText3D
-makeCorner(T3dLeftCard, 8); makeStroke(T3dLeftCard, Color3.fromRGB(255, 255, 255), 1, 0.85)
-
-local PreviewTitle = Instance.new("TextLabel")
-PreviewTitle.Size = UDim2.new(1, -16, 0, 22); PreviewTitle.Position = UDim2.new(0, 8, 0, 6)
-PreviewTitle.BackgroundTransparency = 1; PreviewTitle.Font = Enum.Font.GothamBold
-PreviewTitle.TextSize = 10; PreviewTitle.TextColor3 = Color3.fromRGB(0, 240, 255)
-PreviewTitle.TextXAlignment = Enum.TextXAlignment.Left; PreviewTitle.Text = "[*] REALTIME 3D PREVIEW"
-PreviewTitle.ZIndex = 14; PreviewTitle.Parent = T3dLeftCard
-
-local T3dViewport = Instance.new("ViewportFrame")
-T3dViewport.Size = UDim2.new(1, -16, 1, -78); T3dViewport.Position = UDim2.new(0, 8, 0, 30)
-T3dViewport.BackgroundColor3 = Color3.fromRGB(10, 10, 14); T3dViewport.BorderSizePixel = 0
-T3dViewport.ZIndex = 14; T3dViewport.Parent = T3dLeftCard
-makeCorner(T3dViewport, 6); makeStroke(T3dViewport, Color3.fromRGB(60, 60, 75), 1)
-
-local previewCam = Instance.new("Camera")
-T3dViewport.CurrentCamera = previewCam
-previewCam.Parent = T3dViewport
-
-local PreviewStatsLbl = Instance.new("TextLabel")
-PreviewStatsLbl.Size = UDim2.new(1, -16, 0, 36); PreviewStatsLbl.Position = UDim2.new(0, 8, 1, -42)
-PreviewStatsLbl.BackgroundColor3 = Color3.fromRGB(22, 22, 28); PreviewStatsLbl.BorderSizePixel = 0
-PreviewStatsLbl.Font = Enum.Font.Code; PreviewStatsLbl.TextSize = 9; PreviewStatsLbl.TextColor3 = Color3.fromRGB(180, 180, 195)
-PreviewStatsLbl.Text = "Memuat preview..."
-PreviewStatsLbl.ZIndex = 14; PreviewStatsLbl.Parent = T3dLeftCard
-makeCorner(PreviewStatsLbl, 5)
-
-local currentPreviewModel = nil
-
-local function updateLivePreview(inputText)
-    inputText = inputText or "MCHLERN"
-    if currentPreviewModel then
-        currentPreviewModel:Destroy()
-        currentPreviewModel = nil
-    end
-
-    local model, count, totalWidth = build3DTextModel(inputText, t3d_scale, t3d_depth, t3d_color, t3d_material)
-    if model and count > 0 then
-        model.Parent = T3dViewport
-        currentPreviewModel = model
-
-        local cf, sz = model:GetBoundingBox()
-        local dist = math.max(sz.X * 1.15, sz.Y * 1.6, 6)
-        previewCam.CFrame = CFrame.new(cf.Position + Vector3.new(0, 0, dist), cf.Position)
-
-        PreviewStatsLbl.Text = string.format(" Teks: %d huruf | %d parts\n Ukuran: %.1f x %.1f x %.1fs", #inputText, count, sz.X, sz.Y, sz.Z)
-    else
-        PreviewStatsLbl.Text = " Ketik teks untuk melihat preview"
-    end
-end
-
--- KANAN: KONTROL, WARNA KOTAK-KOTAK & GENERATE
-local T3dRightScroll = Instance.new("ScrollingFrame")
-T3dRightScroll.Size = UDim2.new(0.56, 0, 1, -40); T3dRightScroll.Position = UDim2.new(0.44, 0, 0, 36)
-T3dRightScroll.BackgroundColor3 = Color3.fromRGB(16, 16, 22); T3dRightScroll.BorderSizePixel = 0
-T3dRightScroll.ScrollBarThickness = 4; T3dRightScroll.CanvasSize = UDim2.new(0, 0, 0, 380)
-T3dRightScroll.ZIndex = 13; T3dRightScroll.Parent = PageText3D
-makeCorner(T3dRightScroll, 8); makeStroke(T3dRightScroll, Color3.fromRGB(255, 255, 255), 1, 0.85)
-
-local T3dRightPad = Instance.new("UIPadding")
-T3dRightPad.PaddingTop = UDim.new(0, 8); T3dRightPad.PaddingBottom = UDim.new(0, 8)
-T3dRightPad.PaddingLeft = UDim.new(0, 8); T3dRightPad.PaddingRight = UDim.new(0, 8)
-T3dRightPad.Parent = T3dRightScroll
-
-local T3dRightList = Instance.new("UIListLayout")
-T3dRightList.Padding = UDim.new(0, 6); T3dRightList.SortOrder = Enum.SortOrder.LayoutOrder; T3dRightList.Parent = T3dRightScroll
-
-local function makeRLabel(text)
-    local l = Instance.new("TextLabel")
-    l.Size = UDim2.new(1, 0, 0, 16); l.BackgroundTransparency = 1
-    l.Font = Enum.Font.GothamBold; l.TextSize = 9.5; l.TextColor3 = Color3.fromRGB(200, 200, 215)
-    l.TextXAlignment = Enum.TextXAlignment.Left; l.Text = text; l.ZIndex = 14; l.Parent = T3dRightScroll
-    return l
-end
-
--- 1. Input Box
-makeRLabel("TEKS KUSTOM:")
-local T3dInputCard = Instance.new("Frame")
-T3dInputCard.Size = UDim2.new(1, 0, 0, 32); T3dInputCard.BackgroundColor3 = Color3.fromRGB(22, 22, 28)
-T3dInputCard.BorderSizePixel = 0; T3dInputCard.ZIndex = 14; T3dInputCard.Parent = T3dRightScroll
-makeCorner(T3dInputCard, 6); makeStroke(T3dInputCard, Color3.fromRGB(255, 255, 255), 1, 0.88)
-
-local T3dTextBox = Instance.new("TextBox")
-T3dTextBox.Size = UDim2.new(1, -12, 1, 0); T3dTextBox.Position = UDim2.new(0, 6, 0, 0)
-T3dTextBox.BackgroundTransparency = 1; T3dTextBox.Font = Enum.Font.GothamBold
-T3dTextBox.TextSize = 12; T3dTextBox.TextColor3 = Color3.fromRGB(255, 255, 255)
-T3dTextBox.PlaceholderText = "Tulis teks (misal: MCHLERN, VIP, SHOP)..."
-T3dTextBox.PlaceholderColor3 = Color3.fromRGB(130, 130, 145); T3dTextBox.Text = "MCHLERN"
-T3dTextBox.TextXAlignment = Enum.TextXAlignment.Left; T3dTextBox.ClearTextOnFocus = false
-T3dTextBox.ZIndex = 15; T3dTextBox.Parent = T3dInputCard
-
-T3dTextBox:GetPropertyChangedSignal("Text"):Connect(function()
-    updateLivePreview(T3dTextBox.Text)
-end)
-
--- 2. Scale & Depth Row
-makeRLabel("UKURAN (SCALE) & KETEBALAN (DEPTH):")
-local ScaleRow = Instance.new("Frame")
-ScaleRow.Size = UDim2.new(1, 0, 0, 24); ScaleRow.BackgroundTransparency = 1; ScaleRow.ZIndex = 14; ScaleRow.Parent = T3dRightScroll
-local ScaleLayout = Instance.new("UIListLayout")
-ScaleLayout.FillDirection = Enum.FillDirection.Horizontal; ScaleLayout.Padding = UDim.new(0, 4); ScaleLayout.Parent = ScaleRow
-
-local scaleBtns = {}
-local scaleOpts = {
-    { label = "0.6x", val = 0.6 },
-    { label = "1.0x", val = 1.0 },
-    { label = "1.8x", val = 1.8 },
-    { label = "3.0x", val = 3.0 },
-}
-
-for _, opt in ipairs(scaleOpts) do
-    local b = Instance.new("TextButton")
-    b.Size = UDim2.new(0.25, -3, 1, 0); b.BackgroundColor3 = (opt.val == t3d_scale) and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(28, 28, 36)
-    b.Text = opt.label; b.Font = Enum.Font.GothamBold; b.TextSize = 9
-    b.TextColor3 = (opt.val == t3d_scale) and Color3.fromRGB(0, 0, 0) or Color3.fromRGB(200, 200, 215)
-    b.ZIndex = 15; b.Parent = ScaleRow; makeCorner(b, 5)
-    scaleBtns[opt.val] = b
-
-    b.MouseButton1Click:Connect(function()
-        t3d_scale = opt.val
-        for v, btn in pairs(scaleBtns) do
-            btn.BackgroundColor3 = (v == t3d_scale) and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(28, 28, 36)
-            btn.TextColor3 = (v == t3d_scale) and Color3.fromRGB(0, 0, 0) or Color3.fromRGB(200, 200, 215)
-        end
-        updateLivePreview(T3dTextBox.Text)
-    end)
-end
-
--- 3. Material Row
-makeRLabel("MATERIAL / EFEK:")
-local MatRow = Instance.new("Frame")
-MatRow.Size = UDim2.new(1, 0, 0, 24); MatRow.BackgroundTransparency = 1; MatRow.ZIndex = 14; MatRow.Parent = T3dRightScroll
-local MatLayout = Instance.new("UIListLayout")
-MatLayout.FillDirection = Enum.FillDirection.Horizontal; MatLayout.Padding = UDim.new(0, 4); MatLayout.Parent = MatRow
-
-local matBtns = {}
-local matOpts = {
-    { label = "NEON", mat = Enum.Material.Neon },
-    { label = "SMOOTH", mat = Enum.Material.SmoothPlastic },
-    { label = "METAL", mat = Enum.Material.Metal },
-    { label = "GLASS", mat = Enum.Material.Glass },
-    { label = "WOOD", mat = Enum.Material.Wood },
-}
-
-for _, opt in ipairs(matOpts) do
-    local b = Instance.new("TextButton")
-    b.Size = UDim2.new(0.2, -3, 1, 0); b.BackgroundColor3 = (opt.mat == t3d_material) and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(28, 28, 36)
-    b.Text = opt.label; b.Font = Enum.Font.GothamBold; b.TextSize = 8.5
-    b.TextColor3 = (opt.mat == t3d_material) and Color3.fromRGB(0, 0, 0) or Color3.fromRGB(200, 200, 215)
-    b.ZIndex = 15; b.Parent = MatRow; makeCorner(b, 5)
-    matBtns[opt.label] = { btn = b, mat = opt.mat }
-
-    b.MouseButton1Click:Connect(function()
-        t3d_material = opt.mat
-        for _, item in pairs(matBtns) do
-            item.btn.BackgroundColor3 = (item.mat == t3d_material) and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(28, 28, 36)
-            item.btn.TextColor3 = (item.mat == t3d_material) and Color3.fromRGB(0, 0, 0) or Color3.fromRGB(200, 200, 215)
-        end
-        updateLivePreview(T3dTextBox.Text)
-    end)
-end
-
--- 4. Pilihan Warna Kotak-Kotak (Grid Swatches - Bersih & Rapi!)
-makeRLabel("PILIH WARNA (KOTAK-KOTAK):")
-local ColorGridFrame = Instance.new("Frame")
-ColorGridFrame.Size = UDim2.new(1, 0, 0, 58); ColorGridFrame.BackgroundTransparency = 1; ColorGridFrame.ZIndex = 14; ColorGridFrame.Parent = T3dRightScroll
-
-local ColorGrid = Instance.new("UIGridLayout")
-ColorGrid.CellSize = UDim2.new(0, 24, 0, 24); ColorGrid.CellPadding = UDim2.new(0, 5, 0, 5)
-ColorGrid.SortOrder = Enum.SortOrder.LayoutOrder; ColorGrid.Parent = ColorGridFrame
-
-local colorTiles = {}
-local paletteColors = {
-    Color3.fromRGB(0, 240, 255),    -- Cyan Neon
-    Color3.fromRGB(0, 168, 255),    -- Sky Blue
-    Color3.fromRGB(46, 134, 222),   -- Cobalt Blue
-    Color3.fromRGB(168, 85, 247),   -- Purple Neon
-    Color3.fromRGB(224, 86, 253),   -- Magenta / Pink
-    Color3.fromRGB(255, 45, 85),    -- Crimson Red
-    Color3.fromRGB(255, 107, 107),  -- Sunset
-    Color3.fromRGB(255, 120, 30),   -- Orange
-    Color3.fromRGB(255, 215, 0),    -- Gold / Yellow
-    Color3.fromRGB(46, 213, 115),   -- Lime Green
-    Color3.fromRGB(0, 255, 127),    -- Spring Green
-    Color3.fromRGB(255, 255, 255),  -- Pure White
-    Color3.fromRGB(176, 176, 176),  -- Silver Grey
-    Color3.fromRGB(40, 40, 50),     -- Dark Onyx
-}
-
-for idx, col in ipairs(paletteColors) do
-    local tile = Instance.new("TextButton")
-    tile.BackgroundColor3 = col; tile.Text = ""
-    tile.ZIndex = 15; tile.Parent = ColorGridFrame; makeCorner(tile, 5)
-    local st = makeStroke(tile, Color3.fromRGB(255, 255, 255), (col == t3d_color) and 2.5 or 0.5)
-    colorTiles[idx] = { btn = tile, stroke = st, col = col }
-
-    tile.MouseButton1Click:Connect(function()
-        t3d_color = col
-        for _, it in pairs(colorTiles) do
-            it.stroke.Thickness = (it.col == t3d_color) and 2.5 or 0.5
-            it.stroke.Color = (it.col == t3d_color) and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(80, 80, 100)
-        end
-        updateLivePreview(T3dTextBox.Text)
-    end)
-end
-
--- 5. Tombol Generate & Status
-local T3dStatusLbl = Instance.new("TextLabel")
-T3dStatusLbl.Size = UDim2.new(1, 0, 0, 16); T3dStatusLbl.BackgroundTransparency = 1
-T3dStatusLbl.Font = Enum.Font.Code; T3dStatusLbl.TextSize = 9.5; T3dStatusLbl.TextColor3 = Color3.fromRGB(160, 220, 160)
-T3dStatusLbl.TextXAlignment = Enum.TextXAlignment.Center; T3dStatusLbl.Text = "Status: Siap membuat teks 3D"
-T3dStatusLbl.ZIndex = 15; T3dStatusLbl.Parent = T3dRightScroll
-
-local T3dGenBtn = Instance.new("TextButton")
-T3dGenBtn.Size = UDim2.new(1, 0, 0, 36); T3dGenBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-T3dGenBtn.Text = "[+] GENERATE 3D TEXT KE WORKSPACE"
-T3dGenBtn.Font = Enum.Font.GothamBold; T3dGenBtn.TextSize = 10.5; T3dGenBtn.TextColor3 = Color3.fromRGB(0, 0, 0)
-T3dGenBtn.ZIndex = 16; T3dGenBtn.Active = true; T3dGenBtn.Parent = T3dRightScroll
-makeCorner(T3dGenBtn, 7)
-
-T3dGenBtn.MouseButton1Click:Connect(function()
-    local textToMake = T3dTextBox.Text
-    if not textToMake or textToMake == "" then
-        T3dStatusLbl.Text = "[ERR] Masukkan teks terlebih dahulu!"
-        T3dStatusLbl.TextColor3 = Color3.fromRGB(255, 100, 100)
-        return
-    end
-
-    T3dGenBtn.Text = "GENERATING 3D TEXT..."
-    task.spawn(function()
-        local ok, msg = generate3DText(textToMake, t3d_scale, t3d_depth, t3d_color, t3d_material)
-        if ok then
-            T3dStatusLbl.Text = "[OK] " .. msg
-            T3dStatusLbl.TextColor3 = Color3.fromRGB(100, 255, 140)
-            T3dGenBtn.Text = "SUKSES! DIBUAT DI DEPAN KAMERA"
-        else
-            T3dStatusLbl.Text = "[ERR] " .. tostring(msg)
-            T3dStatusLbl.TextColor3 = Color3.fromRGB(255, 100, 100)
-            T3dGenBtn.Text = "[!] GAGAL MEMBUAT TEKS"
-        end
-        task.delay(2.0, function()
-            if T3dGenBtn and T3dGenBtn.Parent then
-                T3dGenBtn.Text = "[+] GENERATE 3D TEXT KE WORKSPACE"
-            end
-        end)
-    end)
-end)
-
--- Initialize Preview on load
-task.spawn(function()
-    task.wait(0.5)
-    updateLivePreview("MCHLERN")
-end)
-
-
--- =====================================================
-
-end
-initText3DPage()
-
--- =====================================================
-
--- PAGE 5: REPLACER TOOLS [MODULAR SCOPE]
--- =====================================================
-local function initReplacerPage()
--- PAGE 5: REPLACER TOOLS (OBJECT & MODEL REPLACER)
--- Plugin Pengganti Objek / Model Massal di Workspace
--- Mengganti semua target dengan 1 model/part template
--- =====================================================
-
-local function executeObjectReplaceCore(targetName, replacementName, options)
-    options = options or {}
-    if not targetName or targetName == "" then
-        return false, "Masukkan nama target yang ingin diganti!"
-    end
-    if not replacementName or replacementName == "" then
-        return false, "Masukkan nama objek pengganti!"
-    end
-
-    -- 1. Cari objek template pengganti
-    local replacementTpl = nil
-    for _, place in ipairs({workspace, ReplicatedStorage}) do
-        for _, obj in ipairs(place:GetDescendants()) do
-            if obj.Name == replacementName then
-                replacementTpl = obj
-                break
-            end
-        end
-        if replacementTpl then break end
-    end
-
-    if not replacementTpl then
-        return false, "Objek pengganti '" .. replacementName .. "' tidak ditemukan!"
-    end
-
-    -- 2. Cari semua target di Workspace
-    local targets = {}
-    for _, obj in ipairs(workspace:GetDescendants()) do
-        if obj.Name == targetName and obj ~= replacementTpl and not obj:IsDescendantOf(replacementTpl) then
-            table.insert(targets, obj)
-        end
-    end
-
-    if #targets == 0 then
-        return false, "Tidak ada target bernama '" .. targetName .. "' di Workspace!"
-    end
-
-    -- 3. Eksekusi Replace
-    local replacedCount = 0
-    for _, target in ipairs(targets) do
-        pcall(function()
-            local targetParent = target.Parent or workspace
-            local targetCF = nil
-            local targetSize = nil
-
-            if target:IsA("Model") then
-                targetCF, targetSize = target:GetBoundingBox()
-            elseif target:IsA("BasePart") then
-                targetCF = target.CFrame
-                targetSize = target.Size
-            end
-
-            if targetCF then
-                local clone = replacementTpl:Clone()
-
-                if options.preserveName then
-                    clone.Name = target.Name
-                end
-
-                if options.autoAnchor then
-                    if clone:IsA("BasePart") then
-                        clone.Anchored = true
-                        clone.Velocity = Vector3.zero
-                    end
-                    for _, d in ipairs(clone:GetDescendants()) do
-                        if d:IsA("BasePart") then
-                            d.Anchored = true
-                            d.Velocity = Vector3.zero
-                        end
-                    end
-                end
-
-                if clone:IsA("Model") then
-                    if clone.PrimaryPart then
-                        clone:SetPrimaryPartCFrame(targetCF)
-                    else
-                        clone:PivotTo(targetCF)
-                    end
-                elseif clone:IsA("BasePart") then
-                    clone.CFrame = targetCF
-                    if options.matchSize and targetSize then
-                        clone.Size = targetSize
-                    end
-                end
-
-                clone.Parent = targetParent
-                target:Destroy()
-                replacedCount = replacedCount + 1
-            end
-        end)
-    end
-
-    return true, "Sukses mereplace " .. replacedCount .. " objek dengan '" .. replacementTpl.Name .. "'!"
-end
-
-local ReplacerHeader = Instance.new("Frame")
-ReplacerHeader.Size = UDim2.new(1, 0, 0, 32); ReplacerHeader.BackgroundTransparency = 1
-ReplacerHeader.ZIndex = 13; ReplacerHeader.Parent = PageReplacer
-
-local ReplacerTitleLbl = Instance.new("TextLabel")
-ReplacerTitleLbl.Size = UDim2.new(1, -90, 1, 0); ReplacerTitleLbl.Position = UDim2.new(0, 8, 0, 0)
-ReplacerTitleLbl.BackgroundTransparency = 1; ReplacerTitleLbl.Font = Enum.Font.GothamBold
-ReplacerTitleLbl.TextSize = 13; ReplacerTitleLbl.TextColor3 = Color3.fromRGB(255, 255, 255)
-ReplacerTitleLbl.TextXAlignment = Enum.TextXAlignment.Left; ReplacerTitleLbl.Text = "[[REP]] OBJECT & MODEL REPLACER TOOLS"
-ReplacerTitleLbl.ZIndex = 14; ReplacerTitleLbl.Parent = ReplacerHeader
-
-makeBackBtn(ReplacerHeader, function() showPage(PageSplash) end)
-
-local ReplacerScroll = Instance.new("ScrollingFrame")
-ReplacerScroll.Size = UDim2.new(1, 0, 1, -40); ReplacerScroll.Position = UDim2.new(0, 0, 0, 36)
-ReplacerScroll.BackgroundColor3 = Color3.fromRGB(16, 16, 22); ReplacerScroll.BorderSizePixel = 0
-ReplacerScroll.ScrollBarThickness = 4; ReplacerScroll.CanvasSize = UDim2.new(0, 0, 0, 350)
-ReplacerScroll.ZIndex = 13; ReplacerScroll.Parent = PageReplacer
-makeCorner(ReplacerScroll, 8); makeStroke(ReplacerScroll, Color3.fromRGB(255, 255, 255), 1, 0.85)
-
-local ReplacerList = Instance.new("UIListLayout")
-ReplacerList.Padding = UDim.new(0, 8); ReplacerList.SortOrder = Enum.SortOrder.LayoutOrder; ReplacerList.Parent = ReplacerScroll
-
-local ReplacerPad = Instance.new("UIPadding")
-ReplacerPad.PaddingTop = UDim.new(0, 10); ReplacerPad.PaddingBottom = UDim.new(0, 10)
-ReplacerPad.PaddingLeft = UDim.new(0, 10); ReplacerPad.PaddingRight = UDim.new(0, 10)
-ReplacerPad.Parent = ReplacerScroll
-
--- Helper card
-local function makeRepCard(title)
-    local card = Instance.new("Frame")
-    card.Size = UDim2.new(1, 0, 0, 70); card.BackgroundColor3 = Color3.fromRGB(22, 22, 28)
-    card.BorderSizePixel = 0; card.ZIndex = 14; card.Parent = ReplacerScroll
-    makeCorner(card, 7); makeStroke(card, Color3.fromRGB(255, 255, 255), 1, 0.88)
-
-    local lbl = Instance.new("TextLabel")
-    lbl.Size = UDim2.new(1, -16, 0, 16); lbl.Position = UDim2.new(0, 8, 0, 6)
-    lbl.BackgroundTransparency = 1; lbl.Font = Enum.Font.GothamBold; lbl.TextSize = 10
-    lbl.TextColor3 = Color3.fromRGB(0, 240, 255); lbl.TextXAlignment = Enum.TextXAlignment.Left
-    lbl.Text = title; lbl.ZIndex = 15; lbl.Parent = card
-    return card
-end
-
--- 1. Card Target
-local Card1 = makeRepCard("1. TARGET YANG AKAN DIGANTI (DI WORKSPACE):")
-local TargetInput = Instance.new("TextBox")
-TargetInput.Size = UDim2.new(1, -120, 0, 30); TargetInput.Position = UDim2.new(0, 8, 0, 28)
-TargetInput.BackgroundColor3 = Color3.fromRGB(14, 14, 18); TargetInput.Font = Enum.Font.Gotham
-TargetInput.TextSize = 11; TargetInput.TextColor3 = Color3.fromRGB(255, 255, 255)
-TargetInput.PlaceholderText = "Ketik nama target (misal: Tree_Old, Part, Rock)..."
-TargetInput.PlaceholderColor3 = Color3.fromRGB(130, 130, 140); TargetInput.TextXAlignment = Enum.TextXAlignment.Left
-TargetInput.ClearTextOnFocus = false; TargetInput.ZIndex = 15; TargetInput.Parent = Card1
-makeCorner(TargetInput, 5); makeStroke(TargetInput, Color3.fromRGB(255, 255, 255), 1, 0.8)
-
-local ScanTargetBtn = Instance.new("TextButton")
-ScanTargetBtn.Size = UDim2.new(0, 100, 0, 30); ScanTargetBtn.Position = UDim2.new(1, -108, 0, 28)
-ScanTargetBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 40); ScanTargetBtn.Font = Enum.Font.GothamBold
-ScanTargetBtn.TextSize = 9.5; ScanTargetBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-ScanTargetBtn.Text = "[?] SCAN TARGET"
-ScanTargetBtn.ZIndex = 15; ScanTargetBtn.Parent = Card1
-makeCorner(ScanTargetBtn, 5)
-
--- 2. Card Replacement
-local Card2 = makeRepCard("2. OBJEK PENGGANTI (TEMPLATE BARU):")
-local ReplInput = Instance.new("TextBox")
-ReplInput.Size = UDim2.new(1, -120, 0, 30); ReplInput.Position = UDim2.new(0, 8, 0, 28)
-ReplInput.BackgroundColor3 = Color3.fromRGB(14, 14, 18); ReplInput.Font = Enum.Font.Gotham
-ReplInput.TextSize = 11; ReplInput.TextColor3 = Color3.fromRGB(255, 255, 255)
-ReplInput.PlaceholderText = "Ketik nama pengganti (misal: Tree_New, ModernLamp)..."
-ReplInput.PlaceholderColor3 = Color3.fromRGB(130, 130, 140); ReplInput.TextXAlignment = Enum.TextXAlignment.Left
-ReplInput.ClearTextOnFocus = false; ReplInput.ZIndex = 15; ReplInput.Parent = Card2
-makeCorner(ReplInput, 5); makeStroke(ReplInput, Color3.fromRGB(255, 255, 255), 1, 0.8)
-
-local PickSelBtn = Instance.new("TextButton")
-PickSelBtn.Size = UDim2.new(0, 100, 0, 30); PickSelBtn.Position = UDim2.new(1, -108, 0, 28)
-PickSelBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 40); PickSelBtn.Font = Enum.Font.GothamBold
-PickSelBtn.TextSize = 9.5; PickSelBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-PickSelBtn.Text = "[+] PILIH TARGET"
-PickSelBtn.ZIndex = 15; PickSelBtn.Parent = Card2
-makeCorner(PickSelBtn, 5)
-
--- 3. Options Card
-local Card3 = Instance.new("Frame")
-Card3.Size = UDim2.new(1, 0, 0, 72); Card3.BackgroundColor3 = Color3.fromRGB(22, 22, 28)
-Card3.BorderSizePixel = 0; Card3.ZIndex = 14; Card3.Parent = ReplacerScroll
-makeCorner(Card3, 7); makeStroke(Card3, Color3.fromRGB(255, 255, 255), 1, 0.88)
-
-local OptTitle = Instance.new("TextLabel")
-OptTitle.Size = UDim2.new(1, -16, 0, 16); OptTitle.Position = UDim2.new(0, 8, 0, 6)
-OptTitle.BackgroundTransparency = 1; OptTitle.Font = Enum.Font.GothamBold; OptTitle.TextSize = 10
-OptTitle.TextColor3 = Color3.fromRGB(0, 240, 255); OptTitle.TextXAlignment = Enum.TextXAlignment.Left
-OptTitle.Text = "3. PENGATURAN REPLACE:"; OptTitle.ZIndex = 15; OptTitle.Parent = Card3
-
-local rep_options = {
-    preserveName = true,
-    autoAnchor = true,
-    matchSize = false
-}
-
-local function makeToggleBtn(parent, posX, posY, text, optKey)
-    local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(0.48, -4, 0, 20); btn.Position = UDim2.new(posX, 0, posY, 0)
-    btn.BackgroundColor3 = rep_options[optKey] and Color3.fromRGB(0, 160, 100) or Color3.fromRGB(40, 40, 50)
-    btn.Text = (rep_options[optKey] and "[X] " or "[ ] ") .. text
-    btn.Font = Enum.Font.GothamBold; btn.TextSize = 8.5; btn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    btn.ZIndex = 15; btn.Parent = parent; makeCorner(btn, 4)
-
-    btn.MouseButton1Click:Connect(function()
-        rep_options[optKey] = not rep_options[optKey]
-        btn.BackgroundColor3 = rep_options[optKey] and Color3.fromRGB(0, 160, 100) or Color3.fromRGB(40, 40, 50)
-        btn.Text = (rep_options[optKey] and "[X] " or "[ ] ") .. text
-    end)
-    return btn
-end
-
-makeToggleBtn(Card3, 0.02, 0.36, "Pertahankan Nama Target", "preserveName")
-makeToggleBtn(Card3, 0.52, 0.36, "Auto-Anchor Part Baru", "autoAnchor")
-makeToggleBtn(Card3, 0.02, 0.68, "Samakan Ukuran Bounding", "matchSize")
-
--- 4. Status & Execution
-local RepStatusLbl = Instance.new("TextLabel")
-RepStatusLbl.Size = UDim2.new(1, 0, 0, 18); RepStatusLbl.BackgroundTransparency = 1
-RepStatusLbl.Font = Enum.Font.Code; RepStatusLbl.TextSize = 9.5; RepStatusLbl.TextColor3 = Color3.fromRGB(160, 220, 160)
-RepStatusLbl.TextXAlignment = Enum.TextXAlignment.Center; RepStatusLbl.Text = "Status: Siap mereplace objek"
-RepStatusLbl.ZIndex = 15; RepStatusLbl.Parent = ReplacerScroll
-
-ScanTargetBtn.MouseButton1Click:Connect(function()
-    local tName = TargetInput.Text
-    if not tName or tName == "" then
-        RepStatusLbl.Text = "[!] Masukkan nama target untuk di-scan"
-        RepStatusLbl.TextColor3 = Color3.fromRGB(255, 120, 120)
-        return
-    end
-    local count = 0
-    for _, obj in ipairs(workspace:GetDescendants()) do
-        if obj.Name == tName then count = count + 1 end
-    end
-    RepStatusLbl.Text = string.format("[SCAN] Ditemukan %d objek bernama '%s' di Workspace", count, tName)
-    RepStatusLbl.TextColor3 = (count > 0) and Color3.fromRGB(100, 255, 140) or Color3.fromRGB(255, 120, 120)
-end)
-
-PickSelBtn.MouseButton1Click:Connect(function()
-    -- Coba ambil objek pertama yang dipilih atau dicari di workspace
-    local found = nil
-    for _, d in ipairs(workspace:GetChildren()) do
-        if d:IsA("Model") and d ~= LP.Character then found = d; break end
-    end
-    if found then
-        ReplInput.Text = found.Name
-        RepStatusLbl.Text = "[OK] Menggunakan '" .. found.Name .. "' sebagai pengganti"
-        RepStatusLbl.TextColor3 = Color3.fromRGB(100, 255, 140)
-    else
-        RepStatusLbl.Text = "[!] Ketik langsung nama template pengganti"
-        RepStatusLbl.TextColor3 = Color3.fromRGB(255, 120, 120)
-    end
-end)
-
-local ExecReplaceBtn = Instance.new("TextButton")
-ExecReplaceBtn.Size = UDim2.new(1, 0, 0, 36); ExecReplaceBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-ExecReplaceBtn.Text = "[[REP]] EKSEKUSI REPLACE SEMUA TARGET"
-ExecReplaceBtn.Font = Enum.Font.GothamBold; ExecReplaceBtn.TextSize = 10.5; ExecReplaceBtn.TextColor3 = Color3.fromRGB(0, 0, 0)
-ExecReplaceBtn.ZIndex = 16; ExecReplaceBtn.Active = true; ExecReplaceBtn.Parent = ReplacerScroll
-makeCorner(ExecReplaceBtn, 7)
-
-ExecReplaceBtn.MouseButton1Click:Connect(function()
-    local tName = TargetInput.Text
-    local rName = ReplInput.Text
-    if not tName or tName == "" or not rName or rName == "" then
-        RepStatusLbl.Text = "[ERR] Isi Target dan Pengganti terlebih dahulu!"
-        RepStatusLbl.TextColor3 = Color3.fromRGB(255, 100, 100)
-        return
-    end
-
-    ExecReplaceBtn.Text = "MEMPROSES REPLACEMENT..."
-    task.spawn(function()
-        local ok, msg = executeObjectReplaceCore(tName, rName, rep_options)
-        if ok then
-            RepStatusLbl.Text = "[OK] " .. msg
-            RepStatusLbl.TextColor3 = Color3.fromRGB(100, 255, 140)
-            ExecReplaceBtn.Text = "SELESAI DIREPLACE!"
-        else
-            RepStatusLbl.Text = "[ERR] " .. tostring(msg)
-            RepStatusLbl.TextColor3 = Color3.fromRGB(255, 100, 100)
-            ExecReplaceBtn.Text = "[!] GAGAL MEMPROSES"
-        end
-        task.delay(2.0, function()
-            if ExecReplaceBtn and ExecReplaceBtn.Parent then
-                ExecReplaceBtn.Text = "[[REP]] EKSEKUSI REPLACE SEMUA TARGET"
-            end
-        end)
-    end)
-end)
-
-
-end
-initReplacerPage()
 
 -- =====================================================
 
