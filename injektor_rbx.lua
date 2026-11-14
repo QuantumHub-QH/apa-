@@ -3683,13 +3683,6 @@ task.spawn(function()
         end)
     end)
 end)
-setStatus("READY  •  PRESS SCAN RBXL", Theme.success)
-updateCount()
-task.delay(0.25, function()
-    if gui and gui.Parent then
-        scanNow()
-    end
-end)
 
 
         return {
@@ -5383,6 +5376,32 @@ TbDetInsert.Activated:Connect(function()
     end
 end)
 
+local function httpFetch(url)
+    -- 1. Universal executor GET (Delta, Codex, Arceus, Fluxus, etc.)
+    local ok1, res1 = pcall(game.HttpGet, game, url)
+    if ok1 and type(res1) == "string" and #res1 > 0 then
+        return res1
+    end
+    -- 2. Executor request table call
+    local reqFn = request or http_request or (syn and syn.request) or (http and http.request)
+    if type(reqFn) == "function" then
+        local ok2, res2 = pcall(reqFn, {
+            Url = url,
+            Method = "GET",
+            Headers = { ["User-Agent"] = "RobloxStudio/WinInet" }
+        })
+        if ok2 and type(res2) == "table" and res2.Body and #res2.Body > 0 then
+            return res2.Body
+        end
+    end
+    -- 3. HttpService fallback
+    local ok3, res3 = pcall(function() return HttpService:GetAsync(url) end)
+    if ok3 and type(res3) == "string" and #res3 > 0 then
+        return res3
+    end
+    return nil
+end
+
 local function queryMarketplace(catId, query)
     local enc = HttpService:UrlEncode(query)
     local baseUrls = {
@@ -5391,9 +5410,9 @@ local function queryMarketplace(catId, query)
     }
     for _, bUrl in ipairs(baseUrls) do
         local url1 = bUrl:format(catId, enc)
-        local s, r = pcall(function() return httpRequest({Url=url1,Method="GET",Headers={["User-Agent"]="RobloxStudio/WinInet"}}) end)
-        if s and r and r.StatusCode == 200 then
-            local ds, parsed = pcall(function() return HttpService:JSONDecode(r.Body) end)
+        local raw1 = httpFetch(url1)
+        if raw1 and #raw1 > 0 then
+            local ds, parsed = pcall(function() return HttpService:JSONDecode(raw1) end)
             if ds and parsed and parsed.data and #parsed.data > 0 then
                 local allItems = {}
                 for _, item in ipairs(parsed.data) do table.insert(allItems, item) end
@@ -5402,9 +5421,9 @@ local function queryMarketplace(catId, query)
                 if parsed.nextPageCursor and tostring(parsed.nextPageCursor) ~= "" then
                     pcall(function()
                         local url2 = (bUrl .. "&cursor=%s"):format(catId, enc, HttpService:UrlEncode(tostring(parsed.nextPageCursor)))
-                        local s2, r2 = pcall(function() return httpRequest({Url=url2,Method="GET",Headers={["User-Agent"]="RobloxStudio/WinInet"}}) end)
-                        if s2 and r2 and r2.StatusCode == 200 then
-                            local ds2, parsed2 = pcall(function() return HttpService:JSONDecode(r2.Body) end)
+                        local raw2 = httpFetch(url2)
+                        if raw2 and #raw2 > 0 then
+                            local ds2, parsed2 = pcall(function() return HttpService:JSONDecode(raw2) end)
                             if ds2 and parsed2 and parsed2.data and #parsed2.data > 0 then
                                 for _, item2 in ipairs(parsed2.data) do table.insert(allItems, item2) end
                             end
@@ -11574,6 +11593,7 @@ end
 ----------------------------------------------------------------------------
 local MAIN_W, MAIN_H = 660, 360
 local State = { tab = "avatars", open = true, sbw = 60 }
+local MIRROR_W = 115
 local UI = { builders = {}, built = {}, pages = {}, refreshers = {} }
 
 UI.gui = ScreenGui
@@ -11814,7 +11834,7 @@ end
 --   Kamera otomatis menyesuaikan ukuran avatar (kecil / tinggi) dan ukuran panel.
 ----------------------------------------------------------------------------
 do
-local MIRROR_W = 115
+-- MIRROR_W defined above
 local Mirror = { on = true, spin = 0, auto = true, dragging = false, pauseUntil = 0, sig = nil, stage = nil, model = nil, token = 0 }
 
 local mirrorPanel = mk("Frame", {
