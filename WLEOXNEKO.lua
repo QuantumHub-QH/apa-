@@ -317,8 +317,8 @@ local frame = sudut(buat("Frame", {
 
 -- Header
 local header = buat("Frame", {Size = UDim2.new(1, 0, 0, 40), BackgroundTransparency = 1}, frame)
-label({Text = "Importer Hub", Font = Enum.Font.GothamBold, TextSize = 16,
-    Position = UDim2.new(0, 14, 0, 3), Size = UDim2.new(0, 220, 0, 20)}, header)
+label({Text = "TOOLS ENGINE MCP STUDIOLITE", Font = Enum.Font.GothamBold, TextSize = 15,
+    Position = UDim2.new(0, 14, 0, 3), Size = UDim2.new(0, 400, 0, 20)}, header)
 label({Text = "IMPORT · TOOLBOX · AI · UPLOAD", TextColor3 = C.redup, TextSize = 10,
     Position = UDim2.new(0, 14, 0, 23), Size = UDim2.new(0, 300, 0, 14)}, header)
 local btnMin = tombol({Text = "-", Size = UDim2.new(0, 30, 0, 28),
@@ -4306,6 +4306,17 @@ buat("UIListLayout", {
     SortOrder = Enum.SortOrder.LayoutOrder,
 }, halDash)
 
+local ICON_BY_KEY = {
+    toolbox = "121323758319527",
+    rbxm = "106962661743892",
+    rbxmx = "106962661743892",
+    rbxl = "122982660526589",
+    rbxlx = "122982660526589",
+    up_model = "106962661743892",
+    up_animasi = "82612847793986",
+    ai = "120498354657105",
+}
+
 label({
     Text = "Toolbox",
     Font = Enum.Font.GothamBold,
@@ -4332,12 +4343,12 @@ local dashToolboxIcon = sudut(buat("Frame", {
     BackgroundColor3 = C.aktif,
     BorderSizePixel = 0,
 }, dashToolboxCard), 10)
-label({
-    Text = "TB",
-    Font = Enum.Font.GothamBold,
-    TextSize = 13,
-    Size = UDim2.new(1, 0, 1, 0),
-    TextXAlignment = Enum.TextXAlignment.Center,
+buat("ImageLabel", {
+    BackgroundTransparency = 1,
+    Image = "rbxassetid://" .. ICON_BY_KEY.toolbox,
+    Position = UDim2.new(0, 4, 0, 4),
+    Size = UDim2.new(1, -8, 1, -8),
+    ScaleType = Enum.ScaleType.Fit,
 }, dashToolboxIcon)
 label({
     Text = "Buka panel aset",
@@ -4410,8 +4421,19 @@ for i, k in ipairs(KARTU) do
         Size = UDim2.new(0, 40, 0, 40), Position = UDim2.new(0, 10, 0.5, -20),
         BackgroundColor3 = C.aktif, BorderSizePixel = 0,
     }, kartu), 10)
-    label({Text = k.ikon, Font = Enum.Font.GothamBold, TextSize = 14,
-        Size = UDim2.new(1, 0, 1, 0), TextXAlignment = Enum.TextXAlignment.Center}, ikon)
+    local iconAsset = ICON_BY_KEY[k.kunci]
+    if iconAsset then
+        buat("ImageLabel", {
+            BackgroundTransparency = 1,
+            Image = "rbxassetid://" .. iconAsset,
+            Position = UDim2.new(0, 4, 0, 4),
+            Size = UDim2.new(1, -8, 1, -8),
+            ScaleType = Enum.ScaleType.Fit,
+        }, ikon)
+    else
+        label({Text = k.ikon, Font = Enum.Font.GothamBold, TextSize = 14,
+            Size = UDim2.new(1, 0, 1, 0), TextXAlignment = Enum.TextXAlignment.Center}, ikon)
+    end
     label({Text = k.judul, Font = Enum.Font.GothamBold, TextSize = 13,
         Position = UDim2.new(0, 58, 0, 10), Size = UDim2.new(1, -100, 0, 18),
         TextTruncate = Enum.TextTruncate.AtEnd}, kartu)
@@ -4464,7 +4486,7 @@ panelUpload.extra.Activated:Connect(function() bukaHalaman("setelan") end)
 ------------------------------------------------------------------
 -- PANEL SAMPING: TOOLBOX
 ------------------------------------------------------------------
-local TOOLBOX_WIDTH, TOOLBOX_HEIGHT, TOOLBOX_GAP = 360, 520, 12
+local TOOLBOX_WIDTH, TOOLBOX_HEIGHT, TOOLBOX_GAP = 340, 480, 12
 local toolboxTerbuka = false
 local halToolbox = sudut(buat("Frame", {
     Name = "ToolboxPanel",
@@ -4520,6 +4542,9 @@ buat("Frame", {
 bukaToolboxPanel = function()
     if toolboxTerbuka then return end
     toolboxTerbuka = true
+    for key, button in pairs(menuBtn) do
+        button.BackgroundColor3 = (key == "toolbox") and C.aktif or C.kartu
+    end
     local groupWidth = LEBAR + TOOLBOX_GAP + TOOLBOX_WIDTH
     frame.Position = UDim2.new(0.5, -groupWidth / 2, 0.5, -TINGGI / 2)
     halToolbox.Position = UDim2.new(
@@ -4534,6 +4559,9 @@ tutupToolboxPanel = function()
     toolboxTerbuka = false
     halToolbox.Visible = false
     frame.Position = UDim2.new(0.5, -LEBAR / 2, 0.5, -TINGGI / 2)
+    for key, button in pairs(menuBtn) do
+        button.BackgroundColor3 = (key == halamanAktif) and C.aktif or C.kartu
+    end
 end
 tbClose.Activated:Connect(tutupToolboxPanel)
 
@@ -4576,18 +4604,10 @@ local tbInput = kotakTeks({
 }, halToolbox)
 local tbCari = tombol({Text = "CARI", Size = UDim2.new(0, 82, 0, 30),
     Position = UDim2.new(1, -94, 0, 80), BackgroundColor3 = C.aktif}, halToolbox)
-local tbIdInput = kotakTeks({
-    Size = UDim2.new(1, -146, 0, 30),
-    Position = UDim2.new(0, 12, 0, 116),
-    Text = "",
-    PlaceholderText = "Tempel ID aset Roblox...",
-}, halToolbox)
-local tbImportId = tombol({Text = "IMPORT ID", Size = UDim2.new(0, 114, 0, 30),
-    Position = UDim2.new(1, -126, 0, 116), BackgroundColor3 = C.aktif}, halToolbox)
 local tbList = buatDaftarScroll(
     halToolbox,
-    UDim2.new(0, 12, 0, 152),
-    UDim2.new(1, -24, 1, -186)
+    UDim2.new(0, 12, 0, 116),
+    UDim2.new(1, -24, 1, -150)
 )
 local tbInfo = label({Text = "", TextColor3 = C.redup, TextSize = 11,
     Position = UDim2.new(0, 12, 1, -28), Size = UDim2.new(1, -222, 0, 28),
@@ -4796,32 +4816,6 @@ end
 
 tbCari.Activated:Connect(cariToolbox)
 tbInput.FocusLost:Connect(function(enter) if enter then cariToolbox() end end)
-tbImportId.Activated:Connect(function()
-    if sedangKerja then return end
-    local assetId = tostring(tbIdInput.Text):match("^%s*(.-)%s*$")
-    if not assetId:match("^%d+$") or #assetId > 20 or assetId:match("^0+$") then
-        setStatus("Masukkan ID aset Roblox berupa angka.", true)
-        return
-    end
-
-    local category = katAktif
-    sedangKerja = true
-    tbImportId.Text = "..."
-    task.spawn(function()
-        local ok, berhasil = pcall(function()
-            return masukkanAsetToolbox(category, {
-                id = assetId,
-                nama = "Asset " .. assetId,
-                pembuat = "ID langsung",
-            })
-        end)
-        if not ok then
-            setStatus("Import ID gagal: " .. tostring(berhasil), true)
-        end
-        tbImportId.Text = ok and berhasil and "DONE" or "ULANG"
-        sedangKerja = false
-    end)
-end)
 
 ------------------------------------------------------------------
 -- HALAMAN: AI CHAT (OpenRouter)
@@ -5033,6 +5027,7 @@ buat("UIListLayout", {Padding = UDim.new(0, 4), SortOrder = Enum.SortOrder.Layou
 local MENU = {
     {seksi = "MENU"},
     {kunci = "dashboard", nama = "Dashboard"},
+    {kunci = "toolbox", nama = "Toolbox"},
     {kunci = "ai", nama = "AI Chat"},
     {seksi = "IMPORT"},
     {kunci = "rbxm", nama = "RBXM", badge = true},
@@ -5052,13 +5047,31 @@ for i, m in ipairs(MENU) do
             Size = UDim2.new(1, 0, 0, 16), LayoutOrder = i}, sideScroll)
     else
         local b = tombol({
-            Text = "  " .. m.nama,
+            Text = "",
             Font = Enum.Font.Gotham,
             TextXAlignment = Enum.TextXAlignment.Left,
             Size = UDim2.new(1, -4, 0, 28),
             BackgroundColor3 = C.kartu,
             LayoutOrder = i,
         }, sideScroll)
+        label({
+            Text = m.nama,
+            Font = Enum.Font.Gotham,
+            TextSize = 12,
+            Position = UDim2.new(0, 32, 0, 0),
+            Size = UDim2.new(1, m.badge and -80 or -40, 1, 0),
+            TextTruncate = Enum.TextTruncate.AtEnd,
+        }, b)
+        local iconAsset = ICON_BY_KEY[m.kunci]
+        if iconAsset then
+            buat("ImageLabel", {
+                BackgroundTransparency = 1,
+                Image = "rbxassetid://" .. iconAsset,
+                Position = UDim2.new(0, 7, 0.5, -9),
+                Size = UDim2.new(0, 18, 0, 18),
+                ScaleType = Enum.ScaleType.Fit,
+            }, b)
+        end
         menuBtn[m.kunci] = b
         if m.badge then
             badgeMenu[m.kunci] = label({
