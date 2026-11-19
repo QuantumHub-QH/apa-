@@ -4326,72 +4326,58 @@ end
 local function buatItemToolbox(listFrame, urut, tagTeks, aset, teksTombol, aksi)
     local item = sudut(buat("Frame", {
         Name = "Item",
-        Size = UDim2.new(1, -8, 0, 164),
+        Size = UDim2.new(1, -8, 0, 200),
         BackgroundColor3 = C.kartu,
         BorderSizePixel = 0,
         LayoutOrder = urut,
     }, listFrame), 10)
 
     local thumbnail = buat("ImageLabel", {
-        Size = UDim2.new(0, 44, 0, 44),
-        Position = UDim2.new(0, 8, 0, 8),
+        Size = UDim2.new(0, 64, 0, 64),
+        Position = UDim2.new(0.5, -32, 0, 8),
         BackgroundColor3 = C.bg,
         BorderSizePixel = 0,
         Image = "rbxthumb://type=Asset&id=" .. aset.id .. "&w=420&h=420",
         ScaleType = Enum.ScaleType.Crop,
     }, item)
-    sudut(thumbnail, 6)
+    sudut(thumbnail, 8)
 
     local tag = sudut(buat("Frame", {
-        Size = UDim2.new(0, 44, 0, 14),
-        Position = UDim2.new(0, 8, 0, 38),
+        Size = UDim2.new(0, 52, 0, 14),
+        Position = UDim2.new(0.5, -26, 0, 58),
         BackgroundColor3 = C.bg,
         BorderSizePixel = 0,
     }, item), 4)
-    label({Text = tagTeks, Font = Enum.Font.GothamBold, TextSize = 7,
+    label({Text = tagTeks, Font = Enum.Font.GothamBold, TextSize = 8,
         Size = UDim2.new(1, 0, 1, 0), TextXAlignment = Enum.TextXAlignment.Center}, tag)
 
     label({Text = aset.nama, Font = Enum.Font.GothamBold, TextSize = 13,
-        Position = UDim2.new(0, 60, 0, 7),
-        Size = UDim2.new(1, -68, 0, 34),
+        Position = UDim2.new(0, 8, 0, 78),
+        Size = UDim2.new(1, -16, 0, 30),
+        TextXAlignment = Enum.TextXAlignment.Center,
         TextWrapped = true,
         TextTruncate = Enum.TextTruncate.AtEnd}, item)
     label({Text = "Creator: " .. tostring(aset.pembuat or "?"),
-        TextColor3 = C.redup, TextSize = 9,
-        Position = UDim2.new(0, 60, 0, 43),
-        Size = UDim2.new(1, -68, 0, 22),
+        TextColor3 = C.redup, TextSize = 10,
+        Position = UDim2.new(0, 8, 0, 110),
+        Size = UDim2.new(1, -16, 0, 18),
+        TextXAlignment = Enum.TextXAlignment.Center,
         TextTruncate = Enum.TextTruncate.AtEnd}, item)
 
-    local idRow = buat("Frame", {
-        Size = UDim2.new(1, -16, 0, 22),
-        Position = UDim2.new(0, 8, 0, 76),
-        BackgroundTransparency = 1,
-    }, item)
-    label({Text = "ID: " .. tostring(aset.id), TextColor3 = C.teks, TextSize = 9,
-        Size = UDim2.new(1, -30, 1, 0),
-        TextTruncate = Enum.TextTruncate.AtEnd}, idRow)
+    label({Text = "ID: " .. tostring(aset.id), TextColor3 = C.teks, TextSize = 10,
+        Position = UDim2.new(0, 8, 0, 132),
+        Size = UDim2.new(1, -16, 0, 18),
+        TextXAlignment = Enum.TextXAlignment.Center,
+        TextTruncate = Enum.TextTruncate.AtEnd}, item)
 
     local copyButton = tombol({
         Name = "CopyAssetId",
-        Text = "",
-        Size = UDim2.new(0, 24, 0, 22),
-        Position = UDim2.new(1, -24, 0, 0),
-        BackgroundColor3 = C.aktif,
-    }, idRow)
-    buat("Frame", {
-        Size = UDim2.new(0, 8, 0, 10),
-        Position = UDim2.new(0, 9, 0, 4),
-        BackgroundTransparency = 1,
-        BorderSizePixel = 1,
-        BorderColor3 = C.teks,
-    }, copyButton)
-    buat("Frame", {
-        Size = UDim2.new(0, 8, 0, 10),
-        Position = UDim2.new(0, 6, 0, 7),
-        BackgroundTransparency = 1,
-        BorderSizePixel = 1,
-        BorderColor3 = C.teks,
-    }, copyButton)
+        Text = "SALIN",
+        TextSize = 9,
+        Size = UDim2.new(0, 52, 0, 28),
+        Position = UDim2.new(0, 8, 1, -36),
+        BackgroundColor3 = C.kartu,
+    }, item)
     copyButton.Activated:Connect(function()
         if type(setclipboard) ~= "function" then
             setStatus("Executor tidak mendukung salin ke clipboard", true)
@@ -4406,8 +4392,8 @@ local function buatItemToolbox(listFrame, urut, tagTeks, aset, teksTombol, aksi)
     end)
 
     local btn = tombol({Text = teksTombol, TextSize = 10,
-        Size = UDim2.new(1, -16, 0, 28),
-        Position = UDim2.new(0, 8, 1, -36),
+        Size = UDim2.new(1, -74, 0, 28),
+        Position = UDim2.new(0, 66, 1, -36),
         BackgroundColor3 = C.aktif}, item)
     btn.Activated:Connect(function()
         if sedangKerja then return end
@@ -4443,7 +4429,7 @@ local function buatDaftarScroll(induk, posisi, ukuran, duaKolom)
     }, induk), 8)
     if duaKolom then
         buat("UIGridLayout", {
-            CellSize = UDim2.new(0.5, -6, 0, 164),
+            CellSize = UDim2.new(0.5, -6, 0, 200),
             CellPadding = UDim2.new(0, 8, 0, 8),
             SortOrder = Enum.SortOrder.LayoutOrder,
         }, list)
@@ -4529,10 +4515,12 @@ local ICON_BY_KEY = {
 }
 
 local dashboardMetrics = {}
-local dashboardMetricBars = {}
+local dashboardMetricSegments = {}
 local dashboardMetricHistory = {}
+local dashboardMetricCharts = {}
+local dashboardMetricAngles = {}
 local metricsRow = buat("Frame", {
-    Size = UDim2.new(1, -4, 0, 76),
+    Size = UDim2.new(1, -4, 0, 82),
     BackgroundTransparency = 1,
     LayoutOrder = 1,
 }, halDash)
@@ -4551,14 +4539,47 @@ local function buatMetrikDashboard(key, judul)
         BorderSizePixel = 0,
         LayoutOrder = metricOrder,
     }, metricsRow), 8)
+    local chart = buat("Frame", {
+        Name = "MetricRing",
+        Size = UDim2.new(0, 44, 0, 44),
+        Position = UDim2.new(0.5, 0, 0, 2),
+        AnchorPoint = Vector2.new(0.5, 0),
+        BackgroundTransparency = 1,
+        ZIndex = 1,
+    }, card)
+    dashboardMetricCharts[key] = chart
+    dashboardMetricAngles[key] = 0
+    dashboardMetricSegments[key] = {}
+    dashboardMetricHistory[key] = {}
+    for i = 1, 8 do
+        local angle = (i - 1) * 45 - 90
+        local length = 3
+        local radius = 12 + length / 2
+        local radians = math.rad(angle)
+        local segment = sudut(buat("Frame", {
+            Name = "MetricSegment",
+            Size = UDim2.new(0, 3, 0, length),
+            Position = UDim2.new(
+                0, 22 + math.cos(radians) * radius - 1.5,
+                0, 22 + math.sin(radians) * radius - length / 2
+            ),
+            Rotation = angle + 90,
+            BackgroundColor3 = C.aksen,
+            BackgroundTransparency = 0.82,
+            BorderSizePixel = 0,
+            ZIndex = 2,
+        }, chart), 2)
+        table.insert(dashboardMetricSegments[key], segment)
+    end
     dashboardMetrics[key] = label({
         Text = "--",
         Font = Enum.Font.GothamBold,
-        TextSize = 14,
+        TextSize = 11,
         TextXAlignment = Enum.TextXAlignment.Center,
-        Position = UDim2.new(0, 2, 0, 3),
+        Position = UDim2.new(0, 2, 0, 14),
         Size = UDim2.new(1, -4, 0, 20),
         TextTruncate = Enum.TextTruncate.AtEnd,
+        ZIndex = 3,
     }, card)
     label({
         Text = judul,
@@ -4566,52 +4587,50 @@ local function buatMetrikDashboard(key, judul)
         TextColor3 = C.redup,
         TextSize = 7,
         TextXAlignment = Enum.TextXAlignment.Center,
-        Position = UDim2.new(0, 2, 0, 23),
-        Size = UDim2.new(1, -4, 0, 12),
+        Position = UDim2.new(0, 2, 0, 55),
+        Size = UDim2.new(1, -4, 0, 14),
         TextTruncate = Enum.TextTruncate.AtEnd,
+        ZIndex = 3,
     }, card)
-    local chart = buat("Frame", {
-        Size = UDim2.new(1, -12, 0, 26),
-        Position = UDim2.new(0, 6, 0, 44),
-        BackgroundTransparency = 1,
-    }, card)
-    dashboardMetricBars[key] = {}
-    dashboardMetricHistory[key] = {}
-    for i = 1, 8 do
-        local bar = sudut(buat("Frame", {
-            Name = "MetricBar",
-            Size = UDim2.new(0, 6, 0, 3),
-            Position = UDim2.new(0, (i - 1) * 9, 1, 0),
-            AnchorPoint = Vector2.new(0, 1),
-            BackgroundColor3 = C.aksen,
-            BorderSizePixel = 0,
-        }, chart), 3)
-        table.insert(dashboardMetricBars[key], bar)
-    end
 end
 
 local function tambahSampelMetrik(key, nilai)
     if type(nilai) ~= "number" or nilai ~= nilai then return end
     local history = dashboardMetricHistory[key]
-    local bars = dashboardMetricBars[key]
-    if not history or not bars then return end
+    local segments = dashboardMetricSegments[key]
+    local chart = dashboardMetricCharts[key]
+    if not history or not segments or not chart then return end
 
     table.insert(history, math.max(0, nilai))
-    while #history > #bars do table.remove(history, 1) end
+    while #history > #segments do table.remove(history, 1) end
 
     local maximum = 1
     for _, sample in ipairs(history) do
         if sample > maximum then maximum = sample end
     end
-    for i, bar in ipairs(bars) do
+    for i, segment in ipairs(segments) do
         local sample = history[i]
-        local height = sample and math.max(3, math.floor(sample / maximum * 24 + 0.5)) or 3
+        local length = sample and math.max(3, math.floor(sample / maximum * 9 + 0.5)) or 3
+        local angle = (i - 1) * 45 - 90
+        local radians = math.rad(angle)
+        local radius = 12 + length / 2
+        local position = UDim2.new(
+            0, 22 + math.cos(radians) * radius - 1.5,
+            0, 22 + math.sin(radians) * radius - length / 2
+        )
+        segment.BackgroundTransparency = sample and (0.12 + (1 - sample / maximum) * 0.45) or 0.82
         TweenService:Create(
-            bar,
-            TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-            {Size = UDim2.new(0, 6, 0, height)}
+            segment,
+            TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+            {Size = UDim2.new(0, 3, 0, length), Position = position}
         ):Play()
     end
+    dashboardMetricAngles[key] = dashboardMetricAngles[key] + 30
+    TweenService:Create(
+        chart,
+        TweenInfo.new(0.45, Enum.EasingStyle.Sine, Enum.EasingDirection.Out),
+        {Rotation = dashboardMetricAngles[key]}
+    ):Play()
 end
 
 buatMetrikDashboard("rbxm", "TOTAL RBXM")
@@ -4720,7 +4739,7 @@ panelUpload.extra.Activated:Connect(function() bukaHalaman("setelan") end)
 ------------------------------------------------------------------
 -- PANEL SAMPING: TOOLBOX
 ------------------------------------------------------------------
-local TOOLBOX_WIDTH, TOOLBOX_HEIGHT, TOOLBOX_GAP = 420, 480, 12
+local TOOLBOX_WIDTH, TOOLBOX_HEIGHT, TOOLBOX_GAP = 340, 480, 12
 local toolboxTerbuka = false
 local halToolbox = sudut(buat("Frame", {
     Name = "ToolboxPanel",
