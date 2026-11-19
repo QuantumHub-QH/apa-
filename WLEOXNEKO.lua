@@ -16,6 +16,7 @@
 
 local Players = game:GetService("Players")
 local UIS = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
 local HttpService = game:GetService("HttpService")
 local lp = Players.LocalPlayer
 
@@ -180,6 +181,42 @@ local function taruhDiDepan(obj)
     end
 end
 
+local function taruhGrupDiDepan(objects)
+    local char = lp.Character
+    local root = char and char:FindFirstChild("HumanoidRootPart")
+    if not root then
+        return false, "HumanoidRootPart tidak ditemukan"
+    end
+
+    local movable = {}
+    for _, obj in ipairs(objects) do
+        if obj:IsA("PVInstance") then
+            table.insert(movable, obj)
+        end
+    end
+    if #movable == 0 then return true end
+
+    local okPivot, firstPivot = pcall(function()
+        return movable[1]:GetPivot()
+    end)
+    if not okPivot then
+        return false, tostring(firstPivot)
+    end
+
+    local offset = root.CFrame * CFrame.new(0, 0, -10) * firstPivot:Inverse()
+    local moved = 0
+    for _, obj in ipairs(movable) do
+        local okMove = pcall(function()
+            obj:PivotTo(offset * obj:GetPivot())
+        end)
+        if okMove then moved += 1 end
+    end
+    if moved ~= #movable then
+        return false, "Sebagian objek tidak dapat dipindahkan"
+    end
+    return true
+end
+
 local function decodeJson(res)
     if res and type(res.Body) == "string" then
         local ok, d = pcall(function() return HttpService:JSONDecode(res.Body) end)
@@ -265,7 +302,7 @@ if lama then lama:Destroy() end
 
 local gui = buat("ScreenGui", {Name = "ImporterHub", ResetOnSpawn = false}, parentGui)
 
-local LEBAR, TINGGI = 820, 520
+local LEBAR, TINGGI = 780, 500
 local frame = sudut(buat("Frame", {
     Size = UDim2.new(0, LEBAR, 0, TINGGI),
     Position = UDim2.new(0.5, -LEBAR / 2, 0.5, -TINGGI / 2),
@@ -337,7 +374,44 @@ local isi = buat("Frame", {
     BackgroundTransparency = 1,
 }, body)
 
+local pageSweep = buat("Frame", {
+    Name = "PageSweep",
+    Size = UDim2.new(0, 108, 1, 0),
+    Position = UDim2.new(0, -120, 0, 0),
+    BackgroundColor3 = Color3.new(1, 1, 1),
+    BackgroundTransparency = 0.65,
+    BorderSizePixel = 0,
+    Visible = false,
+    ZIndex = 100,
+}, isi)
+buat("UIGradient", {
+    Transparency = NumberSequence.new({
+        NumberSequenceKeypoint.new(0, 1),
+        NumberSequenceKeypoint.new(0.5, 0.25),
+        NumberSequenceKeypoint.new(1, 1),
+    }),
+}, pageSweep)
+
+local pageSweepTween
+local function playPageSweep()
+    if pageSweepTween then pageSweepTween:Cancel() end
+    pageSweep.Visible = true
+    pageSweep.Position = UDim2.new(0, -120, 0, 0)
+    local tween = TweenService:Create(pageSweep,
+        TweenInfo.new(0.42, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut),
+        {Position = UDim2.new(1, 12, 0, 0)})
+    pageSweepTween = tween
+    tween.Completed:Connect(function()
+        if pageSweepTween == tween then
+            pageSweep.Visible = false
+            pageSweepTween = nil
+        end
+    end)
+    tween:Play()
+end
+
 local halaman = {}
+local halamanAktif
 local badgeMenu, badgeKartu, menuBtn = {}, {}, {}
 local tombolTujuan = {}
 local bukaHalaman, lakukanScan
@@ -3788,10 +3862,85 @@ local function scanAllSupported()
     end)
     return results
 end
+local function prepareToolboxObjects(objects, sourceData)
+    local stats = {parts = 0, scripts = 0, sources = 0, written = 0, editors = 0, visible = 0}
+    local sourceQueues = {}
+    if type(sourceData) == "string" and #sourceData > 0 then
+        local serialization = detectRobloxSerialization(sourceData)
+        local parseFunction = serialization == "BINARY" and parseRBXLBinary
+            or serialization == "XML" and parseRobloxXML
+        if parseFunction then
+            local okParse, parsed, parseError = pcall(parseFunction, sourceData)
+            if okParse and parsed then
+                sourceQueues = collectRBXMSources(parsed)
+            else
+                stats.parseError = tostring(okParse and parseError or parsed)
+            end
+        else
+            stats.parseError = "Payload asset bukan format RBXM/RBXMX yang dikenal"
+        end
+    else
+        stats.parseError = "Payload source asset tidak tersedia"
+    end
+
+    for _, root in ipairs(objects) do
+        local all = {root}
+        for _, descendant in ipairs(root:GetDescendants()) do
+            table.insert(all, descendant)
+        end
+        for _, obj in ipairs(all) do
+            if obj:IsA("BasePart") then
+                local okAnchor = pcall(function()
+                    obj:SetAttribute("LANGZ_AutoAnchored", true)
+                    obj.Anchored = true
+                end)
+                if okAnchor then stats.parts += 1 end
+            elseif obj:IsA("LuaSourceContainer") then
+                stats.scripts += 1
+                local originalEnabled = getOriginalScriptEnabled(obj, {Properties = {}})
+                pcall(function()
+                    obj:SetAttribute("LANGZ_OriginalEnabled", originalEnabled)
+                    obj:SetAttribute("LANGZ_OriginalDisabled", not originalEnabled)
+                    obj:SetAttribute("LANGZ_StagedDisabled", true)
+                end)
+                setScriptEnabledState(obj, false)
+
+                local source = takeRBXMSource(sourceQueues, obj)
+                if type(source) ~= "string" or source == "" then
+                    source = rawSourceFor(obj)
+                end
+                if type(source) ~= "string" or source == "" then
+                    local okRead, instanceSource = pcall(function() return obj.Source end)
+                    if okRead and type(instanceSource) == "string" and instanceSource ~= "" then
+                        source = instanceSource
+                    end
+                end
+                if type(source) == "string" and source ~= "" then
+                    stats.sources += 1
+                    _G.Langz_RAW_SOURCES[obj] = source
+                    local wrote = tryWriteRBXMSource(obj, source)
+                    if not wrote then
+                        wrote = tryWriteRealScriptSource(obj)
+                    end
+                    if wrote then stats.written += 1 end
+                    pcall(injectStudioLiteUI, obj, {})
+                    local hasEditor = obj:FindFirstChild("SL_CodeTextBox") ~= nil
+                    if hasEditor then
+                        stats.editors += 1
+                    end
+                    if wrote or hasEditor then stats.visible += 1 end
+                end
+            end
+        end
+    end
+    stats.missingSources = math.max(stats.scripts - stats.sources, 0)
+    return stats
+end
     return {
         importRBXM = importRBXM,
         importRBXL = importRBXL,
         activateImportRoot = activateImportRoot,
+        prepareToolboxObjects = prepareToolboxObjects,
     }
 end
 
@@ -4261,7 +4410,15 @@ local tbInput = kotakTeks({
 }, halToolbox)
 local tbCari = tombol({Text = "CARI", Size = UDim2.new(0, 82, 0, 30),
     Position = UDim2.new(1, -82, 0, 34), BackgroundColor3 = C.aktif}, halToolbox)
-local tbList = buatDaftarScroll(halToolbox, UDim2.new(0, 0, 0, 70), UDim2.new(1, 0, 1, -104))
+local tbIdInput = kotakTeks({
+    Size = UDim2.new(1, -122, 0, 30),
+    Position = UDim2.new(0, 0, 0, 70),
+    Text = "",
+    PlaceholderText = "Tempel ID aset Roblox...",
+}, halToolbox)
+local tbImportId = tombol({Text = "IMPORT ID", Size = UDim2.new(0, 114, 0, 30),
+    Position = UDim2.new(1, -114, 0, 70), BackgroundColor3 = C.aktif}, halToolbox)
+local tbList = buatDaftarScroll(halToolbox, UDim2.new(0, 0, 0, 106), UDim2.new(1, 0, 1, -140))
 local tbInfo = label({Text = "", TextColor3 = C.redup, TextSize = 11,
     Position = UDim2.new(0, 0, 1, -28), Size = UDim2.new(1, -200, 0, 28)}, halToolbox)
 local tbTujuan = tombol({Text = "", Size = UDim2.new(0, 190, 0, 28),
@@ -4304,6 +4461,39 @@ local function cariCreatorStore(kat, q)
     return hasil
 end
 
+local function unduhPayloadToolbox(assetId)
+    if not httpReq then
+        return nil, "request API tidak tersedia untuk membaca source asset"
+    end
+    local ok, response = pcall(httpReq, {
+        Url = "https://assetdelivery.roblox.com/v1/asset/?id=" .. HttpService:UrlEncode(assetId),
+        Method = "GET",
+    })
+    if not ok or type(response) ~= "table" then
+        return nil, "Asset Delivery request gagal: " .. tostring(response)
+    end
+    if tonumber(response.StatusCode) ~= 200 then
+        return nil, "Asset Delivery HTTP " .. tostring(response.StatusCode)
+    end
+    if type(response.Body) ~= "string" or #response.Body == 0 then
+        return nil, "Asset Delivery mengembalikan payload kosong"
+    end
+    if #response.Body > 20 * 1024 * 1024 then
+        return nil, "Payload asset lebih dari 20 MB"
+    end
+    return response.Body
+end
+
+local function memilikiScriptToolbox(objects)
+    for _, root in ipairs(objects) do
+        if root:IsA("LuaSourceContainer") then return true end
+        for _, descendant in ipairs(root:GetDescendants()) do
+            if descendant:IsA("LuaSourceContainer") then return true end
+        end
+    end
+    return false
+end
+
 local function masukkanAsetToolbox(kat, it)
     local tujuan = TUJUAN[idxTujuan].obj
     setStatus("Memuat " .. it.nama .. "...")
@@ -4330,7 +4520,46 @@ local function masukkanAsetToolbox(kat, it)
 
     local ok, objs = pcall(function() return game:GetObjects("rbxassetid://" .. it.id) end)
     if ok and type(objs) == "table" and #objs > 0 then
-        return pasangHasil(objs, it.nama)
+        local sourceData, sourceError
+        local sourceStats
+        if kat == "Model" and memilikiScriptToolbox(objs) then
+            setStatus("Membaca source script dari asset...")
+            sourceData, sourceError = unduhPayloadToolbox(it.id)
+        end
+        if kat == "Model" then
+            sourceStats = studioLiteImporter.prepareToolboxObjects(objs, sourceData)
+        end
+        local berhasil = pasangHasil(objs, it.nama)
+        if not berhasil then return false end
+        local spawnError
+        if #objs > 1 and TUJUAN[idxTujuan].obj == workspace then
+            local positioned, positionMessage = taruhGrupDiDepan(objs)
+            if not positioned then spawnError = positionMessage end
+        end
+        if sourceStats and sourceStats.scripts > 0 then
+            local terlihat = sourceStats.visible
+            if sourceStats.missingSources > 0 or terlihat < sourceStats.sources or spawnError then
+                local alasan = sourceError or sourceStats.parseError
+                if spawnError then
+                    alasan = (alasan and tostring(alasan) .. "; " or "")
+                        .. "spawn dekat gagal: " .. tostring(spawnError)
+                elseif not alasan then
+                    alasan = "source tidak dapat dipulihkan"
+                end
+                setStatus(string.format(
+                    "Aset masuk; source %d/%d, script hilang %d. %s",
+                    terlihat, sourceStats.scripts, sourceStats.missingSources, tostring(alasan)
+                ), true)
+            else
+                setStatus(string.format(
+                    "Aset masuk; source %d/%d dipulihkan dan script nonaktif untuk diperiksa",
+                    terlihat, sourceStats.scripts
+                ))
+            end
+        elseif spawnError then
+            setStatus("Aset masuk, tapi spawn dekat gagal: " .. tostring(spawnError), true)
+        end
+        return true
     end
 
     if kat == "MeshPart" then
@@ -4396,6 +4625,32 @@ end
 
 tbCari.Activated:Connect(cariToolbox)
 tbInput.FocusLost:Connect(function(enter) if enter then cariToolbox() end end)
+tbImportId.Activated:Connect(function()
+    if sedangKerja then return end
+    local assetId = tostring(tbIdInput.Text):match("^%s*(.-)%s*$")
+    if not assetId:match("^%d+$") or #assetId > 20 or assetId:match("^0+$") then
+        setStatus("Masukkan ID aset Roblox berupa angka.", true)
+        return
+    end
+
+    local category = katAktif
+    sedangKerja = true
+    tbImportId.Text = "..."
+    task.spawn(function()
+        local ok, berhasil = pcall(function()
+            return masukkanAsetToolbox(category, {
+                id = assetId,
+                nama = "Asset " .. assetId,
+                pembuat = "ID langsung",
+            })
+        end)
+        if not ok then
+            setStatus("Import ID gagal: " .. tostring(berhasil), true)
+        end
+        tbImportId.Text = ok and berhasil and "DONE" or "ULANG"
+        sedangKerja = false
+    end)
+end)
 
 ------------------------------------------------------------------
 -- HALAMAN: AI CHAT (OpenRouter)
@@ -4663,6 +4918,7 @@ local function perbaruiHitungan()
 end
 
 bukaHalaman = function(kunci)
+    local halamanBerubah = halamanAktif ~= kunci
     for _, f in pairs(halaman) do f.Visible = false end
 
     if JENIS_KUNCI[kunci] then
@@ -4685,6 +4941,8 @@ bukaHalaman = function(kunci)
         halaman[kunci].Visible = true
     end
     sorotMenu(kunci)
+    halamanAktif = kunci
+    if halamanBerubah then playPageSweep() end
 end
 
 lakukanScan = function()
@@ -4727,6 +4985,7 @@ local toggler = sudut(buat("ImageButton", {
 toggler.Activated:Connect(function()
     toggleGui.Enabled = false
     gui.Enabled = true
+    playPageSweep()
 end)
 
 btnTutup.Activated:Connect(function()
