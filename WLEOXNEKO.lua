@@ -173,37 +173,89 @@ local function hitung(inst, t)
     for _, d in ipairs(inst:GetDescendants()) do cek(d) end
 end
 
-local function taruhDiDepan(obj)
-    local char = lp.Character
-    local root = char and char:FindFirstChild("HumanoidRootPart")
-    if root and obj:IsA("PVInstance") then
-        pcall(function() obj:PivotTo(root.CFrame * CFrame.new(0, 0, -10)) end)
-    end
-end
-
+local JARAK_MIN_SPAWN_KAMERA = 24
+local JARAK_AMAN_SPAWN_KAMERA = 12
 local function taruhGrupDiDepan(objects)
-    local char = lp.Character
-    local root = char and char:FindFirstChild("HumanoidRootPart")
-    if not root then
-        return false, "HumanoidRootPart tidak ditemukan"
-    end
-
     local movable = {}
-    for _, obj in ipairs(objects) do
+    local function collectSpatialRoots(obj)
         if obj:IsA("PVInstance") then
             table.insert(movable, obj)
+            return
         end
+        for _, child in ipairs(obj:GetChildren()) do
+            collectSpatialRoots(child)
+        end
+    end
+
+    for _, obj in ipairs(objects) do
+        collectSpatialRoots(obj)
     end
     if #movable == 0 then return true end
 
-    local okPivot, firstPivot = pcall(function()
-        return movable[1]:GetPivot()
-    end)
-    if not okPivot then
-        return false, tostring(firstPivot)
+    local camera = workspace.CurrentCamera
+    if not camera then
+        return false, "Kamera tidak tersedia"
     end
 
-    local offset = root.CFrame * CFrame.new(0, 0, -10) * firstPivot:Inverse()
+    local minBound, maxBound
+    local function includePart(part)
+        local cf = part.CFrame
+        local half = part.Size * 0.5
+        local right, up, look = cf.RightVector, cf.UpVector, cf.LookVector
+        local extent = Vector3.new(
+            math.abs(right.X) * half.X + math.abs(up.X) * half.Y + math.abs(look.X) * half.Z,
+            math.abs(right.Y) * half.X + math.abs(up.Y) * half.Y + math.abs(look.Y) * half.Z,
+            math.abs(right.Z) * half.X + math.abs(up.Z) * half.Y + math.abs(look.Z) * half.Z
+        )
+        local partMin, partMax = cf.Position - extent, cf.Position + extent
+        minBound = minBound and Vector3.new(
+            math.min(minBound.X, partMin.X),
+            math.min(minBound.Y, partMin.Y),
+            math.min(minBound.Z, partMin.Z)
+        ) or partMin
+        maxBound = maxBound and Vector3.new(
+            math.max(maxBound.X, partMax.X),
+            math.max(maxBound.Y, partMax.Y),
+            math.max(maxBound.Z, partMax.Z)
+        ) or partMax
+    end
+
+    for _, obj in ipairs(movable) do
+        if obj:IsA("BasePart") then includePart(obj) end
+        for _, descendant in ipairs(obj:GetDescendants()) do
+            if descendant:IsA("BasePart") then includePart(descendant) end
+        end
+    end
+
+    if not minBound then
+        for _, obj in ipairs(movable) do
+            local okPivot, pivot = pcall(function() return obj:GetPivot() end)
+            if okPivot then
+                local position = pivot.Position
+                minBound = minBound and Vector3.new(
+                    math.min(minBound.X, position.X),
+                    math.min(minBound.Y, position.Y),
+                    math.min(minBound.Z, position.Z)
+                ) or position
+                maxBound = maxBound and Vector3.new(
+                    math.max(maxBound.X, position.X),
+                    math.max(maxBound.Y, position.Y),
+                    math.max(maxBound.Z, position.Z)
+                ) or position
+            end
+        end
+    end
+    if not minBound then return false, "Posisi objek tidak dapat dibaca" end
+
+    local center = (minBound + maxBound) * 0.5
+    local halfSize = (maxBound - minBound) * 0.5
+    local direction = camera.CFrame.LookVector
+    local radius = math.abs(direction.X) * halfSize.X
+        + math.abs(direction.Y) * halfSize.Y
+        + math.abs(direction.Z) * halfSize.Z
+    local distance = math.max(JARAK_MIN_SPAWN_KAMERA, radius + JARAK_AMAN_SPAWN_KAMERA)
+    local targetCenter = camera.CFrame.Position + direction * distance
+    local offset = CFrame.new(targetCenter - center)
     local moved = 0
     for _, obj in ipairs(movable) do
         local okMove = pcall(function()
@@ -215,6 +267,10 @@ local function taruhGrupDiDepan(objects)
         return false, "Sebagian objek tidak dapat dipindahkan"
     end
     return true
+end
+
+local function taruhDiDepan(obj)
+    return taruhGrupDiDepan({obj})
 end
 
 local function decodeJson(res)
@@ -438,13 +494,16 @@ end
 local function pasangHasil(hasil, namaSumber)
     local tujuan = TUJUAN[idxTujuan]
     local sebelum, sesudah = {}, {}
-    local ditaruh, gagal = {}, 0
+    local ditaruh, objekWorkspace, gagal = {}, {}, 0
 
     local function taruh(inst, induk)
         hitung(inst, sebelum)
         local ok = pcall(function() inst.Parent = induk end)
         if ok then
             table.insert(ditaruh, inst)
+            if induk == workspace then
+                table.insert(objekWorkspace, inst)
+            end
         else
             gagal = gagal + 1
         end
@@ -466,9 +525,10 @@ local function pasangHasil(hasil, namaSumber)
         end
     end
 
-    -- Model tunggal: taruh 10 stud di depan karakter
-    if #hasil == 1 and #ditaruh == 1 and tujuan.obj == workspace then
-        taruhDiDepan(ditaruh[1])
+    local spawnError
+    if #objekWorkspace > 0 then
+        local positioned, positionMessage = taruhGrupDiDepan(objekWorkspace)
+        if not positioned then spawnError = positionMessage end
     end
 
     -- Cek ulang jumlah script setelah dipasang
@@ -482,14 +542,30 @@ local function pasangHasil(hasil, namaSumber)
         sesudah.Script or 0, sesudah.LocalScript or 0, sesudah.ModuleScript or 0)
 
     if gagal > 0 or sa < sb then
-        setStatus(string.format("Peringatan: script %d dari %d, %d objek gagal dipasang", sa, sb, gagal), true)
-        warn(string.format("[Importer] %s: script %d dari %d, gagal pasang %d objek", namaSumber, sa, sb, gagal))
+        local pesanError = string.format(
+            "Peringatan: script %d dari %d, %d objek gagal dipasang",
+            sa, sb, gagal
+        )
+        if spawnError then
+            pesanError ..= " | spawn depan kamera gagal: " .. tostring(spawnError)
+        end
+        setStatus(pesanError, true)
+        warn(string.format("[Importer] %s: %s", namaSumber, pesanError))
         return false
     end
 
-    setStatus(string.format("Berhasil %d objek | Script utuh: %d (%s)", #ditaruh, sa, rinci))
+    local pesanSukses = string.format(
+        "Berhasil %d objek | Script utuh: %d (%s)",
+        #ditaruh, sa, rinci
+    )
+    if spawnError then
+        pesanSukses ..= " | spawn depan kamera gagal: " .. tostring(spawnError)
+        setStatus(pesanSukses, true)
+    else
+        setStatus(pesanSukses)
+    end
     print(string.format("[Importer] %s: %d objek, script utuh %d (%s)", namaSumber, #ditaruh, sa, rinci))
-    return true
+    return true, spawnError
 end
 
 local function createStudioLiteImporter()
@@ -3521,6 +3597,7 @@ local function activateImportRoot(importRoot)
     local runtimeStats = restoreImportedRuntimeState(importRoot)
     reportImportProgress(0.87, "RESTORING SCRIPT SOURCES")
     local moved = 0
+    local workspaceSpawnObjects = {}
     local failedServices = 0
     local stagedCounts = {}
     local stagedScriptCounts = {}
@@ -3544,12 +3621,19 @@ local function activateImportRoot(importRoot)
             local key = serviceFolder:GetAttribute("LANGZ_ServiceKey")
             local destination = destinationByKey[key]
             if destination then
-                moved += moveChildren(serviceFolder, destination)
+                local onMoved
+                if key == "WS" then
+                    onMoved = function(child)
+                        table.insert(workspaceSpawnObjects, child)
+                    end
+                end
+                moved += moveChildren(serviceFolder, destination, onMoved)
             elseif #serviceFolder:GetChildren() > 0 then
                 failedServices += 1
             end
         end
     end
+    local spawnOk, spawnError = taruhGrupDiDepan(workspaceSpawnObjects)
     reportImportProgress(0.91, ("DEPLOYED • %d OBJECTS"):format(moved))
     local activatedScripts = 0
     local function restoreOneImportedScript(obj)
@@ -3745,7 +3829,7 @@ local function activateImportRoot(importRoot)
         end)
     end
     reportImportProgress(1.00, "RBXL GENERATION COMPLETE")
-    return true, ("ACTIVE • moved:%d • scripts:%d active:%d • source:%d/%d • SSS:%d SS:%d • editor:%d/%d • service reused:%d real-created:%d getservice:%d real-failed:%d"):format(
+    local summary = ("ACTIVE • moved:%d • scripts:%d active:%d • source:%d/%d • SSS:%d SS:%d • editor:%d/%d • service reused:%d real-created:%d getservice:%d real-failed:%d"):format(
         moved,
         runtimeStats.scripts,
         activatedScripts,
@@ -3760,6 +3844,10 @@ local function activateImportRoot(importRoot)
         forcedServiceCount,
         missingRealServices
     )
+    if not spawnOk then
+        summary ..= " • spawn depan kamera gagal: " .. tostring(spawnError)
+    end
+    return true, summary
 end
 local function safeListFiles(path)
     if type(listfiles) ~= "function" then return nil end
@@ -3974,8 +4062,12 @@ local function importFile(f)
             for _, root in ipairs(importedRoots) do
                 root.Parent = tujuanModel.obj
             end
-            if #importedRoots == 1 and tujuanModel.obj == workspace then
-                taruhDiDepan(importedRoots[1])
+            if tujuanModel.obj == workspace then
+                local positioned, positionMessage = taruhGrupDiDepan(importedRoots)
+                if not positioned then
+                    importMessage = tostring(importMessage)
+                        .. " | spawn depan kamera gagal: " .. tostring(positionMessage)
+                end
             end
         end
         return importOk, importMessage
@@ -4707,8 +4799,13 @@ local function masukkanAsetToolbox(kat, it)
         d.Texture = tex
         d.Parent = part
         part.Parent = tujuan
-        if tujuan == workspace then taruhDiDepan(part) end
-        setStatus("Decal dipasang: " .. it.nama)
+        local positioned, positionMessage = true, nil
+        if tujuan == workspace then positioned, positionMessage = taruhDiDepan(part) end
+        if positioned then
+            setStatus("Decal dipasang: " .. it.nama)
+        else
+            setStatus("Decal dipasang, tapi spawn depan kamera gagal: " .. tostring(positionMessage), true)
+        end
         return true
     end
 
@@ -4723,13 +4820,8 @@ local function masukkanAsetToolbox(kat, it)
         if kat == "Model" then
             sourceStats = studioLiteImporter.prepareToolboxObjects(objs, sourceData)
         end
-        local berhasil = pasangHasil(objs, it.nama)
+        local berhasil, spawnError = pasangHasil(objs, it.nama)
         if not berhasil then return false end
-        local spawnError
-        if #objs > 1 and TUJUAN[idxTujuan].obj == workspace then
-            local positioned, positionMessage = taruhGrupDiDepan(objs)
-            if not positioned then spawnError = positionMessage end
-        end
         if sourceStats and sourceStats.scripts > 0 then
             local terlihat = sourceStats.visible
             if sourceStats.missingSources > 0 or terlihat < sourceStats.sources or spawnError then
@@ -4766,8 +4858,13 @@ local function masukkanAsetToolbox(kat, it)
         m.MeshId = "rbxassetid://" .. it.id
         m.Parent = part
         part.Parent = tujuan
-        if tujuan == workspace then taruhDiDepan(part) end
-        setStatus("Mesh dipasang: " .. it.nama)
+        local positioned, positionMessage = true, nil
+        if tujuan == workspace then positioned, positionMessage = taruhDiDepan(part) end
+        if positioned then
+            setStatus("Mesh dipasang: " .. it.nama)
+        else
+            setStatus("Mesh dipasang, tapi spawn depan kamera gagal: " .. tostring(positionMessage), true)
+        end
         return true
     end
 
