@@ -265,7 +265,7 @@ if lama then lama:Destroy() end
 
 local gui = buat("ScreenGui", {Name = "ImporterHub", ResetOnSpawn = false}, parentGui)
 
-local LEBAR, TINGGI = 600, 340
+local LEBAR, TINGGI = 820, 520
 local frame = sudut(buat("Frame", {
     Size = UDim2.new(0, LEBAR, 0, TINGGI),
     Position = UDim2.new(0.5, -LEBAR / 2, 0.5, -TINGGI / 2),
@@ -578,6 +578,64 @@ local function buatItem(listFrame, urut, tagTeks, nama, sub, teksTombol, aksi)
     local btn = tombol({Text = teksTombol, TextSize = 11, Size = UDim2.new(0, 76, 0, 28),
         Position = UDim2.new(1, -84, 0.5, -14), BackgroundColor3 = C.aktif}, item)
 
+    btn.Activated:Connect(function()
+        if sedangKerja then return end
+        sedangKerja = true
+        btn.Text = "..."
+        task.spawn(function()
+            local ok, hasil = pcall(aksi)
+            if not ok then
+                setStatus("Error: " .. tostring(hasil), true)
+                hasil = false
+            end
+            btn.Text = hasil and "DONE" or "ULANG"
+            sedangKerja = false
+        end)
+    end)
+    return item
+end
+
+local function buatItemToolbox(listFrame, urut, tagTeks, aset, sub, teksTombol, aksi)
+    local item = sudut(buat("Frame", {
+        Name = "Item",
+        Size = UDim2.new(1, -8, 0, 108),
+        BackgroundColor3 = C.kartu,
+        BorderSizePixel = 0,
+        LayoutOrder = urut,
+    }, listFrame), 10)
+
+    local thumbnail = buat("ImageLabel", {
+        Size = UDim2.new(0, 92, 0, 92),
+        Position = UDim2.new(0, 8, 0.5, -46),
+        BackgroundColor3 = C.bg,
+        BorderSizePixel = 0,
+        Image = "rbxthumb://type=Asset&id=" .. aset.id .. "&w=420&h=420",
+        ScaleType = Enum.ScaleType.Crop,
+    }, item)
+    sudut(thumbnail, 8)
+
+    local tag = sudut(buat("Frame", {
+        Size = UDim2.new(0, 58, 0, 24),
+        Position = UDim2.new(0, 112, 0, 10),
+        BackgroundColor3 = C.bg,
+        BorderSizePixel = 0,
+    }, item), 6)
+    label({Text = tagTeks, Font = Enum.Font.GothamBold, TextSize = 10,
+        Size = UDim2.new(1, 0, 1, 0), TextXAlignment = Enum.TextXAlignment.Center}, tag)
+
+    label({Text = aset.nama, Font = Enum.Font.GothamBold, TextSize = 13,
+        Position = UDim2.new(0, 112, 0, 38),
+        Size = UDim2.new(1, -206, 0, 22),
+        TextTruncate = Enum.TextTruncate.AtEnd}, item)
+    label({Text = sub, TextColor3 = C.redup, TextSize = 11,
+        Position = UDim2.new(0, 112, 0, 64),
+        Size = UDim2.new(1, -206, 0, 18),
+        TextTruncate = Enum.TextTruncate.AtEnd}, item)
+
+    local btn = tombol({Text = teksTombol, TextSize = 11,
+        Size = UDim2.new(0, 82, 0, 32),
+        Position = UDim2.new(1, -90, 0.5, -16),
+        BackgroundColor3 = C.aktif}, item)
     btn.Activated:Connect(function()
         if sedangKerja then return end
         sedangKerja = true
@@ -909,7 +967,7 @@ local function cariToolbox()
             return
         end
         for i, it in ipairs(hasil) do
-            buatItem(tbList, i, tagKat, it.nama, "oleh " .. it.pembuat .. " · ID " .. it.id, "IMPORT",
+            buatItemToolbox(tbList, i, tagKat, it, "oleh " .. it.pembuat .. " · ID " .. it.id, "IMPORT",
                 function() return masukkanAsetToolbox(kat, it) end)
         end
         tbInfo.Text = #hasil .. " hasil"
@@ -1231,9 +1289,30 @@ perbaruiTujuan()
 ------------------------------------------------------------------
 local koneksiGeser
 
+local lamaToggle = parentGui:FindFirstChild("ImporterHubToggle")
+if lamaToggle then lamaToggle:Destroy() end
+local toggleGui = buat("ScreenGui", {
+    Name = "ImporterHubToggle",
+    ResetOnSpawn = false,
+    Enabled = false,
+}, parentGui)
+local toggler = sudut(buat("ImageButton", {
+    Name = "HubToggle",
+    Size = UDim2.new(0, 64, 0, 64),
+    Position = UDim2.new(0, 18, 0.5, -32),
+    Image = "rbxassetid://75105787796422",
+    BackgroundTransparency = 1,
+    BorderSizePixel = 0,
+    Active = true,
+}, toggleGui), 14)
+toggler.Activated:Connect(function()
+    toggleGui.Enabled = false
+    gui.Enabled = true
+end)
+
 btnTutup.Activated:Connect(function()
-    if koneksiGeser then koneksiGeser:Disconnect() end
-    gui:Destroy()
+    gui.Enabled = false
+    if toggleGui then toggleGui.Enabled = true end
 end)
 
 local kecil = false
