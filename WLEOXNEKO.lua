@@ -302,7 +302,7 @@ if lama then lama:Destroy() end
 
 local gui = buat("ScreenGui", {Name = "ImporterHub", ResetOnSpawn = false}, parentGui)
 
-local LEBAR, TINGGI = 680, 440
+local LEBAR, TINGGI = 560, 360
 local frame = sudut(buat("Frame", {
     Size = UDim2.new(0, LEBAR, 0, TINGGI),
     Position = UDim2.new(0.5, -LEBAR / 2, 0.5, -TINGGI / 2),
