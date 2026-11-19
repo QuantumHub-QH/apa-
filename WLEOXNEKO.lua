@@ -4,6 +4,7 @@
     Fitur:
     - Import RBXM / RBXL / RBXLX / RBXMX dari folder Workspace Delta
     - Toolbox: cari & import Model, Decal, Mesh dari Creator Store
+    - Music Player: putar audio publik breakbeat, EDM, dan sad
     - AI Chat: ngobrol dengan AI lewat OpenRouter (butuh API key)
     - Upload Gambar / Animasi / RBXM lewat Roblox Open Cloud (butuh API key)
     - Dashboard: jumlah file, CPU/FPS, dan grafik performa
@@ -539,6 +540,8 @@ local badgeMenu, badgeKartu, menuBtn = {}, {}, {}
 local tombolTujuan = {}
 local bukaHalaman, lakukanScan
 local bukaToolboxPanel, tutupToolboxPanel
+local bukaMusicPanel, tutupMusicPanel
+local sorotMenu
 
 local function perbaruiTujuan()
     for _, b in ipairs(tombolTujuan) do
@@ -4503,6 +4506,7 @@ buat("UIListLayout", {
 local ICON_BY_KEY = {
     dashboard = "134003209888315",
     toolbox = "121323758319527",
+    music = "102337382069600",
     rbxm = "106962661743892",
     rbxmx = "106962661743892",
     rbxl = "122982660526589",
@@ -4740,7 +4744,9 @@ panelUpload.extra.Activated:Connect(function() bukaHalaman("setelan") end)
 -- PANEL SAMPING: TOOLBOX
 ------------------------------------------------------------------
 local TOOLBOX_WIDTH, TOOLBOX_HEIGHT, TOOLBOX_GAP = 340, 480, 12
-local toolboxTerbuka = false
+local MUSIC_WIDTH, MUSIC_HEIGHT = 340, 480
+local toolboxTerbuka, musicTerbuka = false, false
+local halMusic
 local halToolbox = sudut(buat("Frame", {
     Name = "ToolboxPanel",
     Size = UDim2.new(0, TOOLBOX_WIDTH, 0, TOOLBOX_HEIGHT),
@@ -4791,19 +4797,35 @@ buat("Frame", {
     BorderSizePixel = 0,
 }, halToolbox)
 
+local function posisikanPanelSamping()
+    if musicTerbuka and halMusic then
+        halMusic.Position = UDim2.new(
+            frame.Position.X.Scale, frame.Position.X.Offset - MUSIC_WIDTH - TOOLBOX_GAP,
+            frame.Position.Y.Scale, frame.Position.Y.Offset + (TINGGI - MUSIC_HEIGHT) / 2
+        )
+    end
+    if toolboxTerbuka then
+        halToolbox.Position = UDim2.new(
+            frame.Position.X.Scale, frame.Position.X.Offset + LEBAR + TOOLBOX_GAP,
+            frame.Position.Y.Scale, frame.Position.Y.Offset + (TINGGI - TOOLBOX_HEIGHT) / 2
+        )
+    end
+end
+
+local function aturLayoutPanelSamping()
+    local ruangKiri = musicTerbuka and (MUSIC_WIDTH + TOOLBOX_GAP) or 0
+    local ruangKanan = toolboxTerbuka and (TOOLBOX_WIDTH + TOOLBOX_GAP) or 0
+    local lebarGrup = ruangKiri + LEBAR + ruangKanan
+    frame.Position = UDim2.new(0.5, -lebarGrup / 2 + ruangKiri, 0.5, -TINGGI / 2)
+    posisikanPanelSamping()
+end
+
 bukaToolboxPanel = function()
     if toolboxTerbuka then return end
     toolboxTerbuka = true
-    for key, button in pairs(menuBtn) do
-        button.BackgroundColor3 = (key == "toolbox") and C.aktif or C.kartu
-    end
-    local groupWidth = LEBAR + TOOLBOX_GAP + TOOLBOX_WIDTH
-    frame.Position = UDim2.new(0.5, -groupWidth / 2, 0.5, -TINGGI / 2)
-    halToolbox.Position = UDim2.new(
-        0.5, -groupWidth / 2 + LEBAR + TOOLBOX_GAP,
-        0.5, -TOOLBOX_HEIGHT / 2
-    )
     halToolbox.Visible = true
+    aturLayoutPanelSamping()
+    if sorotMenu then sorotMenu("toolbox") end
     jalankanSapuan()
 end
 
@@ -4811,10 +4833,8 @@ tutupToolboxPanel = function()
     if not toolboxTerbuka then return end
     toolboxTerbuka = false
     halToolbox.Visible = false
-    frame.Position = UDim2.new(0.5, -LEBAR / 2, 0.5, -TINGGI / 2)
-    for key, button in pairs(menuBtn) do
-        button.BackgroundColor3 = (key == halamanAktif) and C.aktif or C.kartu
-    end
+    aturLayoutPanelSamping()
+    if sorotMenu then sorotMenu(halamanAktif) end
 end
 tbClose.Activated:Connect(tutupToolboxPanel)
 
@@ -5075,6 +5095,415 @@ end
 
 tbCari.Activated:Connect(cariToolbox)
 tbInput.FocusLost:Connect(function(enter) if enter then cariToolbox() end end)
+
+------------------------------------------------------------------
+-- PANEL SAMPING: MUSIC PLAYER
+------------------------------------------------------------------
+local MUSIC_LOGO = "rbxassetid://102337382069600"
+local MUSIC_TRACKS = {
+    {nama = "DJ BREAKBEAT BARAT, Vol. 1", id = "115153624060642", genre = "Breakbeat", pembuat = "DistrokidOfficial"},
+    {nama = "DJ Phut Hon Indo Full Bass", id = "85427648559465", genre = "Breakbeat", pembuat = "DistrokidOfficial"},
+    {nama = "DJ STAY THE SAME BREAKBEAT", id = "74088514222709", genre = "Breakbeat", pembuat = "DistrokidOfficial"},
+    {nama = "DJ MISSING YOU BREAKBEAT", id = "119116468910055", genre = "Breakbeat", pembuat = "DistrokidOfficial"},
+    {nama = "DJ LAST GOODBYE BREAKBEAT", id = "139065609615135", genre = "Breakbeat", pembuat = "DistrokidOfficial"},
+    {nama = "DJ WHERE DID YOUR LOVE GO BREAKBEAT", id = "91342380026565", genre = "Breakbeat", pembuat = "DistrokidOfficial"},
+    {nama = "DJ ALL OF ME IS YOURS BREAKBEAT", id = "104593616947405", genre = "Breakbeat", pembuat = "DistrokidOfficial"},
+    {nama = "DJ NO EXPIRATION DATE BREAKBEAT", id = "88762074202384", genre = "Breakbeat", pembuat = "DistrokidOfficial"},
+    {nama = "Aku Suka Jedag Jedug Full Bass", id = "100787734732008", genre = "Breakbeat", pembuat = "DistrokidOfficial"},
+    {nama = "CELAWZE I BIARKAN KU PERGI BREAKBEAT", id = "81426876012759", genre = "Breakbeat", pembuat = "DistrokidOfficial"},
+    {nama = "Breakbeat Mansion", id = "1838727070", genre = "Breakbeat", pembuat = "APMOfficial"},
+    {nama = "Electronic EDM Rhythm", id = "85837065623863", genre = "EDM", pembuat = "DistrokidOfficial"},
+    {nama = "Funky Disco Beats", id = "9038367768", genre = "EDM", pembuat = "APMOfficial"},
+    {nama = "Deep House Techno Pulse", id = "80225919436233", genre = "EDM", pembuat = "DistrokidOfficial"},
+    {nama = "Predator (EDM, electronic dance)", id = "75075980497523", genre = "EDM", pembuat = "DistrokidOfficial"},
+    {nama = "Night Drive Gravity EDM Remix", id = "90723418714244", genre = "EDM", pembuat = "DistrokidOfficial"},
+    {nama = "Midnight Engine EDM Club Remix", id = "77208158074918", genre = "EDM", pembuat = "DistrokidOfficial"},
+    {nama = "Neon Run", id = "104498304463922", genre = "EDM", pembuat = "DistrokidOfficial"},
+    {nama = "Skyline Bounce", id = "132588706181756", genre = "EDM", pembuat = "DistrokidOfficial"},
+    {nama = "Run the Night", id = "129158012324844", genre = "EDM", pembuat = "DistrokidOfficial"},
+    {nama = "Digital Flames", id = "101278896981200", genre = "EDM", pembuat = "DistrokidOfficial"},
+    {nama = "I Miss You", id = "140627598377770", genre = "Sad", pembuat = "DistrokidOfficial"},
+    {nama = "Sad End (Solo Piano)", id = "1838635121", genre = "Sad", pembuat = "APMOfficial"},
+    {nama = "The Loneliest Hour", id = "114213622974713", genre = "Sad", pembuat = "DistrokidOfficial"},
+    {nama = "The Still, Sad Music Of Humanity", id = "9046435309", genre = "Sad", pembuat = "APMOfficial"},
+    {nama = "Sad Emotional Piano Instrumental", id = "122979340200406", genre = "Sad", pembuat = "DistrokidOfficial"},
+    {nama = "Sad Midnight Touch", id = "123156844134737", genre = "Sad", pembuat = "DistrokidOfficial"},
+    {nama = "That Old Red Radio Played", id = "140471301437637", genre = "Sad", pembuat = "DistrokidOfficial"},
+    {nama = "You Were My Safe Place", id = "138108296865882", genre = "Sad", pembuat = "DistrokidOfficial"},
+    {nama = "Sad Songs Same Story", id = "140031636344247", genre = "Sad", pembuat = "DistrokidOfficial"},
+    {nama = "You Loved Me Until You Didn't", id = "126333704664658", genre = "Sad", pembuat = "DistrokidOfficial"},
+    {nama = "Past Lives", id = "124836999167090", genre = "Sad", pembuat = "DistrokidOfficial"},
+    {nama = "When You Said Goodbye", id = "96332574400847", genre = "Sad", pembuat = "DistrokidOfficial"},
+    {nama = "We Almost Had Forever", id = "139085431440194", genre = "Sad", pembuat = "DistrokidOfficial"},
+    {nama = "Spring of Deception", id = "102450285837527", genre = "Sad", pembuat = "DistrokidOfficial"},
+}
+
+local musicService = game:GetService("SoundService")
+local oldMusicSound = musicService:FindFirstChild("ImporterHubMusicPlayer")
+if oldMusicSound and oldMusicSound:IsA("Sound") then
+    oldMusicSound:Stop()
+    oldMusicSound:Destroy()
+end
+local musicSound = Instance.new("Sound")
+musicSound.Name = "ImporterHubMusicPlayer"
+musicSound.Volume = 0.5
+musicSound.Looped = false
+musicSound.Parent = musicService
+
+halMusic = sudut(buat("Frame", {
+    Name = "MusicPanel",
+    Size = UDim2.new(0, MUSIC_WIDTH, 0, MUSIC_HEIGHT),
+    Position = UDim2.new(0.5, 0, 0.5, -MUSIC_HEIGHT / 2),
+    BackgroundColor3 = C.bg,
+    BorderSizePixel = 0,
+    Active = true,
+    Visible = false,
+    ZIndex = 2,
+}, gui), 12)
+buat("Frame", {
+    Size = UDim2.new(0, 3, 1, -24),
+    Position = UDim2.new(0, 0, 0, 12),
+    BackgroundColor3 = C.aktif,
+    BorderSizePixel = 0,
+    ZIndex = 3,
+}, halMusic)
+
+local musicHeader = buat("Frame", {
+    Size = UDim2.new(1, 0, 0, 42),
+    BackgroundTransparency = 1,
+}, halMusic)
+label({
+    Text = "Music Player",
+    Font = Enum.Font.GothamBold,
+    TextSize = 14,
+    Position = UDim2.new(0, 14, 0, 4),
+    Size = UDim2.new(1, -64, 0, 18),
+}, musicHeader)
+label({
+    Text = "Breakbeat, EDM, dan sad",
+    TextColor3 = C.redup,
+    TextSize = 10,
+    Position = UDim2.new(0, 14, 0, 22),
+    Size = UDim2.new(1, -64, 0, 14),
+}, musicHeader)
+local musicClose = tombol({
+    Text = "X",
+    Size = UDim2.new(0, 28, 0, 28),
+    Position = UDim2.new(1, -38, 0, 6),
+    BackgroundColor3 = C.kartu,
+}, musicHeader)
+buat("Frame", {
+    Size = UDim2.new(1, -24, 0, 1),
+    Position = UDim2.new(0, 12, 0, 41),
+    BackgroundColor3 = C.redup,
+    BackgroundTransparency = 0.55,
+    BorderSizePixel = 0,
+}, halMusic)
+
+local nowPlaying = sudut(buat("Frame", {
+    Name = "NowPlaying",
+    Size = UDim2.new(1, -24, 0, 104),
+    Position = UDim2.new(0, 12, 0, 50),
+    BackgroundColor3 = C.panel,
+    BorderSizePixel = 0,
+}, halMusic), 10)
+local nowPlayingLogo = sudut(buat("ImageLabel", {
+    Name = "NowPlayingLogo",
+    Size = UDim2.new(0, 76, 0, 76),
+    Position = UDim2.new(0, 12, 0.5, -38),
+    BackgroundColor3 = C.kartu,
+    BorderSizePixel = 0,
+    Image = MUSIC_LOGO,
+    ScaleType = Enum.ScaleType.Fit,
+}, nowPlaying), 8)
+label({
+    Text = "SEKARANG DIPUTAR",
+    Font = Enum.Font.GothamBold,
+    TextColor3 = C.redup,
+    TextSize = 9,
+    Position = UDim2.new(0, 100, 0, 10),
+    Size = UDim2.new(1, -110, 0, 14),
+}, nowPlaying)
+local musicTitle = label({
+    Text = "Pilih lagu",
+    Font = Enum.Font.GothamBold,
+    TextSize = 13,
+    TextWrapped = true,
+    TextYAlignment = Enum.TextYAlignment.Top,
+    Position = UDim2.new(0, 100, 0, 27),
+    Size = UDim2.new(1, -110, 0, 34),
+    TextTruncate = Enum.TextTruncate.AtEnd,
+}, nowPlaying)
+local musicCreator = label({
+    Text = "Roblox Creator Store",
+    TextColor3 = C.redup,
+    TextSize = 10,
+    Position = UDim2.new(0, 100, 0, 63),
+    Size = UDim2.new(1, -110, 0, 16),
+    TextTruncate = Enum.TextTruncate.AtEnd,
+}, nowPlaying)
+local musicId = label({
+    Text = "ID: --",
+    TextColor3 = C.teks,
+    TextSize = 10,
+    Position = UDim2.new(0, 100, 0, 81),
+    Size = UDim2.new(1, -110, 0, 14),
+    TextTruncate = Enum.TextTruncate.AtEnd,
+}, nowPlaying)
+
+local musicPrevious = tombol({
+    Text = "PREV",
+    TextSize = 9,
+    Size = UDim2.new(0, 48, 0, 34),
+    Position = UDim2.new(0, 32, 0, 164),
+    BackgroundColor3 = C.kartu,
+}, halMusic)
+local musicPlay = tombol({
+    Text = "PLAY",
+    TextSize = 11,
+    Size = UDim2.new(0, 112, 0, 34),
+    Position = UDim2.new(0, 86, 0, 164),
+    BackgroundColor3 = C.aktif,
+}, halMusic)
+local musicNext = tombol({
+    Text = "NEXT",
+    TextSize = 9,
+    Size = UDim2.new(0, 48, 0, 34),
+    Position = UDim2.new(0, 204, 0, 164),
+    BackgroundColor3 = C.kartu,
+}, halMusic)
+local musicStop = tombol({
+    Text = "STOP",
+    TextSize = 9,
+    Size = UDim2.new(0, 48, 0, 34),
+    Position = UDim2.new(0, 258, 0, 164),
+    BackgroundColor3 = C.kartu,
+}, halMusic)
+
+local volumeLevels = {0.25, 0.5, 0.75, 1}
+local volumeIndex = 2
+local musicVolume = tombol({
+    Text = "VOL 50%",
+    TextSize = 9,
+    Size = UDim2.new(0, 82, 0, 24),
+    Position = UDim2.new(0, 12, 0, 206),
+    BackgroundColor3 = C.kartu,
+}, halMusic)
+local musicPlaybackState = label({
+    Text = "Siap diputar",
+    TextColor3 = C.redup,
+    TextSize = 10,
+    Position = UDim2.new(0, 104, 0, 206),
+    Size = UDim2.new(1, -116, 0, 24),
+    TextTruncate = Enum.TextTruncate.AtEnd,
+}, halMusic)
+local musicSearch = kotakTeks({
+    Size = UDim2.new(1, -24, 0, 30),
+    Position = UDim2.new(0, 12, 0, 240),
+    Text = "",
+    PlaceholderText = "Cari judul, genre, atau ID...",
+}, halMusic)
+local musicList = buatDaftarScroll(
+    halMusic,
+    UDim2.new(0, 12, 0, 276),
+    UDim2.new(1, -24, 1, -314),
+    false
+)
+local musicCount = label({
+    Text = "",
+    TextColor3 = C.redup,
+    TextSize = 9,
+    Position = UDim2.new(0, 12, 1, -28),
+    Size = UDim2.new(1, -24, 0, 18),
+    TextTruncate = Enum.TextTruncate.AtEnd,
+}, halMusic)
+
+local musicSongIndex
+local musicLoadToken = 0
+local renderMusicList
+local function playMusicTrack(index)
+    local track = MUSIC_TRACKS[index]
+    if not track then return end
+    musicSongIndex = index
+    musicTitle.Text = track.nama
+    musicCreator.Text = track.pembuat .. " | " .. track.genre
+    musicId.Text = "ID: " .. track.id
+    musicSound:Stop()
+    musicSound.SoundId = "rbxassetid://" .. track.id
+    musicLoadToken += 1
+    local loadToken = musicLoadToken
+    musicPlaybackState.Text = "Memuat audio..."
+    local okPlay, playError = pcall(function() musicSound:Play() end)
+    if not okPlay then
+        musicPlaybackState.Text = "Gagal memutar"
+        setStatus("Gagal memutar audio: " .. tostring(playError), true)
+        return
+    end
+    musicPlay.Text = "PAUSE"
+    setStatus("Memuat: " .. track.nama)
+    if renderMusicList then renderMusicList() end
+    task.delay(12, function()
+        if loadToken == musicLoadToken and musicSound.Parent and not musicSound.IsLoaded then
+            musicPlaybackState.Text = "Audio belum dimuat"
+            setStatus("Audio belum dimuat; periksa izin ID " .. track.id, true)
+        end
+    end)
+end
+
+renderMusicList = function()
+    for _, child in ipairs(musicList:GetChildren()) do
+        if child.Name == "MusicTrackItem" or child.Name == "MusicEmpty" then
+            child:Destroy()
+        end
+    end
+    local query = trim(musicSearch.Text):lower()
+    local matches = 0
+    for index, track in ipairs(MUSIC_TRACKS) do
+        local haystack = (track.nama .. " " .. track.genre .. " " .. track.id .. " " .. track.pembuat):lower()
+        if query == "" or haystack:find(query, 1, true) then
+            matches += 1
+            local row = sudut(buat("Frame", {
+                Name = "MusicTrackItem",
+                Size = UDim2.new(1, -8, 0, 58),
+                BackgroundColor3 = C.kartu,
+                BorderSizePixel = 0,
+                LayoutOrder = matches,
+            }, musicList), 8)
+            sudut(buat("ImageLabel", {
+                Size = UDim2.new(0, 34, 0, 34),
+                Position = UDim2.new(0, 8, 0.5, -17),
+                BackgroundColor3 = C.panel,
+                BorderSizePixel = 0,
+                Image = MUSIC_LOGO,
+                ScaleType = Enum.ScaleType.Fit,
+            }, row), 6)
+            label({
+                Text = track.nama,
+                Font = Enum.Font.GothamBold,
+                TextSize = 10,
+                Position = UDim2.new(0, 50, 0, 8),
+                Size = UDim2.new(1, -116, 0, 18),
+                TextTruncate = Enum.TextTruncate.AtEnd,
+            }, row)
+            label({
+                Text = track.genre .. " | ID " .. track.id,
+                TextColor3 = C.redup,
+                TextSize = 8,
+                Position = UDim2.new(0, 50, 0, 29),
+                Size = UDim2.new(1, -116, 0, 16),
+                TextTruncate = Enum.TextTruncate.AtEnd,
+            }, row)
+            local playTrack = tombol({
+                Text = musicSongIndex == index and musicSound.IsPlaying and "AKTIF" or "PUTAR",
+                TextSize = 8,
+                Size = UDim2.new(0, 54, 0, 28),
+                Position = UDim2.new(1, -62, 0.5, -14),
+                BackgroundColor3 = musicSongIndex == index and musicSound.IsPlaying and C.aktif or C.panel,
+            }, row)
+            playTrack.Activated:Connect(function() playMusicTrack(index) end)
+        end
+    end
+    if matches == 0 then
+        label({
+            Name = "MusicEmpty",
+            Text = "Tidak ada lagu yang cocok. Coba kata kunci atau ID lain.",
+            TextColor3 = C.redup,
+            TextWrapped = true,
+            Size = UDim2.new(1, -8, 0, 40),
+            LayoutOrder = 1,
+        }, musicList)
+    end
+    musicCount.Text = matches .. " / " .. #MUSIC_TRACKS .. " lagu publik"
+end
+
+musicSound.Loaded:Connect(function()
+    if musicSongIndex and musicSound.IsPlaying then
+        musicPlaybackState.Text = "Sedang diputar"
+        setStatus("Memutar: " .. MUSIC_TRACKS[musicSongIndex].nama)
+    end
+end)
+musicSound.Ended:Connect(function()
+    musicPlay.Text = "PLAY"
+    musicPlaybackState.Text = "Lagu selesai"
+    if musicSongIndex then
+        setStatus("Selesai: " .. MUSIC_TRACKS[musicSongIndex].nama)
+    end
+    renderMusicList()
+end)
+musicSearch:GetPropertyChangedSignal("Text"):Connect(renderMusicList)
+musicVolume.Activated:Connect(function()
+    volumeIndex = volumeIndex % #volumeLevels + 1
+    musicSound.Volume = volumeLevels[volumeIndex]
+    musicVolume.Text = "VOL " .. tostring(math.floor(musicSound.Volume * 100 + 0.5)) .. "%"
+end)
+musicPrevious.Activated:Connect(function()
+    local index = musicSongIndex and (musicSongIndex - 2) % #MUSIC_TRACKS + 1 or #MUSIC_TRACKS
+    playMusicTrack(index)
+end)
+musicNext.Activated:Connect(function()
+    local index = musicSongIndex and musicSongIndex % #MUSIC_TRACKS + 1 or 1
+    playMusicTrack(index)
+end)
+musicPlay.Activated:Connect(function()
+    if not musicSongIndex then
+        local query = trim(musicSearch.Text):lower()
+        for index, track in ipairs(MUSIC_TRACKS) do
+            local haystack = (track.nama .. " " .. track.genre .. " " .. track.id .. " " .. track.pembuat):lower()
+            if query == "" or haystack:find(query, 1, true) then
+                playMusicTrack(index)
+                return
+            end
+        end
+        setStatus("Tidak ada lagu yang cocok untuk diputar", true)
+        return
+    end
+    if musicSound.IsPlaying then
+        musicSound:Pause()
+        musicPlay.Text = "PLAY"
+        musicPlaybackState.Text = "Dijeda"
+        setStatus("Dijeda: " .. MUSIC_TRACKS[musicSongIndex].nama)
+    else
+        if musicSound.TimeLength > 0 and musicSound.TimePosition >= musicSound.TimeLength then
+            musicSound.TimePosition = 0
+        end
+        local okPlay, playError = pcall(function() musicSound:Play() end)
+        if not okPlay then
+            musicPlaybackState.Text = "Gagal memutar"
+            setStatus("Gagal melanjutkan audio: " .. tostring(playError), true)
+            return
+        end
+        musicPlay.Text = "PAUSE"
+        musicPlaybackState.Text = "Sedang diputar"
+        setStatus("Memutar: " .. MUSIC_TRACKS[musicSongIndex].nama)
+    end
+    renderMusicList()
+end)
+musicStop.Activated:Connect(function()
+    musicLoadToken += 1
+    musicSound:Stop()
+    musicPlay.Text = "PLAY"
+    musicPlaybackState.Text = "Dihentikan"
+    setStatus("Audio dihentikan")
+    renderMusicList()
+end)
+
+bukaMusicPanel = function()
+    if musicTerbuka then return end
+    musicTerbuka = true
+    halMusic.Visible = true
+    aturLayoutPanelSamping()
+    if sorotMenu then sorotMenu("music") end
+    jalankanSapuan()
+end
+tutupMusicPanel = function()
+    if not musicTerbuka then return end
+    musicTerbuka = false
+    halMusic.Visible = false
+    aturLayoutPanelSamping()
+    if sorotMenu then sorotMenu(halamanAktif) end
+end
+musicClose.Activated:Connect(tutupMusicPanel)
+renderMusicList()
 
 ------------------------------------------------------------------
 -- HALAMAN: AI CHAT (OpenRouter)
@@ -5409,6 +5838,7 @@ local MENU = {
     {seksi = "MENU"},
     {kunci = "dashboard", nama = "Dashboard"},
     {kunci = "toolbox", nama = "Toolbox"},
+    {kunci = "music", nama = "Music"},
     {kunci = "ai", nama = "AI Chat"},
     {seksi = "IMPORT"},
     {kunci = "rbxm", nama = "RBXM", badge = true},
@@ -5464,9 +5894,12 @@ for i, m in ipairs(MENU) do
     end
 end
 
-local function sorotMenu(kunci)
+sorotMenu = function(kunci)
     for k, b in pairs(menuBtn) do
-        b.BackgroundColor3 = (k == kunci) and C.aktif or C.kartu
+        local aktif = k == kunci
+            or (k == "toolbox" and toolboxTerbuka)
+            or (k == "music" and musicTerbuka)
+        b.BackgroundColor3 = aktif and C.aktif or C.kartu
     end
 end
 
@@ -5508,6 +5941,9 @@ end
 bukaHalaman = function(kunci)
     if kunci == "toolbox" then
         if bukaToolboxPanel then bukaToolboxPanel() end
+        return
+    elseif kunci == "music" then
+        if bukaMusicPanel then bukaMusicPanel() end
         return
     end
     local gantiTab = halamanAktif ~= nil and halamanAktif ~= kunci
@@ -5582,13 +6018,17 @@ end)
 
 btnTutup.Activated:Connect(function()
     tutupToolboxPanel()
+    tutupMusicPanel()
     gui.Enabled = false
     if toggleGui then toggleGui.Enabled = true end
 end)
 
 local kecil = false
 btnMin.Activated:Connect(function()
-    if not kecil then tutupToolboxPanel() end
+    if not kecil then
+        tutupToolboxPanel()
+        tutupMusicPanel()
+    end
     kecil = not kecil
     body.Visible = not kecil
     frame.Size = UDim2.new(0, LEBAR, 0, kecil and 40 or TINGGI)
@@ -5612,12 +6052,7 @@ koneksiGeser = UIS.InputChanged:Connect(function(input)
         local d = input.Position - dragStart
         frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + d.X,
             startPos.Y.Scale, startPos.Y.Offset + d.Y)
-        if toolboxTerbuka then
-            halToolbox.Position = UDim2.new(
-                frame.Position.X.Scale, frame.Position.X.Offset + LEBAR + TOOLBOX_GAP,
-                frame.Position.Y.Scale, frame.Position.Y.Offset + (TINGGI - TOOLBOX_HEIGHT) / 2
-            )
-        end
+        posisikanPanelSamping()
     end
 end)
 
