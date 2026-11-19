@@ -4307,14 +4307,17 @@ buat("UIListLayout", {
 }, halDash)
 
 local ICON_BY_KEY = {
+    dashboard = "134003209888315",
     toolbox = "121323758319527",
     rbxm = "106962661743892",
     rbxmx = "106962661743892",
     rbxl = "122982660526589",
     rbxlx = "122982660526589",
     up_model = "106962661743892",
+    up_gambar = "116863426654058",
     up_animasi = "82612847793986",
     ai = "120498354657105",
+    setelan = "92592867988128",
 }
 
 label({
@@ -4882,6 +4885,39 @@ local function pesanUntukAPI()
     return hasil
 end
 
+local function redaksiAI(nilai)
+    local teks = tostring(nilai)
+    local key = trim(config.orKey)
+    if key ~= "" then
+        teks = teks:gsub(key:gsub("([^%w])", "%%%1"), "<REDACTED>")
+    end
+    return teks
+end
+
+local function formatAIError(statusCode, apiError)
+    local detail = {}
+    if statusCode ~= nil then
+        table.insert(detail, "HTTP " .. redaksiAI(statusCode))
+    end
+    if type(apiError) == "table" then
+        if apiError.code ~= nil then
+            table.insert(detail, "kode " .. redaksiAI(apiError.code))
+        end
+        local metadata = apiError.metadata
+        if type(metadata) == "table" and type(metadata.provider_name) == "string"
+            and metadata.provider_name ~= "" then
+            table.insert(detail, "provider " .. redaksiAI(metadata.provider_name))
+        end
+        if apiError.message ~= nil then
+            table.insert(detail, redaksiAI(apiError.message))
+        end
+    elseif apiError ~= nil then
+        table.insert(detail, redaksiAI(apiError))
+    end
+    if #detail == 0 then return "Respons tidak valid" end
+    return table.concat(detail, " | ")
+end
+
 local function kirimAI()
     local teks = trim(aiInput.Text)
     if teks == "" or aiSibuk then return end
@@ -4917,12 +4953,12 @@ local function kirimAI()
             if d and d.choices and d.choices[1] and d.choices[1].message then
                 jawaban = tostring(d.choices[1].message.content or "")
             elseif d and d.error then
-                galat = type(d.error) == "table" and tostring(d.error.message) or tostring(d.error)
+                galat = formatAIError(res.StatusCode, d.error)
             else
-                galat = "Respons tidak valid (HTTP " .. tostring(res.StatusCode) .. ")"
+                galat = formatAIError(res.StatusCode)
             end
         else
-            galat = tostring(res)
+            galat = redaksiAI(res)
         end
 
         if jawaban then
@@ -5164,7 +5200,7 @@ local toggler = sudut(buat("ImageButton", {
     Name = "HubToggle",
     Size = UDim2.new(0, 64, 0, 64),
     Position = UDim2.new(0, 18, 0.5, -32),
-    Image = "rbxassetid://75105787796422",
+    Image = "rbxassetid://116910178994061",
     BackgroundTransparency = 1,
     BorderSizePixel = 0,
     Active = true,
