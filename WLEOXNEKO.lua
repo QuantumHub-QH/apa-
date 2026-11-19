@@ -6,7 +6,8 @@
     - Toolbox: cari & import Model, Decal, Mesh dari Creator Store
     - AI Chat: ngobrol dengan AI lewat OpenRouter (butuh API key)
     - Upload Gambar / Animasi / RBXM lewat Roblox Open Cloud (butuh API key)
-    - Pengaturan: simpan API key & Creator ID
+    - Dashboard: jumlah file, CPU/FPS, dan grafik performa
+    - Pengaturan: tema warna, API key & Creator ID
 
     Soal script di dalam file:
     Isi file tidak pernah dihapus, difilter, atau diubah. Semua Script,
@@ -39,6 +40,7 @@ local config = {
     creatorTipe = "User",
     orKey = "",
     orModel = "openai/gpt-4o-mini",
+    tema = "Abu",
 }
 
 local function muatConfig()
@@ -289,81 +291,71 @@ end
 ------------------------------------------------------------------
 -- GUI DASAR
 ------------------------------------------------------------------
-local C = {
-    bg = Color3.fromRGB(24, 24, 28),
-    panel = Color3.fromRGB(34, 34, 40),
-    kartu = Color3.fromRGB(44, 44, 54),
-    aktif = Color3.fromRGB(78, 78, 98),
-    teks = Color3.fromRGB(235, 235, 240),
-    redup = Color3.fromRGB(150, 150, 165),
-    hijau = Color3.fromRGB(90, 220, 140),
-    racun = Color3.fromRGB(142, 255, 0),
-    racunGelap = Color3.fromRGB(0, 8, 2),
-    merah = Color3.fromRGB(255, 110, 110),
+local C = {}
+
+local TEMA = {
+    Abu = {
+        bg = Color3.fromRGB(26, 28, 32), panel = Color3.fromRGB(34, 37, 43),
+        kartu = Color3.fromRGB(44, 48, 56), aktif = Color3.fromRGB(72, 81, 96),
+        teks = Color3.fromRGB(242, 244, 247), redup = Color3.fromRGB(157, 166, 179),
+        aksen = Color3.fromRGB(172, 190, 207), hijau = Color3.fromRGB(58, 181, 121),
+        merah = Color3.fromRGB(197, 64, 76),
+    },
+    Pink = {
+        bg = Color3.fromRGB(33, 19, 29), panel = Color3.fromRGB(46, 26, 40),
+        kartu = Color3.fromRGB(61, 34, 52), aktif = Color3.fromRGB(104, 39, 72),
+        teks = Color3.fromRGB(255, 242, 249), redup = Color3.fromRGB(202, 163, 183),
+        aksen = Color3.fromRGB(231, 103, 158), hijau = Color3.fromRGB(58, 181, 121),
+        merah = Color3.fromRGB(197, 64, 76),
+    },
+    Putih = {
+        bg = Color3.fromRGB(238, 242, 247), panel = Color3.fromRGB(250, 252, 255),
+        kartu = Color3.fromRGB(226, 232, 240), aktif = Color3.fromRGB(191, 210, 231),
+        teks = Color3.fromRGB(28, 36, 48), redup = Color3.fromRGB(91, 103, 120),
+        aksen = Color3.fromRGB(35, 126, 112), hijau = Color3.fromRGB(22, 112, 81),
+        merah = Color3.fromRGB(197, 64, 76),
+    },
+    Merah = {
+        bg = Color3.fromRGB(29, 17, 20), panel = Color3.fromRGB(43, 24, 28),
+        kartu = Color3.fromRGB(58, 31, 36), aktif = Color3.fromRGB(112, 39, 49),
+        teks = Color3.fromRGB(255, 243, 244), redup = Color3.fromRGB(194, 151, 156),
+        aksen = Color3.fromRGB(235, 79, 97), hijau = Color3.fromRGB(58, 181, 121),
+        merah = Color3.fromRGB(197, 64, 76),
+    },
+    Biru = {
+        bg = Color3.fromRGB(17, 25, 39), panel = Color3.fromRGB(24, 36, 54),
+        kartu = Color3.fromRGB(33, 48, 70), aktif = Color3.fromRGB(42, 87, 139),
+        teks = Color3.fromRGB(237, 245, 255), redup = Color3.fromRGB(151, 174, 204),
+        aksen = Color3.fromRGB(83, 157, 222), hijau = Color3.fromRGB(58, 181, 121),
+        merah = Color3.fromRGB(197, 64, 76),
+    },
 }
 
-local strokeGradients = {}
-local strokeRotation = Instance.new("NumberValue")
-local strokeRotationConnection = strokeRotation.Changed:Connect(function(rotation)
-    for i = #strokeGradients, 1, -1 do
-        local gradient = strokeGradients[i]
-        if gradient.Parent then
-            gradient.Rotation = rotation
-        else
-            table.remove(strokeGradients, i)
-        end
-    end
-end)
-local strokeColors = ColorSequence.new({
-    ColorSequenceKeypoint.new(0, C.racun),
-    ColorSequenceKeypoint.new(0.25, C.racunGelap),
-    ColorSequenceKeypoint.new(0.5, C.racun),
-    ColorSequenceKeypoint.new(0.75, C.racunGelap),
-    ColorSequenceKeypoint.new(1, C.racun),
-})
+local temaAktif = TEMA[config.tema] and config.tema or "Abu"
+config.tema = temaAktif
+for k, v in pairs(TEMA[temaAktif]) do C[k] = v end
 
-local function perluStroke(class, props)
-    if class ~= "Frame" and class ~= "TextButton"
-        and class ~= "TextBox" and class ~= "ScrollingFrame" then
-        return false
-    end
-    if props.Name == "PageSweep" or props.BackgroundTransparency == 1 then
-        return false
-    end
-    local size = props.Size
-    if size then
-        if size.X.Scale == 0 and size.X.Offset > 0 and size.X.Offset <= 4 then return false end
-        if size.Y.Scale == 0 and size.Y.Offset > 0 and size.Y.Offset <= 3 then return false end
-        if size.X.Scale == 0 and size.Y.Scale == 0
-            and size.X.Offset < 16 and size.Y.Offset < 16 then
-            return false
-        end
-    end
-    return true
-end
-
-local function pasangStrokeRacun(obj)
-    local stroke = Instance.new("UIStroke")
-    stroke.Name = "ToxicBorder"
-    stroke.Color = C.racun
-    stroke.Thickness = 1.2
-    stroke.Transparency = 0.05
-    stroke.Parent = obj
-
-    local gradient = Instance.new("UIGradient")
-    gradient.Color = strokeColors
-    gradient.Rotation = strokeRotation.Value
-    gradient.Parent = stroke
-    table.insert(strokeGradients, gradient)
-end
+local FONT_MONTSERRAT = {
+    regular = Font.fromName("Montserrat", Enum.FontWeight.Regular),
+    medium = Font.fromName("Montserrat", Enum.FontWeight.Medium),
+    bold = Font.fromName("Montserrat", Enum.FontWeight.Bold),
+}
 
 local function buat(class, props, parent)
     local o = Instance.new(class)
     for k, v in pairs(props) do o[k] = v end
-    o.Parent = parent
-    if perluStroke(class, props) then
-        pasangStrokeRacun(o)
+    if class == "TextLabel" or class == "TextButton" or class == "TextBox" then
+        local face = FONT_MONTSERRAT.regular
+        if props.Font == Enum.Font.GothamBold or props.Font == Enum.Font.GothamBlack then
+            face = FONT_MONTSERRAT.bold
+        elseif props.Font == Enum.Font.GothamMedium then
+            face = FONT_MONTSERRAT.medium
+        end
+        o.FontFace = face
+    elseif class == "ScrollingFrame" and props.ScrollBarImageColor3 == nil then
+        o.ScrollBarImageColor3 = C.redup
     end
+    o.Parent = parent
     return o
 end
 
@@ -511,7 +503,7 @@ local pageSweep = buat("Frame", {
     BackgroundColor3 = Color3.new(1, 1, 1),
     BackgroundTransparency = 0.65,
     BorderSizePixel = 0,
-    Visible = true,
+    Visible = false,
     ZIndex = 100,
 }, isi)
 buat("UIGradient", {
@@ -521,12 +513,25 @@ buat("UIGradient", {
         NumberSequenceKeypoint.new(1, 1),
     }),
 }, pageSweep)
-local pageSweepTween = TweenService:Create(
-    pageSweep,
-    TweenInfo.new(3.2, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true),
-    {Position = UDim2.new(1, 12, 0, 0)}
-)
-pageSweepTween:Play()
+local pageSweepTween
+local function jalankanSapuan()
+    if pageSweepTween then pageSweepTween:Cancel() end
+    pageSweep.Visible = true
+    pageSweep.Position = UDim2.new(0, -120, 0, 0)
+    local tween = TweenService:Create(
+        pageSweep,
+        TweenInfo.new(0.55, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+        {Position = UDim2.new(1, 12, 0, 0)}
+    )
+    pageSweepTween = tween
+    tween.Completed:Connect(function()
+        if pageSweepTween == tween then
+            pageSweepTween = nil
+            pageSweep.Visible = false
+        end
+    end)
+    tween:Play()
+end
 
 local halaman = {}
 local halamanAktif
@@ -4318,46 +4323,91 @@ local function buatItem(listFrame, urut, tagTeks, nama, sub, teksTombol, aksi)
     return item
 end
 
-local function buatItemToolbox(listFrame, urut, tagTeks, aset, sub, teksTombol, aksi)
+local function buatItemToolbox(listFrame, urut, tagTeks, aset, teksTombol, aksi)
     local item = sudut(buat("Frame", {
         Name = "Item",
-        Size = UDim2.new(1, -8, 0, 108),
+        Size = UDim2.new(1, -8, 0, 164),
         BackgroundColor3 = C.kartu,
         BorderSizePixel = 0,
         LayoutOrder = urut,
     }, listFrame), 10)
 
     local thumbnail = buat("ImageLabel", {
-        Size = UDim2.new(0, 92, 0, 92),
-        Position = UDim2.new(0, 8, 0.5, -46),
+        Size = UDim2.new(0, 44, 0, 44),
+        Position = UDim2.new(0, 8, 0, 8),
         BackgroundColor3 = C.bg,
         BorderSizePixel = 0,
         Image = "rbxthumb://type=Asset&id=" .. aset.id .. "&w=420&h=420",
         ScaleType = Enum.ScaleType.Crop,
     }, item)
-    sudut(thumbnail, 8)
+    sudut(thumbnail, 6)
 
     local tag = sudut(buat("Frame", {
-        Size = UDim2.new(0, 58, 0, 24),
-        Position = UDim2.new(0, 112, 0, 10),
+        Size = UDim2.new(0, 44, 0, 14),
+        Position = UDim2.new(0, 8, 0, 38),
         BackgroundColor3 = C.bg,
         BorderSizePixel = 0,
-    }, item), 6)
-    label({Text = tagTeks, Font = Enum.Font.GothamBold, TextSize = 10,
+    }, item), 4)
+    label({Text = tagTeks, Font = Enum.Font.GothamBold, TextSize = 7,
         Size = UDim2.new(1, 0, 1, 0), TextXAlignment = Enum.TextXAlignment.Center}, tag)
 
     label({Text = aset.nama, Font = Enum.Font.GothamBold, TextSize = 13,
-        Position = UDim2.new(0, 112, 0, 38),
-        Size = UDim2.new(1, -206, 0, 22),
+        Position = UDim2.new(0, 60, 0, 7),
+        Size = UDim2.new(1, -68, 0, 34),
+        TextWrapped = true,
         TextTruncate = Enum.TextTruncate.AtEnd}, item)
-    label({Text = sub, TextColor3 = C.redup, TextSize = 11,
-        Position = UDim2.new(0, 112, 0, 64),
-        Size = UDim2.new(1, -206, 0, 18),
+    label({Text = "Creator: " .. tostring(aset.pembuat or "?"),
+        TextColor3 = C.redup, TextSize = 9,
+        Position = UDim2.new(0, 60, 0, 43),
+        Size = UDim2.new(1, -68, 0, 22),
         TextTruncate = Enum.TextTruncate.AtEnd}, item)
 
-    local btn = tombol({Text = teksTombol, TextSize = 11,
-        Size = UDim2.new(0, 82, 0, 32),
-        Position = UDim2.new(1, -90, 0.5, -16),
+    local idRow = buat("Frame", {
+        Size = UDim2.new(1, -16, 0, 22),
+        Position = UDim2.new(0, 8, 0, 76),
+        BackgroundTransparency = 1,
+    }, item)
+    label({Text = "ID: " .. tostring(aset.id), TextColor3 = C.teks, TextSize = 9,
+        Size = UDim2.new(1, -30, 1, 0),
+        TextTruncate = Enum.TextTruncate.AtEnd}, idRow)
+
+    local copyButton = tombol({
+        Name = "CopyAssetId",
+        Text = "",
+        Size = UDim2.new(0, 24, 0, 22),
+        Position = UDim2.new(1, -24, 0, 0),
+        BackgroundColor3 = C.aktif,
+    }, idRow)
+    buat("Frame", {
+        Size = UDim2.new(0, 8, 0, 10),
+        Position = UDim2.new(0, 9, 0, 4),
+        BackgroundTransparency = 1,
+        BorderSizePixel = 1,
+        BorderColor3 = C.teks,
+    }, copyButton)
+    buat("Frame", {
+        Size = UDim2.new(0, 8, 0, 10),
+        Position = UDim2.new(0, 6, 0, 7),
+        BackgroundTransparency = 1,
+        BorderSizePixel = 1,
+        BorderColor3 = C.teks,
+    }, copyButton)
+    copyButton.Activated:Connect(function()
+        if type(setclipboard) ~= "function" then
+            setStatus("Executor tidak mendukung salin ke clipboard", true)
+            return
+        end
+        local ok, err = pcall(setclipboard, tostring(aset.id))
+        if ok then
+            setStatus("ID " .. tostring(aset.id) .. " disalin")
+        else
+            setStatus("Gagal menyalin ID: " .. tostring(err), true)
+        end
+    end)
+
+    local btn = tombol({Text = teksTombol, TextSize = 10,
+        Size = UDim2.new(1, -16, 0, 28),
+        Position = UDim2.new(0, 8, 1, -36),
         BackgroundColor3 = C.aktif}, item)
     btn.Activated:Connect(function()
         if sedangKerja then return end
@@ -4381,7 +4431,7 @@ local function pesanKosong(listFrame, teks)
         Size = UDim2.new(1, -8, 0, 40), LayoutOrder = 1}, listFrame)
 end
 
-local function buatDaftarScroll(induk, posisi, ukuran)
+local function buatDaftarScroll(induk, posisi, ukuran, duaKolom)
     local list = sudut(buat("ScrollingFrame", {
         Size = ukuran,
         Position = posisi,
@@ -4391,7 +4441,15 @@ local function buatDaftarScroll(induk, posisi, ukuran)
         CanvasSize = UDim2.new(0, 0, 0, 0),
         AutomaticCanvasSize = Enum.AutomaticSize.Y,
     }, induk), 8)
-    buat("UIListLayout", {Padding = UDim.new(0, 4), SortOrder = Enum.SortOrder.LayoutOrder}, list)
+    if duaKolom then
+        buat("UIGridLayout", {
+            CellSize = UDim2.new(0.5, -6, 0, 164),
+            CellPadding = UDim2.new(0, 8, 0, 8),
+            SortOrder = Enum.SortOrder.LayoutOrder,
+        }, list)
+    else
+        buat("UIListLayout", {Padding = UDim.new(0, 4), SortOrder = Enum.SortOrder.LayoutOrder}, list)
+    end
     buat("UIPadding", {PaddingTop = UDim.new(0, 4), PaddingLeft = UDim.new(0, 4)}, list)
     return list
 end
@@ -4471,8 +4529,10 @@ local ICON_BY_KEY = {
 }
 
 local dashboardMetrics = {}
+local dashboardMetricBars = {}
+local dashboardMetricHistory = {}
 local metricsRow = buat("Frame", {
-    Size = UDim2.new(1, -4, 0, 58),
+    Size = UDim2.new(1, -4, 0, 76),
     BackgroundTransparency = 1,
     LayoutOrder = 1,
 }, halDash)
@@ -4494,22 +4554,64 @@ local function buatMetrikDashboard(key, judul)
     dashboardMetrics[key] = label({
         Text = "--",
         Font = Enum.Font.GothamBold,
-        TextSize = 15,
+        TextSize = 14,
         TextXAlignment = Enum.TextXAlignment.Center,
-        Position = UDim2.new(0, 2, 0, 4),
-        Size = UDim2.new(1, -4, 0, 24),
+        Position = UDim2.new(0, 2, 0, 3),
+        Size = UDim2.new(1, -4, 0, 20),
         TextTruncate = Enum.TextTruncate.AtEnd,
     }, card)
     label({
         Text = judul,
         Font = Enum.Font.GothamBold,
         TextColor3 = C.redup,
-        TextSize = 8,
+        TextSize = 7,
         TextXAlignment = Enum.TextXAlignment.Center,
-        Position = UDim2.new(0, 2, 0, 34),
-        Size = UDim2.new(1, -4, 0, 13),
+        Position = UDim2.new(0, 2, 0, 23),
+        Size = UDim2.new(1, -4, 0, 12),
         TextTruncate = Enum.TextTruncate.AtEnd,
     }, card)
+    local chart = buat("Frame", {
+        Size = UDim2.new(1, -12, 0, 26),
+        Position = UDim2.new(0, 6, 0, 44),
+        BackgroundTransparency = 1,
+    }, card)
+    dashboardMetricBars[key] = {}
+    dashboardMetricHistory[key] = {}
+    for i = 1, 8 do
+        local bar = sudut(buat("Frame", {
+            Name = "MetricBar",
+            Size = UDim2.new(0, 6, 0, 3),
+            Position = UDim2.new(0, (i - 1) * 9, 1, 0),
+            AnchorPoint = Vector2.new(0, 1),
+            BackgroundColor3 = C.aksen,
+            BorderSizePixel = 0,
+        }, chart), 3)
+        table.insert(dashboardMetricBars[key], bar)
+    end
+end
+
+local function tambahSampelMetrik(key, nilai)
+    if type(nilai) ~= "number" or nilai ~= nilai then return end
+    local history = dashboardMetricHistory[key]
+    local bars = dashboardMetricBars[key]
+    if not history or not bars then return end
+
+    table.insert(history, math.max(0, nilai))
+    while #history > #bars do table.remove(history, 1) end
+
+    local maximum = 1
+    for _, sample in ipairs(history) do
+        if sample > maximum then maximum = sample end
+    end
+    for i, bar in ipairs(bars) do
+        local sample = history[i]
+        local height = sample and math.max(3, math.floor(sample / maximum * 24 + 0.5)) or 3
+        TweenService:Create(
+            bar,
+            TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+            {Size = UDim2.new(0, 6, 0, height)}
+        ):Play()
+    end
 end
 
 buatMetrikDashboard("rbxm", "TOTAL RBXM")
@@ -4618,7 +4720,7 @@ panelUpload.extra.Activated:Connect(function() bukaHalaman("setelan") end)
 ------------------------------------------------------------------
 -- PANEL SAMPING: TOOLBOX
 ------------------------------------------------------------------
-local TOOLBOX_WIDTH, TOOLBOX_HEIGHT, TOOLBOX_GAP = 340, 480, 12
+local TOOLBOX_WIDTH, TOOLBOX_HEIGHT, TOOLBOX_GAP = 420, 480, 12
 local toolboxTerbuka = false
 local halToolbox = sudut(buat("Frame", {
     Name = "ToolboxPanel",
@@ -4683,6 +4785,7 @@ bukaToolboxPanel = function()
         0.5, -TOOLBOX_HEIGHT / 2
     )
     halToolbox.Visible = true
+    jalankanSapuan()
 end
 
 tutupToolboxPanel = function()
@@ -4738,7 +4841,8 @@ local tbCari = tombol({Text = "CARI", Size = UDim2.new(0, 82, 0, 30),
 local tbList = buatDaftarScroll(
     halToolbox,
     UDim2.new(0, 12, 0, 116),
-    UDim2.new(1, -24, 1, -150)
+    UDim2.new(1, -24, 1, -150),
+    true
 )
 local tbInfo = label({Text = "", TextColor3 = C.redup, TextSize = 11,
     Position = UDim2.new(0, 12, 1, -28), Size = UDim2.new(1, -222, 0, 28),
@@ -4942,7 +5046,7 @@ local function cariToolbox()
             return
         end
         for i, it in ipairs(hasil) do
-            buatItemToolbox(tbList, i, tagKat, it, "oleh " .. it.pembuat .. " · ID " .. it.id, "IMPORT",
+            buatItemToolbox(tbList, i, tagKat, it, "IMPORT",
                 function() return masukkanAsetToolbox(kat, it) end)
         end
         tbInfo.Text = #hasil .. " hasil"
@@ -5142,18 +5246,107 @@ end
 
 label({Text = "Pengaturan  ·  API key & Creator ID", Font = Enum.Font.GothamBold, TextSize = 13,
     Size = UDim2.new(1, -8, 0, 20), LayoutOrder = 1}, halSetelan)
-local fOcKey = buatField(2, "OPEN CLOUD API KEY (untuk Upload, izin Assets)", config.ocKey, "Tempel API key Open Cloud")
-local fCreator = buatField(3, "CREATOR ID (User ID atau Group ID)", config.creatorId, "Contoh: 123456789")
+label({Text = "Tema warna", TextColor3 = C.redup, TextSize = 10,
+    Size = UDim2.new(1, -8, 0, 14), LayoutOrder = 2}, halSetelan)
+
+local tombolTema = {}
+local function perbaruiTombolTema()
+    for nama, button in pairs(tombolTema) do
+        local palet = TEMA[nama]
+        local dipilih = nama == temaAktif
+        button.BackgroundColor3 = dipilih and palet.aksen or palet.kartu
+        local warnaTeks = nama == "Putih" and palet.panel or palet.bg
+        button.TextColor3 = dipilih and warnaTeks or palet.teks
+        button.Text = (dipilih and "* " or "") .. nama
+    end
+end
+
+local function terapkanTema(nama)
+    local palet = TEMA[nama]
+    if not palet then return false end
+    if nama == temaAktif then return true end
+
+    local temaLama = {}
+    for peran, warna in pairs(C) do temaLama[peran] = warna end
+    for _, object in ipairs(gui:GetDescendants()) do
+        if object:IsA("GuiObject") then
+            local properties = {"BackgroundColor3", "BorderColor3"}
+            if object:IsA("ScrollingFrame") then
+                table.insert(properties, "ScrollBarImageColor3")
+            end
+            if object:IsA("TextLabel") or object:IsA("TextButton") or object:IsA("TextBox") then
+                table.insert(properties, "TextColor3")
+            end
+            if object:IsA("TextBox") then
+                table.insert(properties, "PlaceholderColor3")
+            end
+            if object:IsA("ImageLabel") or object:IsA("ImageButton") then
+                table.insert(properties, "ImageColor3")
+            end
+            for _, property in ipairs(properties) do
+                local warnaAktual = object[property]
+                for peran, warnaLama in pairs(temaLama) do
+                    if warnaAktual == warnaLama then
+                        local warnaBaru = palet[peran]
+                        if warnaBaru then object[property] = warnaBaru end
+                        break
+                    end
+                end
+            end
+        end
+    end
+    for peran, warna in pairs(palet) do C[peran] = warna end
+    temaAktif = nama
+    config.tema = nama
+    perbaruiTombolTema()
+    return true
+end
+
+local themeRow = buat("Frame", {
+    Size = UDim2.new(1, -8, 0, 34),
+    BackgroundTransparency = 1,
+    LayoutOrder = 3,
+}, halSetelan)
+buat("UIGridLayout", {
+    CellSize = UDim2.new(0.2, -4, 1, 0),
+    CellPadding = UDim2.new(0, 4, 0, 0),
+    FillDirectionMaxCells = 5,
+    SortOrder = Enum.SortOrder.LayoutOrder,
+}, themeRow)
+
+for i, nama in ipairs({"Pink", "Putih", "Merah", "Biru", "Abu"}) do
+    local namaTema = nama
+    local palet = TEMA[nama]
+    local button = tombol({
+        Text = nama,
+        TextSize = 9,
+        Size = UDim2.new(0.2, -4, 1, 0),
+        LayoutOrder = i,
+        BackgroundColor3 = palet.kartu,
+        TextColor3 = palet.teks,
+        AutoButtonColor = false,
+    }, themeRow)
+    tombolTema[nama] = button
+    button.Activated:Connect(function()
+        if terapkanTema(namaTema) then
+            setStatus("Tema " .. namaTema .. " diterapkan. Tekan SIMPAN untuk menyimpan.")
+        end
+    end)
+end
+perbaruiTombolTema()
+
+local fOcKey = buatField(4, "OPEN CLOUD API KEY (untuk Upload, izin Assets)", config.ocKey, "Tempel API key Open Cloud")
+local fCreator = buatField(5, "CREATOR ID (User ID atau Group ID)", config.creatorId, "Contoh: 123456789")
 local btnTipe = tombol({Text = "Tipe pembuat: " .. config.creatorTipe, Size = UDim2.new(1, -8, 0, 30),
-    BackgroundColor3 = C.kartu, LayoutOrder = 4}, halSetelan)
-local fOrKey = buatField(5, "OPENROUTER API KEY (untuk AI Chat)", config.orKey, "Tempel API key OpenRouter")
-local fOrModel = buatField(6, "MODEL OPENROUTER", config.orModel, "Contoh: openai/gpt-4o-mini")
+    BackgroundColor3 = C.kartu, LayoutOrder = 6}, halSetelan)
+local fOrKey = buatField(7, "OPENROUTER API KEY (untuk AI Chat)", config.orKey, "Tempel API key OpenRouter")
+local fOrModel = buatField(8, "MODEL OPENROUTER", config.orModel, "Contoh: openai/gpt-4o-mini")
 local btnSimpan = tombol({Text = "SIMPAN KE FILE", Size = UDim2.new(1, -8, 0, 32),
-    BackgroundColor3 = C.aktif, LayoutOrder = 7}, halSetelan)
+    BackgroundColor3 = C.aktif, LayoutOrder = 9}, halSetelan)
 label({Text = "API key disimpan sebagai teks biasa di importer_config.json (folder Workspace Delta). " ..
     "Kalau tidak mau tersimpan, isi saja dan jangan tekan SIMPAN: nilai berlaku sampai GUI ditutup.",
     TextColor3 = C.redup, TextSize = 10, TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top,
-    Size = UDim2.new(1, -8, 0, 44), LayoutOrder = 8}, halSetelan)
+    Size = UDim2.new(1, -8, 0, 44), LayoutOrder = 10}, halSetelan)
 
 local function bacaSetelan()
     config.ocKey = trim(fOcKey.Text)
@@ -5269,6 +5462,8 @@ local function perbaruiHitungan()
     end
     dashboardMetrics.rbxm.Text = tostring(#fileTersedia.rbxm)
     dashboardMetrics.rbxl.Text = tostring(#fileTersedia.rbxl)
+    tambahSampelMetrik("rbxm", #fileTersedia.rbxm)
+    tambahSampelMetrik("rbxl", #fileTersedia.rbxl)
 end
 
 local function bacaMetrikStats(grup, nama)
@@ -5287,6 +5482,8 @@ local function perbaruiMetrikKinerja()
     local fps = bacaMetrikStats("FrameRateManager", "AverageFPS")
     dashboardMetrics.cpu.Text = cpu and string.format("%.0f ms", cpu) or "N/A"
     dashboardMetrics.fps.Text = fps and string.format("%.0f", fps) or "N/A"
+    if cpu then tambahSampelMetrik("cpu", cpu) end
+    if fps then tambahSampelMetrik("fps", fps) end
 end
 
 bukaHalaman = function(kunci)
@@ -5294,6 +5491,7 @@ bukaHalaman = function(kunci)
         if bukaToolboxPanel then bukaToolboxPanel() end
         return
     end
+    local gantiTab = halamanAktif ~= nil and halamanAktif ~= kunci
     for _, f in pairs(halaman) do f.Visible = false end
 
     if JENIS_KUNCI[kunci] then
@@ -5317,6 +5515,7 @@ bukaHalaman = function(kunci)
     end
     sorotMenu(kunci)
     halamanAktif = kunci
+    if gantiTab then jalankanSapuan() end
 end
 
 lakukanScan = function()
@@ -5359,6 +5558,7 @@ local toggler = sudut(buat("ImageButton", {
 toggler.Activated:Connect(function()
     toggleGui.Enabled = false
     gui.Enabled = true
+    jalankanSapuan()
 end)
 
 btnTutup.Activated:Connect(function()
@@ -5408,30 +5608,6 @@ end)
 lakukanScan()
 bukaHalaman("dashboard")
 perbaruiMetrikKinerja()
-
-task.spawn(function()
-    local durasiPutaran = {5.2, 4.2, 3.2, 2.4, 1.6}
-    local urutan = 1
-    while gui.Parent do
-        if gui.Enabled then
-            strokeRotation.Value = 0
-            local tween = TweenService:Create(
-                strokeRotation,
-                TweenInfo.new(durasiPutaran[urutan], Enum.EasingStyle.Linear),
-                {Value = 360}
-            )
-            tween:Play()
-            local state = tween.Completed:Wait()
-            if state == Enum.PlaybackState.Completed then
-                urutan = urutan % #durasiPutaran + 1
-            end
-        else
-            task.wait(0.25)
-        end
-    end
-    strokeRotationConnection:Disconnect()
-    strokeRotation:Destroy()
-end)
 
 task.spawn(function()
     while gui.Parent do
