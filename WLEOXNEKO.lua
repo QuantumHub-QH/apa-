@@ -300,7 +300,11 @@ local parentGui = pilihParent()
 local lama = parentGui:FindFirstChild("ImporterHub")
 if lama then lama:Destroy() end
 
-local gui = buat("ScreenGui", {Name = "ImporterHub", ResetOnSpawn = false}, parentGui)
+local gui = buat("ScreenGui", {
+    Name = "ImporterHub",
+    ResetOnSpawn = false,
+    ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
+}, parentGui)
 
 local LEBAR, TINGGI = 560, 360
 local frame = sudut(buat("Frame", {
@@ -415,6 +419,7 @@ local halamanAktif
 local badgeMenu, badgeKartu, menuBtn = {}, {}, {}
 local tombolTujuan = {}
 local bukaHalaman, lakukanScan
+local bukaToolboxPanel, tutupToolboxPanel
 
 local function perbaruiTujuan()
     for _, b in ipairs(tombolTujuan) do
@@ -4296,14 +4301,98 @@ local halDash = buat("ScrollingFrame", {
     AutomaticCanvasSize = Enum.AutomaticSize.Y,
 }, isi)
 halaman.dashboard = halDash
+buat("UIListLayout", {
+    Padding = UDim.new(0, 8),
+    SortOrder = Enum.SortOrder.LayoutOrder,
+}, halDash)
+
+label({
+    Text = "Toolbox",
+    Font = Enum.Font.GothamBold,
+    TextSize = 11,
+    Size = UDim2.new(1, 0, 0, 16),
+    LayoutOrder = 1,
+}, halDash)
+local dashToolboxCard = tombol({
+    Text = "",
+    Size = UDim2.new(1, -4, 0, 64),
+    BackgroundColor3 = C.kartu,
+    LayoutOrder = 2,
+}, halDash)
+local dashToolboxAccent = buat("Frame", {
+    Size = UDim2.new(0, 3, 1, -16),
+    Position = UDim2.new(0, 8, 0, 8),
+    BackgroundColor3 = C.aktif,
+    BorderSizePixel = 0,
+}, dashToolboxCard)
+sudut(dashToolboxAccent, 2)
+local dashToolboxIcon = sudut(buat("Frame", {
+    Size = UDim2.new(0, 40, 0, 40),
+    Position = UDim2.new(0, 18, 0.5, -20),
+    BackgroundColor3 = C.aktif,
+    BorderSizePixel = 0,
+}, dashToolboxCard), 10)
+label({
+    Text = "TB",
+    Font = Enum.Font.GothamBold,
+    TextSize = 13,
+    Size = UDim2.new(1, 0, 1, 0),
+    TextXAlignment = Enum.TextXAlignment.Center,
+}, dashToolboxIcon)
+label({
+    Text = "Buka panel aset",
+    Font = Enum.Font.GothamBold,
+    TextSize = 13,
+    Position = UDim2.new(0, 70, 0, 12),
+    Size = UDim2.new(1, -140, 0, 18),
+    TextTruncate = Enum.TextTruncate.AtEnd,
+}, dashToolboxCard)
+label({
+    Text = "Cari, import, dan cek aset",
+    TextColor3 = C.redup,
+    TextSize = 10,
+    Position = UDim2.new(0, 70, 0, 33),
+    Size = UDim2.new(1, -140, 0, 16),
+    TextTruncate = Enum.TextTruncate.AtEnd,
+}, dashToolboxCard)
+label({
+    Text = "BUKA",
+    Font = Enum.Font.GothamBold,
+    TextColor3 = C.aktif,
+    TextSize = 10,
+    TextXAlignment = Enum.TextXAlignment.Right,
+    Position = UDim2.new(1, -62, 0.5, -8),
+    Size = UDim2.new(0, 48, 0, 16),
+}, dashToolboxCard)
+
+buat("Frame", {
+    Size = UDim2.new(1, -4, 0, 1),
+    BackgroundColor3 = C.redup,
+    BackgroundTransparency = 0.45,
+    BorderSizePixel = 0,
+    LayoutOrder = 3,
+}, halDash)
+label({
+    Text = "Import dan fitur",
+    Font = Enum.Font.GothamBold,
+    TextColor3 = C.redup,
+    TextSize = 10,
+    Size = UDim2.new(1, 0, 0, 16),
+    LayoutOrder = 4,
+}, halDash)
+
+local dashGrid = buat("Frame", {
+    Size = UDim2.new(1, 0, 0, 392),
+    BackgroundTransparency = 1,
+    LayoutOrder = 5,
+}, halDash)
 buat("UIGridLayout", {
     CellSize = UDim2.new(0.5, -8, 0, 72),
     CellPadding = UDim2.new(0, 8, 0, 8),
     SortOrder = Enum.SortOrder.LayoutOrder,
-}, halDash)
+}, dashGrid)
 
 local KARTU = {
-    {kunci = "toolbox", ikon = "TB", judul = "Toolbox", ket = "Cari & import Model, Mesh, Decal"},
     {kunci = "rbxm", ikon = "M", judul = "Import RBXM", ket = "Model binary (.rbxm)", badge = true},
     {kunci = "rbxl", ikon = "L", judul = "Import RBXL", ket = "Place binary (.rbxl)", badge = true},
     {kunci = "rbxlx", ikon = "LX", judul = "Import RBXLX", ket = "Place XML (.rbxlx)", badge = true},
@@ -4316,7 +4405,7 @@ local KARTU = {
 }
 
 for i, k in ipairs(KARTU) do
-    local kartu = tombol({Text = "", BackgroundColor3 = C.kartu, LayoutOrder = i}, halDash)
+    local kartu = tombol({Text = "", BackgroundColor3 = C.kartu, LayoutOrder = i}, dashGrid)
     local ikon = sudut(buat("Frame", {
         Size = UDim2.new(0, 40, 0, 40), Position = UDim2.new(0, 10, 0.5, -20),
         BackgroundColor3 = C.aktif, BorderSizePixel = 0,
@@ -4336,6 +4425,9 @@ for i, k in ipairs(KARTU) do
     end
     kartu.Activated:Connect(function() bukaHalaman(k.kunci) end)
 end
+dashToolboxCard.Activated:Connect(function()
+    if bukaToolboxPanel then bukaToolboxPanel() end
+end)
 
 ------------------------------------------------------------------
 -- HALAMAN: PANEL IMPORT & PANEL UPLOAD
@@ -4370,10 +4462,80 @@ panelUpload.extra.Text = "Atur API Key >"
 panelUpload.extra.Activated:Connect(function() bukaHalaman("setelan") end)
 
 ------------------------------------------------------------------
--- HALAMAN: TOOLBOX (Creator Store)
+-- PANEL SAMPING: TOOLBOX
 ------------------------------------------------------------------
-local halToolbox = buat("Frame", {Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency = 1, Visible = false}, isi)
-halaman.toolbox = halToolbox
+local TOOLBOX_WIDTH, TOOLBOX_HEIGHT, TOOLBOX_GAP = 360, 520, 12
+local toolboxTerbuka = false
+local halToolbox = sudut(buat("Frame", {
+    Name = "ToolboxPanel",
+    Size = UDim2.new(0, TOOLBOX_WIDTH, 0, TOOLBOX_HEIGHT),
+    Position = UDim2.new(0.5, 0, 0.5, -TOOLBOX_HEIGHT / 2),
+    BackgroundColor3 = C.bg,
+    BorderSizePixel = 0,
+    Active = true,
+    Visible = false,
+    ZIndex = 2,
+}, gui), 12)
+buat("UIStroke", {Color = C.kartu, Transparency = 0.15, Thickness = 1}, halToolbox)
+buat("Frame", {
+    Size = UDim2.new(0, 3, 1, -24),
+    Position = UDim2.new(0, 0, 0, 12),
+    BackgroundColor3 = C.aktif,
+    BorderSizePixel = 0,
+    ZIndex = 3,
+}, halToolbox)
+
+local tbHeader = buat("Frame", {
+    Size = UDim2.new(1, 0, 0, 42),
+    BackgroundTransparency = 1,
+}, halToolbox)
+label({
+    Text = "Toolbox",
+    Font = Enum.Font.GothamBold,
+    TextSize = 14,
+    Position = UDim2.new(0, 14, 0, 4),
+    Size = UDim2.new(1, -64, 0, 18),
+}, tbHeader)
+label({
+    Text = "Cari dan import aset",
+    TextColor3 = C.redup,
+    TextSize = 10,
+    Position = UDim2.new(0, 14, 0, 22),
+    Size = UDim2.new(1, -64, 0, 14),
+}, tbHeader)
+local tbClose = tombol({
+    Text = "X",
+    Size = UDim2.new(0, 28, 0, 28),
+    Position = UDim2.new(1, -38, 0, 6),
+    BackgroundColor3 = C.kartu,
+}, tbHeader)
+buat("Frame", {
+    Size = UDim2.new(1, -24, 0, 1),
+    Position = UDim2.new(0, 12, 0, 41),
+    BackgroundColor3 = C.redup,
+    BackgroundTransparency = 0.55,
+    BorderSizePixel = 0,
+}, halToolbox)
+
+bukaToolboxPanel = function()
+    if toolboxTerbuka then return end
+    toolboxTerbuka = true
+    local groupWidth = LEBAR + TOOLBOX_GAP + TOOLBOX_WIDTH
+    frame.Position = UDim2.new(0.5, -groupWidth / 2, 0.5, -TINGGI / 2)
+    halToolbox.Position = UDim2.new(
+        0.5, -groupWidth / 2 + LEBAR + TOOLBOX_GAP,
+        0.5, -TOOLBOX_HEIGHT / 2
+    )
+    halToolbox.Visible = true
+end
+
+tutupToolboxPanel = function()
+    if not toolboxTerbuka then return end
+    toolboxTerbuka = false
+    halToolbox.Visible = false
+    frame.Position = UDim2.new(0.5, -LEBAR / 2, 0.5, -TINGGI / 2)
+end
+tbClose.Activated:Connect(tutupToolboxPanel)
 
 local KAT = {
     {kunci = "Model", teks = "Model", tag = "MODEL"},
@@ -4383,7 +4545,11 @@ local KAT = {
 local katAktif = "Model"
 local tombolKat = {}
 
-local barisKat = buat("Frame", {Size = UDim2.new(1, 0, 0, 28), BackgroundTransparency = 1}, halToolbox)
+local barisKat = buat("Frame", {
+    Size = UDim2.new(1, -24, 0, 28),
+    Position = UDim2.new(0, 12, 0, 46),
+    BackgroundTransparency = 1,
+}, halToolbox)
 buat("UIListLayout", {FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 4),
     SortOrder = Enum.SortOrder.LayoutOrder}, barisKat)
 
@@ -4405,24 +4571,29 @@ end
 sorotKat()
 
 local tbInput = kotakTeks({
-    Size = UDim2.new(1, -90, 0, 30), Position = UDim2.new(0, 0, 0, 34),
+    Size = UDim2.new(1, -114, 0, 30), Position = UDim2.new(0, 12, 0, 80),
     Text = "", PlaceholderText = "Kata kunci, contoh: sword",
 }, halToolbox)
 local tbCari = tombol({Text = "CARI", Size = UDim2.new(0, 82, 0, 30),
-    Position = UDim2.new(1, -82, 0, 34), BackgroundColor3 = C.aktif}, halToolbox)
+    Position = UDim2.new(1, -94, 0, 80), BackgroundColor3 = C.aktif}, halToolbox)
 local tbIdInput = kotakTeks({
-    Size = UDim2.new(1, -122, 0, 30),
-    Position = UDim2.new(0, 0, 0, 70),
+    Size = UDim2.new(1, -146, 0, 30),
+    Position = UDim2.new(0, 12, 0, 116),
     Text = "",
     PlaceholderText = "Tempel ID aset Roblox...",
 }, halToolbox)
 local tbImportId = tombol({Text = "IMPORT ID", Size = UDim2.new(0, 114, 0, 30),
-    Position = UDim2.new(1, -114, 0, 70), BackgroundColor3 = C.aktif}, halToolbox)
-local tbList = buatDaftarScroll(halToolbox, UDim2.new(0, 0, 0, 106), UDim2.new(1, 0, 1, -140))
+    Position = UDim2.new(1, -126, 0, 116), BackgroundColor3 = C.aktif}, halToolbox)
+local tbList = buatDaftarScroll(
+    halToolbox,
+    UDim2.new(0, 12, 0, 152),
+    UDim2.new(1, -24, 1, -186)
+)
 local tbInfo = label({Text = "", TextColor3 = C.redup, TextSize = 11,
-    Position = UDim2.new(0, 0, 1, -28), Size = UDim2.new(1, -200, 0, 28)}, halToolbox)
+    Position = UDim2.new(0, 12, 1, -28), Size = UDim2.new(1, -222, 0, 28),
+    TextTruncate = Enum.TextTruncate.AtEnd}, halToolbox)
 local tbTujuan = tombol({Text = "", Size = UDim2.new(0, 190, 0, 28),
-    Position = UDim2.new(1, -190, 1, -28), BackgroundColor3 = C.kartu, TextSize = 11}, halToolbox)
+    Position = UDim2.new(1, -202, 1, -28), BackgroundColor3 = C.kartu, TextSize = 11}, halToolbox)
 table.insert(tombolTujuan, tbTujuan)
 tbTujuan.Activated:Connect(gantiTujuan)
 
@@ -4862,7 +5033,6 @@ buat("UIListLayout", {Padding = UDim.new(0, 4), SortOrder = Enum.SortOrder.Layou
 local MENU = {
     {seksi = "MENU"},
     {kunci = "dashboard", nama = "Dashboard"},
-    {kunci = "toolbox", nama = "Toolbox"},
     {kunci = "ai", nama = "AI Chat"},
     {seksi = "IMPORT"},
     {kunci = "rbxm", nama = "RBXM", badge = true},
@@ -4918,6 +5088,10 @@ local function perbaruiHitungan()
 end
 
 bukaHalaman = function(kunci)
+    if kunci == "toolbox" then
+        if bukaToolboxPanel then bukaToolboxPanel() end
+        return
+    end
     local halamanBerubah = halamanAktif ~= kunci
     for _, f in pairs(halaman) do f.Visible = false end
 
@@ -4989,12 +5163,14 @@ toggler.Activated:Connect(function()
 end)
 
 btnTutup.Activated:Connect(function()
+    tutupToolboxPanel()
     gui.Enabled = false
     if toggleGui then toggleGui.Enabled = true end
 end)
 
 local kecil = false
 btnMin.Activated:Connect(function()
+    if not kecil then tutupToolboxPanel() end
     kecil = not kecil
     body.Visible = not kecil
     frame.Size = UDim2.new(0, LEBAR, 0, kecil and 40 or TINGGI)
@@ -5018,6 +5194,12 @@ koneksiGeser = UIS.InputChanged:Connect(function(input)
         local d = input.Position - dragStart
         frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + d.X,
             startPos.Y.Scale, startPos.Y.Offset + d.Y)
+        if toolboxTerbuka then
+            halToolbox.Position = UDim2.new(
+                frame.Position.X.Scale, frame.Position.X.Offset + LEBAR + TOOLBOX_GAP,
+                frame.Position.Y.Scale, frame.Position.Y.Offset + (TINGGI - TOOLBOX_HEIGHT) / 2
+            )
+        end
     end
 end)
 
