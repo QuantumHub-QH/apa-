@@ -18,6 +18,7 @@ local Players = game:GetService("Players")
 local UIS = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
 local HttpService = game:GetService("HttpService")
+local StatsService = game:GetService("Stats")
 local lp = Players.LocalPlayer
 
 local getAsset = getcustomasset or getsynasset
@@ -296,13 +297,73 @@ local C = {
     teks = Color3.fromRGB(235, 235, 240),
     redup = Color3.fromRGB(150, 150, 165),
     hijau = Color3.fromRGB(90, 220, 140),
+    racun = Color3.fromRGB(142, 255, 0),
+    racunGelap = Color3.fromRGB(0, 8, 2),
     merah = Color3.fromRGB(255, 110, 110),
 }
+
+local strokeGradients = {}
+local strokeRotation = Instance.new("NumberValue")
+local strokeRotationConnection = strokeRotation.Changed:Connect(function(rotation)
+    for i = #strokeGradients, 1, -1 do
+        local gradient = strokeGradients[i]
+        if gradient.Parent then
+            gradient.Rotation = rotation
+        else
+            table.remove(strokeGradients, i)
+        end
+    end
+end)
+local strokeColors = ColorSequence.new({
+    ColorSequenceKeypoint.new(0, C.racun),
+    ColorSequenceKeypoint.new(0.25, C.racunGelap),
+    ColorSequenceKeypoint.new(0.5, C.racun),
+    ColorSequenceKeypoint.new(0.75, C.racunGelap),
+    ColorSequenceKeypoint.new(1, C.racun),
+})
+
+local function perluStroke(class, props)
+    if class ~= "Frame" and class ~= "TextButton"
+        and class ~= "TextBox" and class ~= "ScrollingFrame" then
+        return false
+    end
+    if props.Name == "PageSweep" or props.BackgroundTransparency == 1 then
+        return false
+    end
+    local size = props.Size
+    if size then
+        if size.X.Scale == 0 and size.X.Offset > 0 and size.X.Offset <= 4 then return false end
+        if size.Y.Scale == 0 and size.Y.Offset > 0 and size.Y.Offset <= 3 then return false end
+        if size.X.Scale == 0 and size.Y.Scale == 0
+            and size.X.Offset < 16 and size.Y.Offset < 16 then
+            return false
+        end
+    end
+    return true
+end
+
+local function pasangStrokeRacun(obj)
+    local stroke = Instance.new("UIStroke")
+    stroke.Name = "ToxicBorder"
+    stroke.Color = C.racun
+    stroke.Thickness = 1.2
+    stroke.Transparency = 0.05
+    stroke.Parent = obj
+
+    local gradient = Instance.new("UIGradient")
+    gradient.Color = strokeColors
+    gradient.Rotation = strokeRotation.Value
+    gradient.Parent = stroke
+    table.insert(strokeGradients, gradient)
+end
 
 local function buat(class, props, parent)
     local o = Instance.new(class)
     for k, v in pairs(props) do o[k] = v end
     o.Parent = parent
+    if perluStroke(class, props) then
+        pasangStrokeRacun(o)
+    end
     return o
 end
 
@@ -372,11 +433,20 @@ local frame = sudut(buat("Frame", {
 }, gui), 12)
 
 -- Header
+local TOGGLE_IMAGE = "rbxassetid://116910178994061"
 local header = buat("Frame", {Size = UDim2.new(1, 0, 0, 40), BackgroundTransparency = 1}, frame)
+buat("ImageLabel", {
+    Name = "HeaderLogo",
+    BackgroundTransparency = 1,
+    Image = TOGGLE_IMAGE,
+    Position = UDim2.new(0, 10, 0, 7),
+    Size = UDim2.new(0, 26, 0, 26),
+    ScaleType = Enum.ScaleType.Fit,
+}, header)
 label({Text = "TOOLS ENGINE MCP STUDIOLITE", Font = Enum.Font.GothamBold, TextSize = 15,
-    Position = UDim2.new(0, 14, 0, 3), Size = UDim2.new(0, 400, 0, 20)}, header)
+    Position = UDim2.new(0, 44, 0, 3), Size = UDim2.new(0, 390, 0, 20)}, header)
 label({Text = "IMPORT · TOOLBOX · AI · UPLOAD", TextColor3 = C.redup, TextSize = 10,
-    Position = UDim2.new(0, 14, 0, 23), Size = UDim2.new(0, 300, 0, 14)}, header)
+    Position = UDim2.new(0, 44, 0, 23), Size = UDim2.new(0, 300, 0, 14)}, header)
 local btnMin = tombol({Text = "-", Size = UDim2.new(0, 30, 0, 28),
     Position = UDim2.new(1, -72, 0, 6), BackgroundColor3 = C.kartu}, header)
 local btnTutup = tombol({Text = "X", Size = UDim2.new(0, 30, 0, 28),
@@ -441,7 +511,7 @@ local pageSweep = buat("Frame", {
     BackgroundColor3 = Color3.new(1, 1, 1),
     BackgroundTransparency = 0.65,
     BorderSizePixel = 0,
-    Visible = false,
+    Visible = true,
     ZIndex = 100,
 }, isi)
 buat("UIGradient", {
@@ -451,24 +521,12 @@ buat("UIGradient", {
         NumberSequenceKeypoint.new(1, 1),
     }),
 }, pageSweep)
-
-local pageSweepTween
-local function playPageSweep()
-    if pageSweepTween then pageSweepTween:Cancel() end
-    pageSweep.Visible = true
-    pageSweep.Position = UDim2.new(0, -120, 0, 0)
-    local tween = TweenService:Create(pageSweep,
-        TweenInfo.new(0.42, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut),
-        {Position = UDim2.new(1, 12, 0, 0)})
-    pageSweepTween = tween
-    tween.Completed:Connect(function()
-        if pageSweepTween == tween then
-            pageSweep.Visible = false
-            pageSweepTween = nil
-        end
-    end)
-    tween:Play()
-end
+local pageSweepTween = TweenService:Create(
+    pageSweep,
+    TweenInfo.new(3.2, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true),
+    {Position = UDim2.new(1, 12, 0, 0)}
+)
+pageSweepTween:Play()
 
 local halaman = {}
 local halamanAktif
@@ -4412,85 +4470,66 @@ local ICON_BY_KEY = {
     setelan = "92592867988128",
 }
 
-label({
-    Text = "Toolbox",
-    Font = Enum.Font.GothamBold,
-    TextSize = 11,
-    Size = UDim2.new(1, 0, 0, 16),
+local dashboardMetrics = {}
+local metricsRow = buat("Frame", {
+    Size = UDim2.new(1, -4, 0, 58),
+    BackgroundTransparency = 1,
     LayoutOrder = 1,
 }, halDash)
-local dashToolboxCard = tombol({
-    Text = "",
-    Size = UDim2.new(1, -4, 0, 64),
-    BackgroundColor3 = C.kartu,
-    LayoutOrder = 2,
-}, halDash)
-local dashToolboxAccent = buat("Frame", {
-    Size = UDim2.new(0, 3, 1, -16),
-    Position = UDim2.new(0, 8, 0, 8),
-    BackgroundColor3 = C.aktif,
-    BorderSizePixel = 0,
-}, dashToolboxCard)
-sudut(dashToolboxAccent, 2)
-local dashToolboxIcon = sudut(buat("Frame", {
-    Size = UDim2.new(0, 40, 0, 40),
-    Position = UDim2.new(0, 18, 0.5, -20),
-    BackgroundColor3 = C.aktif,
-    BorderSizePixel = 0,
-}, dashToolboxCard), 10)
-buat("ImageLabel", {
-    BackgroundTransparency = 1,
-    Image = "rbxassetid://" .. ICON_BY_KEY.toolbox,
-    Position = UDim2.new(0, 4, 0, 4),
-    Size = UDim2.new(1, -8, 1, -8),
-    ScaleType = Enum.ScaleType.Fit,
-}, dashToolboxIcon)
-label({
-    Text = "Buka panel aset",
-    Font = Enum.Font.GothamBold,
-    TextSize = 13,
-    Position = UDim2.new(0, 70, 0, 12),
-    Size = UDim2.new(1, -140, 0, 18),
-    TextTruncate = Enum.TextTruncate.AtEnd,
-}, dashToolboxCard)
-label({
-    Text = "Cari, import, dan cek aset",
-    TextColor3 = C.redup,
-    TextSize = 10,
-    Position = UDim2.new(0, 70, 0, 33),
-    Size = UDim2.new(1, -140, 0, 16),
-    TextTruncate = Enum.TextTruncate.AtEnd,
-}, dashToolboxCard)
-label({
-    Text = "BUKA",
-    Font = Enum.Font.GothamBold,
-    TextColor3 = C.aktif,
-    TextSize = 10,
-    TextXAlignment = Enum.TextXAlignment.Right,
-    Position = UDim2.new(1, -62, 0.5, -8),
-    Size = UDim2.new(0, 48, 0, 16),
-}, dashToolboxCard)
+buat("UIGridLayout", {
+    CellSize = UDim2.new(0.25, -5, 1, 0),
+    CellPadding = UDim2.new(0, 5, 0, 0),
+    FillDirectionMaxCells = 4,
+    SortOrder = Enum.SortOrder.LayoutOrder,
+}, metricsRow)
 
-buat("Frame", {
-    Size = UDim2.new(1, -4, 0, 1),
-    BackgroundColor3 = C.redup,
-    BackgroundTransparency = 0.45,
-    BorderSizePixel = 0,
-    LayoutOrder = 3,
-}, halDash)
+local metricOrder = 0
+local function buatMetrikDashboard(key, judul)
+    metricOrder += 1
+    local card = sudut(buat("Frame", {
+        BackgroundColor3 = C.panel,
+        BorderSizePixel = 0,
+        LayoutOrder = metricOrder,
+    }, metricsRow), 8)
+    dashboardMetrics[key] = label({
+        Text = "--",
+        Font = Enum.Font.GothamBold,
+        TextSize = 15,
+        TextXAlignment = Enum.TextXAlignment.Center,
+        Position = UDim2.new(0, 2, 0, 4),
+        Size = UDim2.new(1, -4, 0, 24),
+        TextTruncate = Enum.TextTruncate.AtEnd,
+    }, card)
+    label({
+        Text = judul,
+        Font = Enum.Font.GothamBold,
+        TextColor3 = C.redup,
+        TextSize = 8,
+        TextXAlignment = Enum.TextXAlignment.Center,
+        Position = UDim2.new(0, 2, 0, 34),
+        Size = UDim2.new(1, -4, 0, 13),
+        TextTruncate = Enum.TextTruncate.AtEnd,
+    }, card)
+end
+
+buatMetrikDashboard("rbxm", "TOTAL RBXM")
+buatMetrikDashboard("rbxl", "TOTAL RBXL")
+buatMetrikDashboard("cpu", "CPU / FRAME")
+buatMetrikDashboard("fps", "FPS")
+
 label({
     Text = "Import dan fitur",
     Font = Enum.Font.GothamBold,
     TextColor3 = C.redup,
     TextSize = 10,
     Size = UDim2.new(1, 0, 0, 16),
-    LayoutOrder = 4,
+    LayoutOrder = 2,
 }, halDash)
 
 local dashGrid = buat("Frame", {
     Size = UDim2.new(1, 0, 0, 392),
     BackgroundTransparency = 1,
-    LayoutOrder = 5,
+    LayoutOrder = 3,
 }, halDash)
 buat("UIGridLayout", {
     CellSize = UDim2.new(0.5, -8, 0, 72),
@@ -4503,6 +4542,7 @@ local KARTU = {
     {kunci = "rbxl", ikon = "L", judul = "Import RBXL", ket = "Place binary (.rbxl)", badge = true},
     {kunci = "rbxlx", ikon = "LX", judul = "Import RBXLX", ket = "Place XML (.rbxlx)", badge = true},
     {kunci = "rbxmx", ikon = "MX", judul = "Import RBXMX", ket = "Model XML (.rbxmx)", badge = true},
+    {kunci = "toolbox", ikon = "TB", judul = "Toolbox", ket = "Cari dan import aset"},
     {kunci = "ai", ikon = "AI", judul = "AI Chat", ket = "Ngobrol dengan AI via OpenRouter"},
     {kunci = "up_gambar", ikon = "UG", judul = "Upload Gambar", ket = "Unggah gambar jadi Decal"},
     {kunci = "up_animasi", ikon = "UA", judul = "Upload Animasi", ket = "Unggah animasi (.rbxm/.rbxmx)"},
@@ -4542,9 +4582,6 @@ for i, k in ipairs(KARTU) do
     end
     kartu.Activated:Connect(function() bukaHalaman(k.kunci) end)
 end
-dashToolboxCard.Activated:Connect(function()
-    if bukaToolboxPanel then bukaToolboxPanel() end
-end)
 
 ------------------------------------------------------------------
 -- HALAMAN: PANEL IMPORT & PANEL UPLOAD
@@ -4593,7 +4630,6 @@ local halToolbox = sudut(buat("Frame", {
     Visible = false,
     ZIndex = 2,
 }, gui), 12)
-buat("UIStroke", {Color = C.kartu, Transparency = 0.15, Thickness = 1}, halToolbox)
 buat("Frame", {
     Size = UDim2.new(0, 3, 1, -24),
     Position = UDim2.new(0, 0, 0, 12),
@@ -5231,6 +5267,26 @@ local function perbaruiHitungan()
         if badgeKartu[j.kunci] then badgeKartu[j.kunci].Text = n end
         if badgeMenu[j.kunci] then badgeMenu[j.kunci].Text = n end
     end
+    dashboardMetrics.rbxm.Text = tostring(#fileTersedia.rbxm)
+    dashboardMetrics.rbxl.Text = tostring(#fileTersedia.rbxl)
+end
+
+local function bacaMetrikStats(grup, nama)
+    local ok, value = pcall(function()
+        local kategori = StatsService:FindFirstChild(grup)
+        local item = kategori and kategori:FindFirstChild(nama)
+        if not item then return nil end
+        return item:GetValue()
+    end)
+    if ok and type(value) == "number" then return value end
+    return nil
+end
+
+local function perbaruiMetrikKinerja()
+    local cpu = bacaMetrikStats("PerformanceStats", "CPU")
+    local fps = bacaMetrikStats("FrameRateManager", "AverageFPS")
+    dashboardMetrics.cpu.Text = cpu and string.format("%.0f ms", cpu) or "N/A"
+    dashboardMetrics.fps.Text = fps and string.format("%.0f", fps) or "N/A"
 end
 
 bukaHalaman = function(kunci)
@@ -5238,7 +5294,6 @@ bukaHalaman = function(kunci)
         if bukaToolboxPanel then bukaToolboxPanel() end
         return
     end
-    local halamanBerubah = halamanAktif ~= kunci
     for _, f in pairs(halaman) do f.Visible = false end
 
     if JENIS_KUNCI[kunci] then
@@ -5262,7 +5317,6 @@ bukaHalaman = function(kunci)
     end
     sorotMenu(kunci)
     halamanAktif = kunci
-    if halamanBerubah then playPageSweep() end
 end
 
 lakukanScan = function()
@@ -5297,7 +5351,7 @@ local toggler = sudut(buat("ImageButton", {
     Name = "HubToggle",
     Size = UDim2.new(0, 64, 0, 64),
     Position = UDim2.new(0, 18, 0.5, -32),
-    Image = "rbxassetid://116910178994061",
+    Image = TOGGLE_IMAGE,
     BackgroundTransparency = 1,
     BorderSizePixel = 0,
     Active = true,
@@ -5305,7 +5359,6 @@ local toggler = sudut(buat("ImageButton", {
 toggler.Activated:Connect(function()
     toggleGui.Enabled = false
     gui.Enabled = true
-    playPageSweep()
 end)
 
 btnTutup.Activated:Connect(function()
@@ -5354,3 +5407,35 @@ end)
 ------------------------------------------------------------------
 lakukanScan()
 bukaHalaman("dashboard")
+perbaruiMetrikKinerja()
+
+task.spawn(function()
+    local durasiPutaran = {5.2, 4.2, 3.2, 2.4, 1.6}
+    local urutan = 1
+    while gui.Parent do
+        if gui.Enabled then
+            strokeRotation.Value = 0
+            local tween = TweenService:Create(
+                strokeRotation,
+                TweenInfo.new(durasiPutaran[urutan], Enum.EasingStyle.Linear),
+                {Value = 360}
+            )
+            tween:Play()
+            local state = tween.Completed:Wait()
+            if state == Enum.PlaybackState.Completed then
+                urutan = urutan % #durasiPutaran + 1
+            end
+        else
+            task.wait(0.25)
+        end
+    end
+    strokeRotationConnection:Disconnect()
+    strokeRotation:Destroy()
+end)
+
+task.spawn(function()
+    while gui.Parent do
+        if gui.Enabled then perbaruiMetrikKinerja() end
+        task.wait(0.5)
+    end
+end)
