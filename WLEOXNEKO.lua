@@ -292,28 +292,28 @@ local C = {}
 
 local TEMA = {
     Abu = {
-        bg = Color3.fromRGB(11, 12, 16),
-        panel = Color3.fromRGB(17, 19, 25),
-        kartu = Color3.fromRGB(24, 27, 36),
-        aktif = Color3.fromRGB(48, 42, 28),
-        teks = Color3.fromRGB(250, 248, 242),
-        redup = Color3.fromRGB(160, 155, 140),
-        aksen = Color3.fromRGB(245, 175, 45),
-        hijau = Color3.fromRGB(46, 204, 113),
-        merah = Color3.fromRGB(235, 75, 75),
-        emas = Color3.fromRGB(255, 198, 55),
+        bg = Color3.fromRGB(6, 8, 10),
+        panel = Color3.fromRGB(12, 16, 20),
+        kartu = Color3.fromRGB(18, 24, 30),
+        aktif = Color3.fromRGB(0, 245, 115),
+        teks = Color3.fromRGB(245, 255, 250),
+        redup = Color3.fromRGB(120, 160, 140),
+        aksen = Color3.fromRGB(0, 245, 115),
+        hijau = Color3.fromRGB(0, 245, 115),
+        merah = Color3.fromRGB(255, 65, 85),
+        emas = Color3.fromRGB(0, 245, 115),
     },
     Luxury = {
-        bg = Color3.fromRGB(10, 11, 15),
-        panel = Color3.fromRGB(16, 18, 24),
-        kartu = Color3.fromRGB(23, 26, 35),
-        aktif = Color3.fromRGB(48, 42, 28),
-        teks = Color3.fromRGB(250, 248, 242),
-        redup = Color3.fromRGB(160, 155, 140),
-        aksen = Color3.fromRGB(245, 175, 45),
-        hijau = Color3.fromRGB(46, 204, 113),
-        merah = Color3.fromRGB(235, 75, 75),
-        emas = Color3.fromRGB(255, 198, 55),
+        bg = Color3.fromRGB(6, 8, 10),
+        panel = Color3.fromRGB(12, 16, 20),
+        kartu = Color3.fromRGB(18, 24, 30),
+        aktif = Color3.fromRGB(0, 245, 115),
+        teks = Color3.fromRGB(245, 255, 250),
+        redup = Color3.fromRGB(120, 160, 140),
+        aksen = Color3.fromRGB(0, 245, 115),
+        hijau = Color3.fromRGB(0, 245, 115),
+        merah = Color3.fromRGB(255, 65, 85),
+        emas = Color3.fromRGB(0, 245, 115),
     },
     Pink = {
         bg = Color3.fromRGB(33, 19, 29), panel = Color3.fromRGB(46, 26, 40),
@@ -735,6 +735,10 @@ local frame = sudut(buat("Frame", {
     Active = true,
     ClipsDescendants = true,
 }, gui), 12)
+local frameStroke = Instance.new("UIStroke", frame)
+frameStroke.Color = Color3.fromRGB(0, 245, 115)
+frameStroke.Thickness = 1.5
+TweenService:Create(frameStroke, TweenInfo.new(1.8, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), { Color = Color3.fromRGB(0, 160, 75), Thickness = 2.2 }):Play()
 buat("UIStroke", {
     Color = Color3.fromRGB(245, 175, 45),
     Transparency = 0.45,
@@ -5498,6 +5502,26 @@ tbInput.FocusLost:Connect(function(enter) if enter then cariToolbox() end end)
 ------------------------------------------------------------------
 local MUSIC_LOGO = "rbxassetid://102337382069600"
 local MUSIC_TRACKS = {
+    {nama = "RASAH BALI", id = "120983443791226", genre = "DJ Mix", pembuat = "xyuzen'—"},
+    {nama = "Runkat", id = "92799532573184", genre = "DJ Mix", pembuat = "xyuzen'—"},
+    {nama = "NEGORO ANGIN", id = "117224072066843", genre = "DJ Mix", pembuat = "xyuzen'—"},
+    {nama = "Sinarengan", id = "115035906821398", genre = "DJ Mix", pembuat = "xyuzen'—"},
+    {nama = "Pamit Ning Ati", id = "120786497356440", genre = "Sad", pembuat = "xyuzen'—"},
+    {nama = "Urip Iku Mlaku", id = "79151027570609", genre = "Breakbeat", pembuat = "xyuzen'—"},
+    {nama = "Lintang Nyek Seni", id = "70962526173357", genre = "DJ Mix", pembuat = "xyuzen'—"},
+    {nama = "Udang Ning Atiku", id = "135480789776959", genre = "Sad", pembuat = "xyuzen'—"},
+    {nama = "Sepi Tanpo Sliramu", id = "121796353758342", genre = "Sad", pembuat = "xyuzen'—"},
+    {nama = "Tresno Kinaryo Kangen", id = "85537520513989", genre = "Sad", pembuat = "xyuzen'—"},
+    {nama = "Tresnoku Selawase", id = "71152710717244", genre = "Sad", pembuat = "xyuzen'—"},
+    {nama = "Saiki", id = "74761962675895", genre = "Breakbeat", pembuat = "xyuzen'—"},
+    {nama = "Tembang Kanggo Sliramu", id = "134246452602760", genre = "Sad", pembuat = "xyuzen'—"},
+    {nama = "Ora Butoh Sliramu", id = "121335955905892", genre = "DJ Mix", pembuat = "xyuzen'—"},
+    {nama = "Tau Dadi Padhange Dalan", id = "110496212005473", genre = "Sad", pembuat = "xyuzen'—"},
+    {nama = "Nerusake Uripku", id = "77330130829762", genre = "Breakbeat", pembuat = "xyuzen'—"},
+    {nama = "Mboyak", id = "100800381563349", genre = "Breakbeat", pembuat = "xyuzen'—"},
+    {nama = "Kowe Ning Endi", id = "110965259723757", genre = "Sad", pembuat = "xyuzen'—"},
+    {nama = "Los Ora Rewel", id = "79929910199476", genre = "Breakbeat", pembuat = "xyuzen'—"},
+    {nama = "Oalah Wong Kere", id = "100644156519402", genre = "DJ Mix", pembuat = "xyuzen'—"},
     {nama = "DJ BREAKBEAT BARAT, Vol. 1", id = "115153624060642", genre = "Breakbeat", pembuat = "DistrokidOfficial"},
     {nama = "DJ Phut Hon Indo Full Bass", id = "85427648559465", genre = "Breakbeat", pembuat = "DistrokidOfficial"},
     {nama = "DJ STAY THE SAME BREAKBEAT", id = "74088514222709", genre = "Breakbeat", pembuat = "DistrokidOfficial"},
@@ -6061,6 +6085,21 @@ local function tambahPesan(peran, teks)
         task.wait()
         aiList.CanvasPosition = Vector2.new(0, 99999)
     end)
+        if peran == "ai" then
+        local salinBtn = buat("TextButton", {
+            Size = UDim2.new(0, 90, 0, 20),
+            Position = UDim2.new(1, -94, 1, -24),
+            BackgroundColor3 = Color3.fromRGB(0, 245, 115),
+            Text = "📋 Salin Script",
+            TextColor3 = Color3.fromRGB(0, 0, 0),
+            TextSize = 9,
+            Font = Enum.Font.GothamBold,
+        }, lbl)
+        sudut(salinBtn, 4)
+        salinBtn.Activated:Connect(function()
+            if setclipboard then setclipboard(teks) end
+        end)
+    end
     return lbl
 end
 
@@ -7341,6 +7380,10 @@ local toggler = sudut(buat("ImageButton", {
     BorderSizePixel = 0,
     Active = true,
 }, toggleGui), 14)
+local toggleStroke = Instance.new("UIStroke", toggler)
+toggleStroke.Color = Color3.fromRGB(0, 245, 115)
+toggleStroke.Thickness = 2
+TweenService:Create(toggleStroke, TweenInfo.new(1.4, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), { Color = Color3.fromRGB(100, 255, 175), Thickness = 3 }):Play()
 toggler.Activated:Connect(function()
     toggleGui.Enabled = false
     gui.Enabled = true
