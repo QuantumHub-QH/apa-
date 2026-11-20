@@ -7939,8 +7939,8 @@ lalu tekan SCAN]]
   return page
 end
 
-do
-  local function __buildSpoofPage(env)
+  do
+local function __buildSpoofPage(env)
   local mk, round, stroke, gradient, label, glass, C = env.mk, env.round, env.stroke, env.gradient, env.label, env.glass, env.C
   local content, gui, setStatus, notify, httpReq = env.content, env.gui, env.setStatus, env.notify, env.httpReq
   local HS = game:GetService("HttpService")
@@ -10245,6 +10245,7 @@ hum:LoadAnimation(anim):Play()]]
   }
 
   XYUREI_CONFIG.__UPLOAD = { build = __buildUploadPage, kinds = __UPLOAD_KINDS }
+  XYUREI_CONFIG.__SPOOF = { build = __buildSpoofPage }
 end
 
 do
@@ -18028,7 +18029,7 @@ PENCARIAN GAGAL
 
   refreshChips()
 
-  local spoofPage = __buildSpoofPage({
+  local spoofPage = XYUREI_CONFIG.__SPOOF.build({
     mk = mk,
     round = round,
     stroke = stroke,
@@ -18154,7 +18155,10 @@ PENCARIAN GAGAL
     end
   end
 
-  exploreBtn.Activated:Connect(function() showPage("dash") end)
+  exploreBtn.Activated:Connect(function()
+    setMainVisible(true)
+    showPage("dash")
+  end)
 
   for key, nb in pairs(navButtons) do
     if key == "landing" then
@@ -18364,7 +18368,7 @@ PENCARIAN GAGAL
   end
 
   minBtn.Activated:Connect(function() setMainVisible(false) end)
-  closeBtn.Activated:Connect(function() gui:Destroy() end)
+  closeBtn.Activated:Connect(function() setMainVisible(false) end)
 
   local function hoverable(btn, baseCol, hoverCol)
     btn.MouseEnter:Connect(function()
