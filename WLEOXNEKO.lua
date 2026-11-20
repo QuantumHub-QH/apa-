@@ -79,10 +79,6 @@ local JENIS_KUNCI = {}
 for _, j in ipairs(JENIS) do JENIS_KUNCI[j.kunci] = j end
 
 local UPLOAD = {
-    up_gambar = {judul = "Upload Gambar", ket = "png/jpg/bmp/tga jadi Decal",
-        ext = {"png", "jpg", "jpeg", "bmp", "tga"}, tipe = "Decal"},
-    up_animasi = {judul = "Upload Animasi", ket = "rbxm/rbxmx hasil export animasi",
-        ext = {"rbxm", "rbxmx"}, tipe = "Animation"},
     up_model = {judul = "Upload RBXM", ket = "model .rbxm jadi Model",
         ext = {"rbxm"}, tipe = "Model"},
 }
@@ -4751,8 +4747,6 @@ local ICON_BY_KEY = {
     rbxl = "122982660526589",
     rbxlx = "122982660526589",
     up_model = "106962661743892",
-    up_gambar = "116863426654058",
-    up_animasi = "82612847793986",
     ai = "120498354657105",
     setelan = "92592867988128",
 }
@@ -4911,8 +4905,6 @@ local KARTU = {
     {kunci = "rbxmx", ikon = "MX", judul = "Import RBXMX", ket = "Model XML (.rbxmx)", badge = true},
     {kunci = "toolbox", ikon = "TB", judul = "Toolbox", ket = "Cari dan import aset"},
     {kunci = "ai", ikon = "AI", judul = "AI Chat", ket = "Ngobrol dengan AI via OpenRouter"},
-    {kunci = "up_gambar", ikon = "UG", judul = "Upload Gambar", ket = "Unggah gambar jadi Decal"},
-    {kunci = "up_animasi", ikon = "UA", judul = "Upload Animasi", ket = "Unggah animasi (.rbxm/.rbxmx)"},
     {kunci = "up_model", ikon = "UM", judul = "Upload RBXM", ket = "Unggah model .rbxm"},
     {kunci = "setelan", ikon = "ST", judul = "Pengaturan", ket = "API key & Creator ID"},
 }
@@ -6149,6 +6141,10 @@ local function spoofAssetSingleCore(assetId, targetType, speedVal)
     return newAssetId
 end
 
+local daftarSpeed = {"0.8", "1.0", "1.2", "1.5", "1.8", "2.0", "2.3", "2.5", "3.0"}
+
+do -- BEGIN: Spoof section scope
+
 ------------------------------------------------------------------
 -- HALAMAN: SPOOFER & SCRIPT ID REPLACER
 ------------------------------------------------------------------
@@ -6232,7 +6228,6 @@ local layoutSpeed = buat("UIListLayout", {FillDirection = Enum.FillDirection.Hor
 
 local speedTerpilih = "1.0"
 local tombolSpeedMap = {}
-local daftarSpeed = {"0.8", "1.0", "1.2", "1.5", "1.8", "2.0", "2.3", "2.5", "3.0"}
 
 local function updateSpeedUI()
     for s, btn in pairs(tombolSpeedMap) do
@@ -6441,6 +6436,11 @@ btnSpoofScriptNow.Activated:Connect(function()
     end)
 end)
 
+
+end -- END: Spoof section scope
+
+do -- BEGIN: YT Upload section scope
+
 ------------------------------------------------------------------
 -- HALAMAN: YOUTUBE UPLOADER & AUDIO BYPASS
 ------------------------------------------------------------------
@@ -6586,6 +6586,9 @@ btnYtNow.Activated:Connect(function()
         end
     end)
 end)
+
+
+end -- END: YT Upload section scope
 
 local halSetelan = buat("ScrollingFrame", {
     Size = UDim2.new(1, 0, 1, 0),
@@ -6761,8 +6764,6 @@ local MENU = {
     {kunci = "rbxlx", nama = "RBXLX", badge = true},
     {kunci = "rbxmx", nama = "RBXMX", badge = true},
     {seksi = "GENERAL"},
-    {kunci = "up_gambar", nama = "Upload Gambar"},
-    {kunci = "up_animasi", nama = "Upload Animasi"},
     {kunci = "spoof", nama = "Spoof & Bypass"},
     {kunci = "ytupload", nama = "Bypass Audio YT"},
     {kunci = "up_model", nama = "Upload RBXM"},
