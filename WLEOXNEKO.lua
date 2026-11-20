@@ -4,6 +4,8 @@
   Engine : LANGZ RBXL core (restore source, runtime bridge,
            Studio Lite editor inject, GetScriptSource hook)
   Toggle : rbxassetid://137771867948384
+  FIX    : blok DASHBOARD, TOOLBOX, AKUN dibungkus function
+           supaya tidak melewati batas local per chunk.
 ============================================================
 ]]--
 
@@ -2877,7 +2879,7 @@ end
 -- =====================================================================
 --                DASHBOARD  +  HOME (semua tombol jadi satu)
 -- =====================================================================
-do
+;(function()
     local WHITE = Color3.fromRGB(255, 255, 255)
     local DARK = Color3.fromRGB(10, 20, 50)
 
@@ -3268,7 +3270,7 @@ do
         pillImp.Text = tostring(imported)
         statTotal.Text = total .. " file"
     end
-end
+end)()
 
 local renderList
 local function updateBadges()
@@ -3446,7 +3448,7 @@ end
 -- =====================================================================
 --                      TOOLBOX PC (endpoint Roblox)
 -- =====================================================================
-do
+;(function()
     local httpRequest = (syn and syn.request) or (http and http.request) or http_request or request or (fluxus and fluxus.request)
 
     local function rawGet(url, withKey)
@@ -3948,12 +3950,12 @@ do
     searchBox.FocusLost:Connect(function(enter)
         if enter and currentTab == "TOOLBOX" then TB.search() end
     end)
-end
+end)()
 
 -- =====================================================================
 --                GENERAL • AKUN (API key, User ID, Group ID)
 -- =====================================================================
-do
+;(function()
     local WHITE = Color3.fromRGB(255, 255, 255)
     local DARK = Color3.fromRGB(10, 20, 50)
     local ACCT_FILE = "WLEO_NEKO_ACCOUNT.json"   -- nama tetap, jangan diganti supaya akun aman saat script di-update
@@ -4311,7 +4313,7 @@ do
     else
         render()
     end
-end
+end)()
 
 -- ---------- tab ----------
 local function setTab(name)
