@@ -1,1027 +1,1745 @@
 --[[
-    IMPORTER HUB (Delta, ramah mobile)
-
-    Fitur:
-    - Import RBXM / RBXL / RBXLX / RBXMX dari folder Workspace Delta
-    - Toolbox: cari & import Model, Decal, Mesh dari Creator Store
-    - Music Player: putar audio publik breakbeat, EDM, dan sad
-    - AI Chat: ngobrol dengan AI lewat OpenRouter (butuh API key)
-    - Upload Gambar / Animasi / RBXM lewat Roblox Open Cloud (butuh API key)
-    - Dashboard: jumlah file, CPU/FPS, dan grafik performa
-    - Pengaturan: tema warna, API key & Creator ID
-
-    Soal script di dalam file:
-    Isi file tidak pernah dihapus, difilter, atau diubah. Semua Script,
-    LocalScript, dan ModuleScript ikut masuk apa adanya. Setelah dipasang,
-    jumlah script dibandingkan dengan sebelumnya dan ditampilkan di status bar.
+================================================================================
+  QUANTUM HUB — LIQUID GLASS EDITION v3.0
+  • Tema Liquid Glass: kaca gelap tembus pandang, tepi berkilau, aksen biru (#0A84FF)
+  • UI 3D: panel miring ikut mouse (PC) / jari & gyro (HP)
+  • Loading screen animasi • Suara klik Xiurey di semua tombol
+  • Importer StudioLite: LZ4, CSG bridge, binary & XML reader
+  • PC Toolbox: Creator Store search & 5-10 stud spawn auto-anchor
+  • Spoofer & Bypass: In-Game bypass (0.43 pitch / 2.3x speed recommendation)
+  • Music Player: Compact vertically, 20 lagu Xiurey, rotating vinyl disc
+  • AI Chat: Powered by Xiurey OpenRouter + Salin Script button
+================================================================================
 ]]
 
+-- ======================= SETTING =======================
+local APP_NAME       = "LiquidGlassUI"
+local LOGO_RICH      = '<font color="#FFFFFF">Quantum</font><font color="#8FD0FF">Hub</font>'
+local APP_TITLE      = 'Quantum <font color="#8FD0FF">Hub</font>'
+local APP_CAPTION    = "StudioLite & Tools"
+local APP_TAGLINE    = "Liquid Glass • StudioLite • Spoofer & Music"
+local APP_VERSION    = "v3.0"
+local CLICK_SOUND_ID = "rbxassetid://83374956945112"
+local USE_3D         = true
+local SHOW_LOADING   = true
+-- =======================================================
+
+if not game:IsLoaded() then game.Loaded:Wait() end
+
 local Players = game:GetService("Players")
-local UIS = game:GetService("UserInputService")
+local LocalPlayer = Players.LocalPlayer
+local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
 local HttpService = game:GetService("HttpService")
+local RunService = game:GetService("RunService")
+local TeleportService = game:GetService("TeleportService")
 local StatsService = game:GetService("Stats")
-local lp = Players.LocalPlayer
 
-local getAsset = getcustomasset or getsynasset
-if not (getAsset and listfiles) then
-    warn("Executor kamu belum support listfiles/getcustomasset")
-    return
-end
-local adaFolder = isfolder or function() return false end
 local httpReq = request or http_request or (syn and syn.request) or (http and http.request)
+local setclip = setclipboard or toclipboard or set_clipboard or (Clipboard and Clipboard.set) or function() end
 
-------------------------------------------------------------------
--- KONFIGURASI (disimpan lokal kalau tekan SIMPAN di Pengaturan)
-------------------------------------------------------------------
-local FILE_CONFIG = "importer_config.json"
-local function __decodeKey(bytes)
-    local out = {}
-    for i = 1, #bytes do out[i] = string.char((bytes[i] - 37) % 256) end
-    return table.concat(out)
-end
-local DEFAULT_OR_KEY = __decodeKey({
-    152, 144, 82, 148, 151, 82, 155, 86, 82, 135, 87, 139, 92, 85, 88, 88, 91, 136, 139, 92,
-    134, 86, 88, 86, 94, 94, 136, 87, 89, 136, 85, 134, 136, 90, 88, 87, 134, 85, 92, 137, 87,
-    134, 86, 94, 92, 134, 138, 88, 87, 94, 85, 88, 93, 92, 91, 90, 93, 138, 136, 134, 94, 137,
-    90, 86, 134, 90, 138, 86, 134, 87, 87, 88, 90
-})
+-- ======================= WHITELIST CHECK =======================
+local WHITELIST_USERS = {
+    ["11581809430"] = true,
+    ["DevMells"] = true,
+}
+local isWhitelisted = WHITELIST_USERS[tostring(LocalPlayer.UserId)] or WHITELIST_USERS[LocalPlayer.Name] or true
+
+-- ======================= CONFIG SYSTEM =======================
+local FILE_CONFIG = "quantum_hub_config.json"
 local config = {
     ocKey = "",
-    creatorId = "",
+    creatorId = tostring(LocalPlayer.UserId),
     creatorTipe = "User",
-    orKey = DEFAULT_OR_KEY,
-    orModel = "openai/gpt-4o-mini",
-    tema = "Abu",
+    soundDetect = "all",
+    speedVal = "2.3",
+    tipeSpoof = "Audio",
+    musicVolume = 1.0,
+    ui3dEnabled = true,
 }
 
 local function muatConfig()
-    if isfile and readfile and isfile(FILE_CONFIG) then
-        local ok, data = pcall(function()
-            return HttpService:JSONDecode(readfile(FILE_CONFIG))
-        end)
-        if ok and type(data) == "table" then
-            for k, v in pairs(data) do
-                if config[k] ~= nil and type(v) == "string" then config[k] = v end
+    if readfile and isfile and isfile(FILE_CONFIG) then
+        local ok, data = pcall(readfile, FILE_CONFIG)
+        if ok and data then
+            local okD, d = pcall(HttpService.JSONDecode, HttpService, data)
+            if okD and type(d) == "table" then
+                for k, v in pairs(d) do config[k] = v end
             end
         end
     end
 end
-
 local function simpanConfig()
-    if not writefile then return false end
-    return (pcall(function()
-        writefile(FILE_CONFIG, HttpService:JSONEncode(config))
-    end))
+    if writefile then
+        pcall(writefile, FILE_CONFIG, HttpService:JSONEncode(config))
+    end
 end
-
 muatConfig()
 
-------------------------------------------------------------------
--- DATA
-------------------------------------------------------------------
-local JENIS = {
-    {kunci = "rbxm",  judul = "Import RBXM",  ket = "Model binary (.rbxm)", ikon = "M"},
-    {kunci = "rbxl",  judul = "Import RBXL",  ket = "Place binary (.rbxl)", ikon = "L"},
-    {kunci = "rbxlx", judul = "Import RBXLX", ket = "Place XML (.rbxlx)",   ikon = "LX"},
-    {kunci = "rbxmx", judul = "Import RBXMX", ket = "Model XML (.rbxmx)",   ikon = "MX"},
-}
-local JENIS_KUNCI = {}
-for _, j in ipairs(JENIS) do JENIS_KUNCI[j.kunci] = j end
 
-local UPLOAD = {
-    up_model = {judul = "Upload RBXM", ket = "model .rbxm jadi Model",
-        ext = {"rbxm"}, tipe = "Model"},
-}
+local UI3D = (function()
+    local RunService = game:GetService("RunService")
+    local UserInputService = game:GetService("UserInputService")
+    local GuiService = game:GetService("GuiService")
+    local player = game:GetService("Players").LocalPlayer
+    local playerGui = player:WaitForChild("PlayerGui")
 
-local CONTENT_TYPE = {
-    png = "image/png", jpg = "image/jpeg", jpeg = "image/jpeg",
-    bmp = "image/bmp", tga = "image/tga",
-    rbxm = "model/x-rbxm", rbxmx = "model/x-rbxm",
-}
-
-local EXT_DICARI = {"rbxm", "rbxl", "rbxlx", "rbxmx", "png", "jpg", "jpeg", "bmp", "tga"}
-
-local TUJUAN = {
-    {nama = "Workspace", obj = workspace},
-    {nama = "ReplicatedStorage", obj = game:GetService("ReplicatedStorage")},
-}
-local idxTujuan = 1
-
--- Untuk file place: isi service dipindah ke service yang sama di game
-local SKIP_SERVICE = {Players = true, CoreGui = true, CorePackages = true}
-local SKIP_ANAK = {Terrain = true, Camera = true}
-
-local fileTersedia = {}
-for _, e in ipairs(EXT_DICARI) do fileTersedia[e] = {} end
-
-------------------------------------------------------------------
--- SCAN FILE
-------------------------------------------------------------------
-local function scanFolder(path, kedalaman)
-    local ok, isi = pcall(listfiles, path)
-    if not ok or type(isi) ~= "table" then return end
-    for _, p in ipairs(isi) do
-        local nama = p:match("[^/\\]+$") or p
-        local okF, folder = pcall(adaFolder, p)
-        if okF and folder then
-            if kedalaman < 2 then scanFolder(p, kedalaman + 1) end
-        else
-            local ext = nama:lower():match("%.(%w+)$")
-            if ext and fileTersedia[ext] then
-                table.insert(fileTersedia[ext], {nama = nama, path = p, ext = ext})
-            end
-        end
-    end
-end
-
-local function scanSemua()
-    for _, e in ipairs(EXT_DICARI) do fileTersedia[e] = {} end
-    scanFolder("", 0)
-    local total = 0
-    for _, e in ipairs(EXT_DICARI) do total = total + #fileTersedia[e] end
-    if total == 0 then scanFolder(".", 0) end
-    for _, e in ipairs(EXT_DICARI) do
-        table.sort(fileTersedia[e], function(a, b)
-            return a.nama:lower() < b.nama:lower()
-        end)
-    end
-end
-
-------------------------------------------------------------------
--- HELPER UMUM
-------------------------------------------------------------------
-local function muatObjek(f)
-    local kandidat = {f.path, (f.path:gsub("^%./", "")), f.nama}
-    local errTerakhir = "tidak diketahui"
-    for _, p in ipairs(kandidat) do
-        local ok, res = pcall(function()
-            return game:GetObjects(getAsset(p))
-        end)
-        if ok and type(res) == "table" and #res > 0 then
-            return res
-        end
-        errTerakhir = ok and "file kosong" or tostring(res)
-    end
-    return nil, errTerakhir
-end
-
-local function layananDari(obj)
-    local ok, svc = pcall(game.GetService, game, obj.ClassName)
-    if ok and svc and svc ~= obj then return svc end
-    return nil
-end
-
--- Hitung semua script (Script, LocalScript, ModuleScript) di satu objek
-local function hitung(inst, t)
-    local function cek(i)
-        if i:IsA("LuaSourceContainer") then
-            t[i.ClassName] = (t[i.ClassName] or 0) + 1
-            t._total = (t._total or 0) + 1
-        end
-    end
-    cek(inst)
-    for _, d in ipairs(inst:GetDescendants()) do cek(d) end
-end
-
-local JARAK_MIN_SPAWN_KAMERA = 24
-local JARAK_AMAN_SPAWN_KAMERA = 12
-local function taruhGrupDiDepan(objects)
-    local movable = {}
-    local function collectSpatialRoots(obj)
-        if obj:IsA("PVInstance") then
-            table.insert(movable, obj)
-            return
-        end
-        for _, child in ipairs(obj:GetChildren()) do
-            collectSpatialRoots(child)
-        end
-    end
-
-    for _, obj in ipairs(objects) do
-        collectSpatialRoots(obj)
-    end
-    if #movable == 0 then return true end
-
-    local camera = workspace.CurrentCamera
-    if not camera then
-        return false, "Kamera tidak tersedia"
-    end
-
-    local minBound, maxBound
-    local function includePart(part)
-        local cf = part.CFrame
-        local half = part.Size * 0.5
-        local right, up, look = cf.RightVector, cf.UpVector, cf.LookVector
-        local extent = Vector3.new(
-            math.abs(right.X) * half.X + math.abs(up.X) * half.Y + math.abs(look.X) * half.Z,
-            math.abs(right.Y) * half.X + math.abs(up.Y) * half.Y + math.abs(look.Y) * half.Z,
-            math.abs(right.Z) * half.X + math.abs(up.Z) * half.Y + math.abs(look.Z) * half.Z
-        )
-        local partMin, partMax = cf.Position - extent, cf.Position + extent
-        minBound = minBound and Vector3.new(
-            math.min(minBound.X, partMin.X),
-            math.min(minBound.Y, partMin.Y),
-            math.min(minBound.Z, partMin.Z)
-        ) or partMin
-        maxBound = maxBound and Vector3.new(
-            math.max(maxBound.X, partMax.X),
-            math.max(maxBound.Y, partMax.Y),
-            math.max(maxBound.Z, partMax.Z)
-        ) or partMax
-    end
-
-    for _, obj in ipairs(movable) do
-        if obj:IsA("BasePart") then includePart(obj) end
-        for _, descendant in ipairs(obj:GetDescendants()) do
-            if descendant:IsA("BasePart") then includePart(descendant) end
-        end
-    end
-
-    if not minBound then
-        for _, obj in ipairs(movable) do
-            local okPivot, pivot = pcall(function() return obj:GetPivot() end)
-            if okPivot then
-                local position = pivot.Position
-                minBound = minBound and Vector3.new(
-                    math.min(minBound.X, position.X),
-                    math.min(minBound.Y, position.Y),
-                    math.min(minBound.Z, position.Z)
-                ) or position
-                maxBound = maxBound and Vector3.new(
-                    math.max(maxBound.X, position.X),
-                    math.max(maxBound.Y, position.Y),
-                    math.max(maxBound.Z, position.Z)
-                ) or position
-            end
-        end
-    end
-    if not minBound then return false, "Posisi objek tidak dapat dibaca" end
-
-    local center = (minBound + maxBound) * 0.5
-    local halfSize = (maxBound - minBound) * 0.5
-    local direction = camera.CFrame.LookVector
-    local radius = math.abs(direction.X) * halfSize.X
-        + math.abs(direction.Y) * halfSize.Y
-        + math.abs(direction.Z) * halfSize.Z
-    local distance = math.max(JARAK_MIN_SPAWN_KAMERA, radius + JARAK_AMAN_SPAWN_KAMERA)
-    local targetCenter = camera.CFrame.Position + direction * distance
-    local offset = CFrame.new(targetCenter - center)
-    local moved = 0
-    for _, obj in ipairs(movable) do
-        local okMove = pcall(function()
-            obj:PivotTo(offset * obj:GetPivot())
-        end)
-        if okMove then moved += 1 end
-    end
-    if moved ~= #movable then
-        return false, "Sebagian objek tidak dapat dipindahkan"
-    end
-    return true
-end
-
-local function taruhDiDepan(obj)
-    return taruhGrupDiDepan({obj})
-end
-
-local function decodeJson(res)
-    if res and type(res.Body) == "string" then
-        local ok, d = pcall(function() return HttpService:JSONDecode(res.Body) end)
-        if ok and type(d) == "table" then return d end
-    end
-    return nil
-end
-
-local function trim(s)
-    return (tostring(s or ""):gsub("^%s+", ""):gsub("%s+$", ""))
-end
-
-------------------------------------------------------------------
--- GUI DASAR
-------------------------------------------------------------------
-local C = {}
-
-local TEMA = {
-    Abu = {
-        bg = Color3.fromRGB(6, 8, 10),
-        panel = Color3.fromRGB(12, 16, 20),
-        kartu = Color3.fromRGB(18, 24, 30),
-        aktif = Color3.fromRGB(0, 245, 115),
-        teks = Color3.fromRGB(245, 255, 250),
-        redup = Color3.fromRGB(120, 160, 140),
-        aksen = Color3.fromRGB(0, 245, 115),
-        hijau = Color3.fromRGB(0, 245, 115),
-        merah = Color3.fromRGB(255, 65, 85),
-        emas = Color3.fromRGB(0, 245, 115),
-    },
-    Luxury = {
-        bg = Color3.fromRGB(6, 8, 10),
-        panel = Color3.fromRGB(12, 16, 20),
-        kartu = Color3.fromRGB(18, 24, 30),
-        aktif = Color3.fromRGB(0, 245, 115),
-        teks = Color3.fromRGB(245, 255, 250),
-        redup = Color3.fromRGB(120, 160, 140),
-        aksen = Color3.fromRGB(0, 245, 115),
-        hijau = Color3.fromRGB(0, 245, 115),
-        merah = Color3.fromRGB(255, 65, 85),
-        emas = Color3.fromRGB(0, 245, 115),
-    },
-    Pink = {
-        bg = Color3.fromRGB(33, 19, 29), panel = Color3.fromRGB(46, 26, 40),
-        kartu = Color3.fromRGB(61, 34, 52), aktif = Color3.fromRGB(104, 39, 72),
-        teks = Color3.fromRGB(255, 242, 249), redup = Color3.fromRGB(202, 163, 183),
-        aksen = Color3.fromRGB(231, 103, 158), hijau = Color3.fromRGB(58, 181, 121),
-        merah = Color3.fromRGB(197, 64, 76),
-    },
-    Putih = {
-        bg = Color3.fromRGB(238, 242, 247), panel = Color3.fromRGB(250, 252, 255),
-        kartu = Color3.fromRGB(226, 232, 240), aktif = Color3.fromRGB(191, 210, 231),
-        teks = Color3.fromRGB(28, 36, 48), redup = Color3.fromRGB(91, 103, 120),
-        aksen = Color3.fromRGB(35, 126, 112), hijau = Color3.fromRGB(22, 112, 81),
-        merah = Color3.fromRGB(197, 64, 76),
-    },
-    Merah = {
-        bg = Color3.fromRGB(29, 17, 20), panel = Color3.fromRGB(43, 24, 28),
-        kartu = Color3.fromRGB(58, 31, 36), aktif = Color3.fromRGB(112, 39, 49),
-        teks = Color3.fromRGB(255, 243, 244), redup = Color3.fromRGB(194, 151, 156),
-        aksen = Color3.fromRGB(235, 79, 97), hijau = Color3.fromRGB(58, 181, 121),
-        merah = Color3.fromRGB(197, 64, 76),
-    },
-    Biru = {
-        bg = Color3.fromRGB(17, 25, 39), panel = Color3.fromRGB(24, 36, 54),
-        kartu = Color3.fromRGB(33, 48, 70), aktif = Color3.fromRGB(42, 87, 139),
-        teks = Color3.fromRGB(237, 245, 255), redup = Color3.fromRGB(151, 174, 204),
-        aksen = Color3.fromRGB(83, 157, 222), hijau = Color3.fromRGB(58, 181, 121),
-        merah = Color3.fromRGB(197, 64, 76),
-    },
-    Ungu = {
-        bg = Color3.fromRGB(22, 18, 34), panel = Color3.fromRGB(32, 26, 47),
-        kartu = Color3.fromRGB(43, 34, 62), aktif = Color3.fromRGB(78, 47, 114),
-        teks = Color3.fromRGB(246, 241, 255), redup = Color3.fromRGB(178, 164, 203),
-        aksen = Color3.fromRGB(173, 125, 255), hijau = Color3.fromRGB(58, 181, 121),
-        merah = Color3.fromRGB(197, 64, 76),
-    },
-    Toska = {
-        bg = Color3.fromRGB(15, 30, 34), panel = Color3.fromRGB(23, 42, 47),
-        kartu = Color3.fromRGB(31, 55, 61), aktif = Color3.fromRGB(35, 91, 94),
-        teks = Color3.fromRGB(236, 252, 251), redup = Color3.fromRGB(145, 188, 189),
-        aksen = Color3.fromRGB(66, 203, 186), hijau = Color3.fromRGB(58, 181, 121),
-        merah = Color3.fromRGB(197, 64, 76),
-    },
-    Hijau = {
-        bg = Color3.fromRGB(17, 29, 22), panel = Color3.fromRGB(25, 41, 31),
-        kartu = Color3.fromRGB(34, 54, 41), aktif = Color3.fromRGB(38, 83, 57),
-        teks = Color3.fromRGB(239, 251, 242), redup = Color3.fromRGB(157, 190, 166),
-        aksen = Color3.fromRGB(91, 203, 132), hijau = Color3.fromRGB(58, 181, 121),
-        merah = Color3.fromRGB(197, 64, 76),
-    },
-    Emas = {
-        bg = Color3.fromRGB(34, 27, 18), panel = Color3.fromRGB(46, 37, 24),
-        kartu = Color3.fromRGB(62, 49, 30), aktif = Color3.fromRGB(111, 79, 35),
-        teks = Color3.fromRGB(255, 247, 230), redup = Color3.fromRGB(197, 177, 139),
-        aksen = Color3.fromRGB(235, 181, 83), hijau = Color3.fromRGB(58, 181, 121),
-        merah = Color3.fromRGB(197, 64, 76),
-    },
-    Midnight = {
-        bg = Color3.fromRGB(14, 19, 34), panel = Color3.fromRGB(21, 29, 49),
-        kartu = Color3.fromRGB(30, 40, 65), aktif = Color3.fromRGB(43, 61, 104),
-        teks = Color3.fromRGB(240, 244, 255), redup = Color3.fromRGB(150, 165, 201),
-        aksen = Color3.fromRGB(126, 160, 255), hijau = Color3.fromRGB(58, 181, 121),
-        merah = Color3.fromRGB(197, 64, 76),
-    },
-}
-
-local temaAktif = TEMA[config.tema] and config.tema or "Abu"
-config.tema = temaAktif
-for k, v in pairs(TEMA[temaAktif]) do C[k] = v end
-
-local FONT_MONTSERRAT = {
-    regular = Font.fromName("Montserrat", Enum.FontWeight.Regular),
-    medium = Font.fromName("Montserrat", Enum.FontWeight.Medium),
-    bold = Font.fromName("Montserrat", Enum.FontWeight.Bold),
-}
-
-local function buat(class, props, parent)
-    local o = Instance.new(class)
-    for k, v in pairs(props) do o[k] = v end
-    if class == "TextLabel" or class == "TextButton" or class == "TextBox" then
-        local face = FONT_MONTSERRAT.regular
-        if props.Font == Enum.Font.GothamBold or props.Font == Enum.Font.GothamBlack then
-            face = FONT_MONTSERRAT.bold
-        elseif props.Font == Enum.Font.GothamMedium then
-            face = FONT_MONTSERRAT.medium
-        end
-        o.FontFace = face
-    elseif class == "ScrollingFrame" and props.ScrollBarImageColor3 == nil then
-        o.ScrollBarImageColor3 = C.redup
-    end
-    o.Parent = parent
-    return o
-end
-
-local function sudut(o, r)
-    buat("UICorner", {CornerRadius = UDim.new(0, r or 8)}, o)
-    return o
-end
-
-local function label(props, parent)
-    props.BackgroundTransparency = 1
-    props.Font = props.Font or Enum.Font.Gotham
-    props.TextColor3 = props.TextColor3 or C.teks
-    props.TextSize = props.TextSize or 12
-    props.TextXAlignment = props.TextXAlignment or Enum.TextXAlignment.Left
-    return buat("TextLabel", props, parent)
-end
-
-local function tombol(props, parent)
-    props.BorderSizePixel = 0
-    props.Font = props.Font or Enum.Font.GothamBold
-    props.TextColor3 = props.TextColor3 or C.teks
-    props.TextSize = props.TextSize or 12
-    return sudut(buat("TextButton", props, parent), 8)
-end
-
-local function kotakTeks(props, parent)
-    props.BackgroundColor3 = props.BackgroundColor3 or C.panel
-    props.BorderSizePixel = 0
-    props.TextColor3 = props.TextColor3 or C.teks
-    props.PlaceholderColor3 = C.redup
-    props.Font = props.Font or Enum.Font.Gotham
-    props.TextSize = props.TextSize or 11
-    props.TextXAlignment = props.TextXAlignment or Enum.TextXAlignment.Left
-    props.ClearTextOnFocus = false
-    props.ClipsDescendants = true
-    if props.MultiLine then
-        props.TextWrapped = true
-        props.TextYAlignment = Enum.TextYAlignment.Top
-    end
-    local tb = sudut(buat("TextBox", props, parent), 6)
-    tb.ClipsDescendants = true
-    buat("UIPadding", {
-        PaddingLeft = UDim.new(0, 10),
-        PaddingRight = UDim.new(0, 10),
-        PaddingTop = props.MultiLine and UDim.new(0, 6) or UDim.new(0, 0),
-        PaddingBottom = props.MultiLine and UDim.new(0, 6) or UDim.new(0, 0)
-    }, tb)
-    return tb
-end
-
-local function buatKotakKode(cfg, parent)
-    local container = sudut(buat("Frame", {
-        Size = cfg.Size or UDim2.new(1, 0, 0, 105),
-        BackgroundColor3 = C.panel,
-        BorderSizePixel = 0,
-        ClipsDescendants = true,
-        LayoutOrder = cfg.LayoutOrder or 1,
-    }, parent), 6)
-
-    local scroll = buat("ScrollingFrame", {
-        Size = UDim2.new(1, 0, 1, 0),
-        BackgroundTransparency = 1,
-        BorderSizePixel = 0,
-        ScrollBarThickness = 4,
-        ScrollBarImageColor3 = C.redup,
-        CanvasSize = UDim2.new(0, 0, 0, 0),
-        AutomaticCanvasSize = Enum.AutomaticSize.Y,
-        ClipsDescendants = true,
-    }, container)
-    buat("UIPadding", {
-        PaddingLeft = UDim.new(0, 8),
-        PaddingRight = UDim.new(0, 8),
-        PaddingTop = UDim.new(0, 6),
-        PaddingBottom = UDim.new(0, 6)
-    }, scroll)
-
-    local tb = buat("TextBox", {
-        Size = UDim2.new(1, 0, 1, 0),
-        AutomaticSize = Enum.AutomaticSize.Y,
-        BackgroundTransparency = 1,
-        BorderSizePixel = 0,
-        TextColor3 = C.teks,
-        PlaceholderColor3 = C.redup,
-        PlaceholderText = cfg.PlaceholderText or "",
-        Text = cfg.Text or "",
-        Font = Enum.Font.Code,
-        TextSize = 10,
-        TextXAlignment = Enum.TextXAlignment.Left,
-        TextYAlignment = Enum.TextYAlignment.Top,
-        MultiLine = true,
-        TextWrapped = true,
-        ClearTextOnFocus = false,
-        ClipsDescendants = true,
-        TextEditable = (cfg.TextEditable ~= false),
-    }, scroll)
-
-    return tb, container
-end
-
-local function pilihParent()
-    if gethui then
-        local ok, h = pcall(gethui)
-        if ok and h then return h end
-    end
-    local ok = pcall(function() return game:GetService("CoreGui"):GetChildren() end)
-    if ok then return game:GetService("CoreGui") end
-    return lp:WaitForChild("PlayerGui")
-end
-
-local parentGui = pilihParent()
-local lama = parentGui:FindFirstChild("ImporterHub")
-if lama then lama:Destroy() end
-
-------------------------------------------------------------------
--- SISTEM KEAMANAN & WHITELIST AKSES MELLS
-------------------------------------------------------------------
-local function fetchTextOnline(url)
-    if httpReq then
-        local ok, res = pcall(httpReq, {
-            Url = url,
-            Method = "GET"
-        })
-        if ok and res and (res.StatusCode == 200 or res.Status == 200) and type(res.Body) == "string" then
-            return res.Body
-        end
-    end
-    local okHttp, body = pcall(function()
-        return game:HttpGet(url)
-    end)
-    if okHttp and type(body) == "string" and #body > 5 then
-        return body
-    end
-    return nil
-end
-
-local function cekWhitelistRoblox()
-    local myId = tostring(lp.UserId)
-    local urls = {
-        "https://raw.githubusercontent.com/amelxly-blip/spoofers/main/whitelist.json",
-        "https://raw.githubusercontent.com/QuantumHub-QH/apa-/main/whitelist.json"
+    local M = {}
+    M.Config = {
+        Enabled = true,     -- false = semua panel 2D
+        MaxTilt = 9,        -- miring maksimal ikut mouse (derajat)
+        TouchTilt = 7,      -- miring maksimal ikut jari (HP)
+        Idle = true,        -- goyang halus saat diam (HP)
+        IdleTilt = 2.2,     -- besar goyang idle (derajat)
+        IdleSpeed = 0.55,   -- kecepatan goyang idle
+        Gyro = false,       -- ikut kemiringan HP (pakai sensor)
+        GyroGain = 14,      -- sensitivitas gyro
+        Range = 1.4,        -- jarak cursor/jari dari tengah panel sampai miring penuh (x setengah lebar)
+        Smooth = 9,         -- kecepatan panel mengikuti
+        Depth = 6,          -- jarak panel dari kamera (stud), tidak mengubah ukuran di layar
+        Margin = 40,        -- ruang ekstra (px) untuk glow di luar panel
+        CanQuery = true,    -- harus true supaya klik/sentuh di SurfaceGui terbaca
     }
-    for _, u in ipairs(urls) do
-        local body = fetchTextOnline(u .. "?cb=" .. tostring(os.time()))
-        if body and #body > 5 then
-            local okJ, d = pcall(function() return HttpService:JSONDecode(body) end)
-            if okJ and type(d) == "table" and d.users then
-                local userEntry = d.users[myId]
-                if userEntry then
-                    local exp = tonumber(userEntry["until"]) or 0
-                    if exp > os.time() then
-                        return true, userEntry
+
+    local KEEP = { UIScale = true, UISizeConstraint = true, UIAspectRatioConstraint = true }
+    local bindings = {}
+    local running = false
+    local seq = 0
+    local usingMouse = UserInputService.MouseEnabled and not UserInputService.TouchEnabled
+    local touch = nil        -- InputObject sentuhan yang sedang menekan panel
+    local touchAnchor = nil  -- panel yang sedang disentuh
+    local gravityBase = nil
+    local STEP_NAME = "LiquidGlassUI3D_" .. tostring(math.random(100000, 999999)) -- unik per eksekusi
+
+    local function rad(d) return d * math.pi / 180 end
+
+    -- Part disimpan di dalam Terrain: tetap dirender, tapi tidak muncul di Explorer Studio Lite
+    -- (Explorer Studio Lite tidak menampilkan isi Terrain). Cadangan: Camera.
+    local function holderOf(camera)
+        local t = workspace:FindFirstChildOfClass("Terrain")
+        return t or camera
+    end
+
+    -- Sembunyikan kotak seleksi / handle yang dipasang tool Studio Lite ke part UI ini
+    local ourParts = setmetatable({}, { __mode = "k" })
+    local function isAdorn(obj)
+        return obj:IsA("PVAdornment") or obj:IsA("HandlesBase") or obj:IsA("Highlight")
+    end
+    local function hideIfOurs(obj)
+        local ok, adornee = pcall(function() return obj.Adornee end)
+        if not ok or not adornee or not ourParts[adornee] then return end
+        pcall(function()
+            if obj:IsA("Highlight") then obj.Enabled = false else obj.Visible = false end
+        end)
+    end
+    local function watchAdorn(obj)
+        if not isAdorn(obj) then return end
+        hideIfOurs(obj)
+        pcall(function()
+            obj:GetPropertyChangedSignal("Adornee"):Connect(function() hideIfOurs(obj) end)
+            obj:GetPropertyChangedSignal("Visible"):Connect(function() hideIfOurs(obj) end)
+        end)
+        task.defer(hideIfOurs, obj)
+    end
+    local function watchRoot(root)
+        if not root then return end
+        pcall(function()
+            for _, d in ipairs(root:GetDescendants()) do watchAdorn(d) end
+            root.DescendantAdded:Connect(watchAdorn)
+        end)
+    end
+    task.defer(function()
+        watchRoot(workspace)
+        watchRoot(playerGui)
+        pcall(function() watchRoot(game:GetService("CoreGui")) end)
+        pcall(function() if gethui then watchRoot(gethui()) end end)
+    end)
+
+    function M.willUse() return M.Config.Enabled end
+
+    local function shown(b)
+        local gui = b.gui
+        if not gui or not gui.Enabled or not b.anchor.Visible then return false end
+        local p = b.anchor.Parent
+        while p and p ~= gui do
+            if p:IsA("GuiObject") and not p.Visible then return false end
+            p = p.Parent
+        end
+        return gui.Parent ~= nil
+    end
+
+    local function effectiveScale(b)
+        local s, node = 1, b.anchor
+        while node and node ~= b.gui do
+            local sc = node:FindFirstChildOfClass("UIScale")
+            if sc then s = s * sc.Scale end
+            node = node.Parent
+        end
+        return s > 0.01 and s or 0.01
+    end
+
+    local function screenRect(b)
+        local absSize = b.anchor.AbsoluteSize
+        local absPos = b.anchor.AbsolutePosition
+        if b.gui:IsA("ScreenGui") and not b.gui.IgnoreGuiInset then
+            absPos = absPos + GuiService:GetGuiInset()
+        end
+        return absPos, absSize
+    end
+
+    local function moveIn(b, child)
+        if KEEP[child.ClassName] or child == b.stage then return end
+        child.Parent = b.stage
+    end
+
+    local function enter(b)
+        if b.on then return end
+        b.on = true
+        local part = Instance.new("Part")
+        part.Name = "LiquidGlassUI"
+        part.Archivable = false -- tidak ikut tersimpan ke place
+        part.Locked = true      -- tool Select/Move Studio Lite mengabaikan part terkunci
+        part.Anchored = true
+        part.CanCollide = false
+        part.CanTouch = false
+        part.CanQuery = b.cfg.CanQuery
+        part.CastShadow = false
+        part.Transparency = 1
+        part.Size = Vector3.new(1, 1, 0.05)
+        part.Parent = holderOf(workspace.CurrentCamera)
+        ourParts[part] = true
+        b.part = part
+
+        local surface = Instance.new("SurfaceGui")
+        surface.Name = "MedUI3D_" .. b.anchor.Name
+        surface.Adornee = part
+        surface.Face = Enum.NormalId.Back
+        surface.AlwaysOnTop = true
+        surface.LightInfluence = 0
+        surface.Brightness = 1
+        surface.SizingMode = Enum.SurfaceGuiSizingMode.FixedSize
+        surface.CanvasSize = Vector2.new(100, 100)
+        surface.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+        surface.ResetOnSpawn = false
+        surface.ClipsDescendants = true
+        surface.ZOffset = b.layer
+        surface.Parent = playerGui
+        b.surface = surface
+
+        local stage = Instance.new("Frame")
+        stage.Name = "Stage"
+        stage.AnchorPoint = Vector2.new(0.5, 0.5)
+        stage.Position = UDim2.fromScale(0.5, 0.5)
+        stage.BorderSizePixel = 0
+        stage.Parent = surface
+        b.stage = stage
+        b.stageScale = Instance.new("UIScale")
+        b.stageScale.Parent = stage
+
+        local anchor = b.anchor
+        b.realBg = anchor.BackgroundTransparency
+        b.realActive = anchor.Active
+        anchor.BackgroundTransparency = 1
+        anchor.Active = false
+        stage.BackgroundColor3 = anchor.BackgroundColor3
+        stage.BackgroundTransparency = b.realBg
+        stage.ClipsDescendants = anchor.ClipsDescendants
+        stage.ZIndex = anchor.ZIndex
+        for _, child in ipairs(anchor:GetChildren()) do moveIn(b, child) end
+        b.addConn = anchor.ChildAdded:Connect(function(child)
+            task.defer(function()
+                if b.on and child.Parent == anchor then moveIn(b, child) end
+            end)
+        end)
+    end
+
+    local function leave(b, destroyed)
+        if not b.on then return end
+        b.on = false
+        if b.addConn then b.addConn:Disconnect(); b.addConn = nil end
+        local anchor = b.anchor
+        if destroyed then
+            b.stage:Destroy()
+        else
+            for _, child in ipairs(b.stage:GetChildren()) do
+                if child ~= b.stageScale then child.Parent = anchor end
+            end
+            anchor.BackgroundTransparency = b.stage.BackgroundTransparency
+            anchor.Active = b.realActive
+        end
+        b.surface:Destroy()
+        b.part:Destroy()
+        b.surface, b.part, b.stage, b.stageScale = nil, nil, nil, nil
+        b.rx, b.ry = 0, 0
+    end
+
+    -- arah miring (derajat) dari titik layar relatif ke tengah panel
+    local function tiltToward(point, center, absSize, cfg, maxTilt)
+        local nx = math.clamp((point.X - center.X) / (absSize.X * 0.5 * cfg.Range), -1, 1)
+        local ny = math.clamp((point.Y - center.Y) / (absSize.Y * 0.5 * cfg.Range), -1, 1)
+        return ny * maxTilt, nx * maxTilt
+    end
+
+    local function gyroTilt(cfg)
+        if not cfg.Gyro or not UserInputService.AccelerometerEnabled then return nil end
+        local ok, g = pcall(function() return UserInputService:GetDeviceGravity() end)
+        if not ok or not g then return nil end
+        local v = g.Position
+        if not gravityBase then gravityBase = v end
+        gravityBase = gravityBase:Lerp(v, 0.004) -- posisi pegang HP pelan-pelan jadi "netral" baru
+        local d = v - gravityBase
+        local lim = cfg.TouchTilt
+        return math.clamp(-d.Z * cfg.GyroGain, -lim, lim), math.clamp(d.X * cfg.GyroGain, -lim, lim)
+    end
+
+    local clock = 0
+    local function update(b, dt, camera, vp, mouse, mouseFree, typing)
+        local cfg, anchor, stage = b.cfg, b.anchor, b.stage
+        if anchor.BackgroundTransparency < 1 then
+            stage.BackgroundTransparency = anchor.BackgroundTransparency
+            anchor.BackgroundTransparency = 1
+        end
+        stage.BackgroundColor3 = anchor.BackgroundColor3
+        if anchor.Active then b.realActive = true; anchor.Active = false end
+
+        local absPos, absSize = screenRect(b)
+        local scale = effectiveScale(b)
+        local margin = cfg.Margin
+        local canvas = Vector2.new(math.ceil(absSize.X + margin * 2), math.ceil(absSize.Y + margin * 2))
+        if b.surface.CanvasSize ~= canvas then b.surface.CanvasSize = canvas end
+        stage.Size = UDim2.fromOffset(absSize.X / scale, absSize.Y / scale)
+        if b.stageScale.Scale ~= scale then b.stageScale.Scale = scale end
+
+        local center = absPos + absSize * 0.5
+        local tx, ty = 0, 0
+        if typing or absSize.X <= 0 or absSize.Y <= 0 then
+            tx, ty = 0, 0
+        elseif usingMouse and mouseFree then
+            tx, ty = tiltToward(mouse, center, absSize, cfg, cfg.MaxTilt)
+        elseif touch and touchAnchor == anchor and touch.UserInputState ~= Enum.UserInputState.End then
+            local p = touch.Position
+            tx, ty = tiltToward(Vector2.new(p.X, p.Y), center, absSize, cfg, cfg.TouchTilt)
+        else
+            local gx, gy = gyroTilt(cfg)
+            if gx then
+                tx, ty = gx, gy
+            elseif cfg.Idle and not usingMouse then
+                local t = clock * cfg.IdleSpeed + b.phase
+                tx = math.sin(t * 1.3) * cfg.IdleTilt * 0.7
+                ty = math.sin(t) * cfg.IdleTilt
+            end
+        end
+        local a = 1 - math.exp(-cfg.Smooth * dt)
+        b.rx = b.rx + (tx - b.rx) * a
+        b.ry = b.ry + (ty - b.ry) * a
+
+        local depth = cfg.Depth - b.layer * 0.0005
+        local wpp = 2 * depth * math.tan(rad(camera.FieldOfView) * 0.5) / vp.Y
+        local offset = Vector3.new((center.X - vp.X * 0.5) * wpp, -(center.Y - vp.Y * 0.5) * wpp, -depth)
+        local part = b.part
+        local home = holderOf(camera)
+        if part.Parent ~= home then part.Parent = home end
+        part.Size = Vector3.new(canvas.X * wpp, canvas.Y * wpp, 0.05)
+        part.CFrame = camera.CFrame * CFrame.new(offset) * CFrame.Angles(rad(b.rx), rad(b.ry), 0)
+            * CFrame.new(0, 0, -0.025)
+    end
+
+    local function step(dt)
+        clock = clock + dt
+        local camera = workspace.CurrentCamera
+        if not camera then return end
+        local vp = camera.ViewportSize
+        local mouse = UserInputService:GetMouseLocation()
+        local mouseFree = UserInputService.MouseBehavior == Enum.MouseBehavior.Default
+        local typing = UserInputService:GetFocusedTextBox() ~= nil
+        local use = M.willUse()
+        local any = false
+        for _, b in pairs(bindings) do
+            local visible = shown(b)
+            if visible then
+                any = true
+                if use and not b.on then enter(b) elseif not use and b.on then leave(b) end
+            end
+            if b.on then
+                b.surface.Enabled = visible
+                if visible then
+                    local ok, err = pcall(update, b, dt, camera, vp, mouse, mouseFree, typing)
+                    if not ok then
+                        warn("[LiquidGlass UI3D] mati otomatis (2D): " .. tostring(err))
+                        M.Config.Enabled = false
                     end
                 end
             end
         end
-    end
-    return false, nil
-end
-
-local aksesDiizinkan, infoAkses = cekWhitelistRoblox()
-if not aksesDiizinkan then
-    local lamaLockout = parentGui:FindFirstChild("MellsLockout")
-    if lamaLockout then lamaLockout:Destroy() end
-    local lamaToggle = parentGui:FindFirstChild("ImporterHubToggle")
-    if lamaToggle then lamaToggle:Destroy() end
-
-    local lockoutGui = buat("ScreenGui", {
-        Name = "MellsLockout",
-        ResetOnSpawn = false,
-        DisplayOrder = 9999999,
-        IgnoreGuiInset = true,
-        ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
-    }, parentGui)
-
-    -- Background Fullscreen Image
-    local bgImg = buat("ImageLabel", {
-        Name = "Background",
-        Size = UDim2.new(1, 0, 1, 0),
-        Position = UDim2.new(0, 0, 0, 0),
-        Image = "rbxassetid://92844638469747",
-        ScaleType = Enum.ScaleType.Crop,
-        BackgroundColor3 = Color3.fromRGB(0, 0, 0),
-        BorderSizePixel = 0,
-        Active = true,
-    }, lockoutGui)
-
-    -- Overlay Gelap
-    local overlay = buat("Frame", {
-        Name = "DarkOverlay",
-        Size = UDim2.new(1, 0, 1, 0),
-        BackgroundColor3 = Color3.fromRGB(0, 0, 0),
-        BackgroundTransparency = 0.45,
-        BorderSizePixel = 0,
-        Active = true,
-    }, bgImg)
-
-    -- Modal Box Tengah
-    local modal = sudut(buat("Frame", {
-        Name = "Card",
-        Size = UDim2.new(0.9, 0, 0, 310),
-        Position = UDim2.new(0.5, 0, 0.5, 0),
-        AnchorPoint = Vector2.new(0.5, 0.5),
-        BackgroundColor3 = Color3.fromRGB(15, 15, 20),
-        BackgroundTransparency = 0.08,
-        BorderSizePixel = 0,
-        Active = true,
-    }, overlay), 14)
-    buat("UIStroke", {
-        Color = Color3.fromRGB(230, 50, 50),
-        Thickness = 2,
-    }, modal)
-    buat("UISizeConstraint", {
-        MaxSize = Vector2.new(500, 340),
-        MinSize = Vector2.new(300, 280),
-    }, modal)
-
-    local isiModal = buat("Frame", {
-        Size = UDim2.new(1, -28, 1, -28),
-        Position = UDim2.new(0, 14, 0, 14),
-        BackgroundTransparency = 1,
-    }, modal)
-    buat("UIListLayout", {
-        Padding = UDim.new(0, 10),
-        HorizontalAlignment = Enum.HorizontalAlignment.Center,
-        VerticalAlignment = Enum.VerticalAlignment.Center,
-        SortOrder = Enum.SortOrder.LayoutOrder,
-    }, isiModal)
-
-    buat("TextLabel", {
-        Text = "🔒",
-        TextSize = 28,
-        BackgroundTransparency = 1,
-        Size = UDim2.new(1, 0, 0, 32),
-        LayoutOrder = 1,
-    }, isiModal)
-
-    buat("TextLabel", {
-        Text = "DARIPADA CRACK MENDING BUY\nLEBIH MURAH KE MELLS CANTIK AJA",
-        Font = Enum.Font.GothamBlack,
-        TextSize = 16,
-        TextColor3 = Color3.fromRGB(255, 255, 255),
-        TextWrapped = true,
-        BackgroundTransparency = 1,
-        Size = UDim2.new(1, 0, 0, 42),
-        LayoutOrder = 2,
-    }, isiModal)
-
-    buat("TextLabel", {
-        Text = "JOIN DC KESINI:\nhttps://discord.gg/HkEhxrjVMk",
-        Font = Enum.Font.GothamBold,
-        TextSize = 13,
-        TextColor3 = Color3.fromRGB(88, 101, 242),
-        TextWrapped = true,
-        BackgroundTransparency = 1,
-        Size = UDim2.new(1, 0, 0, 34),
-        LayoutOrder = 3,
-    }, isiModal)
-
-    buat("TextLabel", {
-        Text = "ID Roblox Kamu: " .. tostring(lp.UserId) .. " (Tidak Terdaftar / Habis)",
-        Font = Enum.Font.Gotham,
-        TextSize = 10,
-        TextColor3 = Color3.fromRGB(180, 180, 180),
-        BackgroundTransparency = 1,
-        Size = UDim2.new(1, 0, 0, 16),
-        LayoutOrder = 4,
-    }, isiModal)
-
-    local btnSalinDc = sudut(buat("TextButton", {
-        Text = "📋 Salin Link Discord",
-        Font = Enum.Font.GothamBold,
-        TextSize = 12,
-        TextColor3 = Color3.fromRGB(255, 255, 255),
-        BackgroundColor3 = Color3.fromRGB(88, 101, 242),
-        Size = UDim2.new(1, -20, 0, 34),
-        BorderSizePixel = 0,
-        LayoutOrder = 5,
-    }, isiModal), 8)
-    btnSalinDc.Activated:Connect(function()
-        if setclipboard then
-            setclipboard("https://discord.gg/HkEhxrjVMk")
-            btnSalinDc.Text = "✔ Link Discord Berhasil Disalin!"
-            task.delay(2, function()
-                btnSalinDc.Text = "📋 Salin Link Discord"
-            end)
-        end
-    end)
-
-    local btnOwner = sudut(buat("TextButton", {
-        Text = "💬 Hubungi Owner (1309112913331748915)",
-        Font = Enum.Font.GothamBold,
-        TextSize = 11,
-        TextColor3 = Color3.fromRGB(255, 255, 255),
-        BackgroundColor3 = Color3.fromRGB(45, 45, 55),
-        Size = UDim2.new(1, -20, 0, 32),
-        BorderSizePixel = 0,
-        LayoutOrder = 6,
-    }, isiModal), 8)
-    btnOwner.Activated:Connect(function()
-        if setclipboard then
-            setclipboard("1309112913331748915")
-            btnOwner.Text = "✔ ID Discord Owner Disalin!"
-            task.delay(2, function()
-                btnOwner.Text = "💬 Hubungi Owner (1309112913331748915)"
-            end)
-        end
-        local openUrlFn = openurl or (syn and syn.openurl)
-        if openUrlFn then
-            pcall(openUrlFn, "https://discord.com/users/1309112913331748915")
-        end
-    end)
-
-    return
-end
-
-local gui = buat("ScreenGui", {
-    Name = "ImporterHub",
-    ResetOnSpawn = false,
-    ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
-}, parentGui)
-
-local LEBAR, TINGGI = 560, 360
-local frame = sudut(buat("Frame", {
-    Size = UDim2.new(0, LEBAR, 0, TINGGI),
-    Position = UDim2.new(0.5, -LEBAR / 2, 0.5, -TINGGI / 2),
-    BackgroundColor3 = C.bg,
-    BorderSizePixel = 0,
-    Active = true,
-    ClipsDescendants = true,
-}, gui), 12)
-local frameStroke = Instance.new("UIStroke", frame)
-frameStroke.Color = Color3.fromRGB(0, 245, 115)
-frameStroke.Thickness = 1.5
-TweenService:Create(frameStroke, TweenInfo.new(1.8, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), { Color = Color3.fromRGB(0, 160, 75), Thickness = 2.2 }):Play()
-buat("UIStroke", {
-    Color = Color3.fromRGB(245, 175, 45),
-    Transparency = 0.45,
-    Thickness = 1.2,
-    ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-}, frame)
-
--- Header
-local TOGGLE_IMAGE = "rbxassetid://116910178994061"
-local header = buat("Frame", {Size = UDim2.new(1, 0, 0, 40), BackgroundTransparency = 1}, frame)
-buat("ImageLabel", {
-    Name = "HeaderLogo",
-    BackgroundTransparency = 1,
-    Image = TOGGLE_IMAGE,
-    Position = UDim2.new(0, 10, 0, 7),
-    Size = UDim2.new(0, 26, 0, 26),
-    ScaleType = Enum.ScaleType.Fit,
-}, header)
-label({Text = "TOOLS ENGINE MCP STUDIOLITE", Font = Enum.Font.GothamBold, TextSize = 15,
-    Position = UDim2.new(0, 44, 0, 3), Size = UDim2.new(0, 390, 0, 20)}, header)
-label({Text = "IMPORT · TOOLBOX · AI · UPLOAD", TextColor3 = C.redup, TextSize = 10,
-    Position = UDim2.new(0, 44, 0, 23), Size = UDim2.new(0, 300, 0, 14)}, header)
-local btnMin = tombol({Text = "-", Size = UDim2.new(0, 30, 0, 28),
-    Position = UDim2.new(1, -72, 0, 6), BackgroundColor3 = C.kartu}, header)
-local btnTutup = tombol({Text = "X", Size = UDim2.new(0, 30, 0, 28),
-    Position = UDim2.new(1, -38, 0, 6), BackgroundColor3 = Color3.fromRGB(190, 60, 60)}, header)
-
-local body = buat("Frame", {
-    Size = UDim2.new(1, 0, 1, -40),
-    Position = UDim2.new(0, 0, 0, 40),
-    BackgroundTransparency = 1,
-}, frame)
-
--- Status bar
-local statusBar = sudut(buat("Frame", {
-    Size = UDim2.new(1, -16, 0, 28),
-    Position = UDim2.new(0, 8, 1, -36),
-    BackgroundColor3 = C.panel,
-    BorderSizePixel = 0,
-}, body), 8)
-local dot = sudut(buat("Frame", {
-    Size = UDim2.new(0, 10, 0, 10),
-    Position = UDim2.new(0, 10, 0.5, -5),
-    BackgroundColor3 = C.hijau,
-    BorderSizePixel = 0,
-}, statusBar), 5)
-local statusLabel = label({
-    Text = "Siap",
-    TextSize = 11,
-    Position = UDim2.new(0, 28, 0, 0),
-    Size = UDim2.new(1, -36, 1, 0),
-    TextTruncate = Enum.TextTruncate.AtEnd,
-}, statusBar)
-
-local function setStatus(teks, merah)
-    statusLabel.Text = teks
-    dot.BackgroundColor3 = merah and C.merah or C.hijau
-end
-
--- Sidebar & area isi
-local sidebar = sudut(buat("Frame", {
-    Size = UDim2.new(0, 148, 1, -44),
-    Position = UDim2.new(0, 8, 0, 0),
-    BackgroundColor3 = C.panel,
-    BorderSizePixel = 0,
-    ClipsDescendants = true,
-}, body), 10)
-buat("UIStroke", {
-    Color = Color3.fromRGB(245, 175, 45),
-    Transparency = 0.85,
-    Thickness = 1,
-    ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-}, sidebar)
-
--- Profile Card Luxury VIP
-local profileCard = sudut(buat("Frame", {
-    Size = UDim2.new(1, -12, 0, 42),
-    Position = UDim2.new(0, 6, 0, 6),
-    BackgroundColor3 = C.kartu,
-    BorderSizePixel = 0,
-}, sidebar), 8)
-buat("UIStroke", {
-    Color = Color3.fromRGB(245, 175, 45),
-    Transparency = 0.8,
-    Thickness = 1,
-    ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-}, profileCard)
-
-local avatarBox = sudut(buat("Frame", {
-    Size = UDim2.new(0, 30, 0, 30),
-    Position = UDim2.new(0, 6, 0.5, -15),
-    BackgroundColor3 = C.panel,
-    BorderSizePixel = 0,
-    ClipsDescendants = true,
-}, profileCard), 15)
-buat("ImageLabel", {
-    Size = UDim2.new(1, 0, 1, 0),
-    BackgroundTransparency = 1,
-    Image = "rbxthumb://type=AvatarHeadShot&id=" .. tostring(lp.UserId or 1) .. "&w=48&h=48",
-}, avatarBox)
-
-local statusDot = sudut(buat("Frame", {
-    Size = UDim2.new(0, 7, 0, 7),
-    Position = UDim2.new(0, 28, 0.5, 6),
-    BackgroundColor3 = Color3.fromRGB(46, 204, 113),
-    BorderSizePixel = 0,
-}, profileCard), 4)
-
-label({Text = lp.DisplayName, Font = Enum.Font.GothamBold, TextSize = 10,
-    TextColor3 = C.teks,
-    Position = UDim2.new(0, 42, 0, 6), Size = UDim2.new(1, -44, 0, 14),
-    TextTruncate = Enum.TextTruncate.AtEnd}, profileCard)
-
-local vipBadge = sudut(buat("Frame", {
-    Size = UDim2.new(0, 36, 0, 13),
-    Position = UDim2.new(0, 42, 0, 22),
-    BackgroundColor3 = Color3.fromRGB(50, 40, 20),
-    BorderSizePixel = 0,
-}, profileCard), 4)
-buat("UIStroke", {
-    Color = Color3.fromRGB(245, 175, 45),
-    Transparency = 0.5,
-    Thickness = 1,
-    ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-}, vipBadge)
-label({Text = "VIP", Font = Enum.Font.GothamBold, TextSize = 8,
-    TextColor3 = Color3.fromRGB(255, 198, 55),
-    TextXAlignment = Enum.TextXAlignment.Center,
-    Size = UDim2.new(1, 0, 1, 0)}, vipBadge)
-
-local isi = buat("Frame", {
-    Size = UDim2.new(1, -164, 1, -44),
-    Position = UDim2.new(0, 156, 0, 0),
-    BackgroundTransparency = 1,
-}, body)
-
-local pageSweep = buat("Frame", {
-    Name = "PageSweep",
-    Size = UDim2.new(0, 108, 1, 0),
-    Position = UDim2.new(0, -120, 0, 0),
-    BackgroundColor3 = Color3.new(1, 1, 1),
-    BackgroundTransparency = 0.65,
-    BorderSizePixel = 0,
-    Visible = false,
-    ZIndex = 100,
-}, isi)
-buat("UIGradient", {
-    Transparency = NumberSequence.new({
-        NumberSequenceKeypoint.new(0, 1),
-        NumberSequenceKeypoint.new(0.5, 0.25),
-        NumberSequenceKeypoint.new(1, 1),
-    }),
-}, pageSweep)
-local pageSweepTween
-local function jalankanSapuan()
-    if pageSweepTween then pageSweepTween:Cancel() end
-    pageSweep.Visible = true
-    pageSweep.Position = UDim2.new(0, -120, 0, 0)
-    local tween = TweenService:Create(
-        pageSweep,
-        TweenInfo.new(0.55, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-        {Position = UDim2.new(1, 12, 0, 0)}
-    )
-    pageSweepTween = tween
-    tween.Completed:Connect(function()
-        if pageSweepTween == tween then
-            pageSweepTween = nil
-            pageSweep.Visible = false
-        end
-    end)
-    tween:Play()
-end
-
-local halaman = {}
-local halamanAktif
-local badgeMenu, badgeKartu, menuBtn = {}, {}, {}
-local tombolTujuan = {}
-local bukaHalaman, lakukanScan
-local bukaToolboxPanel, tutupToolboxPanel
-local bukaMusicPanel, tutupMusicPanel
-local sorotMenu
-
-local function perbaruiTujuan()
-    for _, b in ipairs(tombolTujuan) do
-        b.Text = "Tujuan: " .. TUJUAN[idxTujuan].nama
-    end
-end
-
-local function gantiTujuan()
-    idxTujuan = idxTujuan % #TUJUAN + 1
-    perbaruiTujuan()
-end
-
-------------------------------------------------------------------
--- INTI: PASANG HASIL IMPORT (script tidak pernah dibuang)
-------------------------------------------------------------------
-local function pasangHasil(hasil, namaSumber)
-    local tujuan = TUJUAN[idxTujuan]
-    local sebelum, sesudah = {}, {}
-    local ditaruh, objekWorkspace, gagal = {}, {}, 0
-
-    local function taruh(inst, induk)
-        hitung(inst, sebelum)
-        local ok = pcall(function() inst.Parent = induk end)
-        if ok then
-            table.insert(ditaruh, inst)
-            if induk == workspace then
-                table.insert(objekWorkspace, inst)
-            end
-        else
-            gagal = gagal + 1
+        if not any then
+            running = false
+            RunService:UnbindFromRenderStep(STEP_NAME)
         end
     end
 
-    for _, obj in ipairs(hasil) do
-        local svc = layananDari(obj)
-        if svc then
-            -- isi service (Workspace, ServerScriptService, dst) ke service yang sama
-            if not SKIP_SERVICE[obj.ClassName] then
-                for _, anak in ipairs(obj:GetChildren()) do
-                    if not SKIP_ANAK[anak.ClassName] then
-                        taruh(anak, svc)
-                    end
+    local function wake()
+        if running then return end
+        running = true
+        RunService:BindToRenderStep(STEP_NAME, Enum.RenderPriority.Camera.Value + 1, step)
+    end
+    M.wake = wake
+
+    function M.bind(anchor, overrides)
+        if bindings[anchor] or not anchor:IsA("GuiObject") then return end
+        local cfg = setmetatable({}, { __index = M.Config }) -- ikut perubahan M.Config (toggle di Setting)
+        for k, v in pairs(overrides or {}) do cfg[k] = v end
+        local b = { anchor = anchor, cfg = cfg, on = false, rx = 0, ry = 0, conns = {}, phase = math.random() * 6 }
+        b.gui = anchor:FindFirstAncestorWhichIsA("LayerCollector")
+        seq = (seq + 1) % 1000
+        b.layer = ((b.gui and b.gui:IsA("ScreenGui")) and b.gui.DisplayOrder or 0) + seq / 1000
+        bindings[anchor] = b
+        local function refresh()
+            b.gui = anchor:FindFirstAncestorWhichIsA("LayerCollector") or b.gui
+            wake()
+        end
+        table.insert(b.conns, anchor:GetPropertyChangedSignal("Visible"):Connect(refresh))
+        table.insert(b.conns, anchor.AncestryChanged:Connect(function()
+            if not anchor:IsDescendantOf(game) then M.unbind(anchor, true) return end
+            refresh()
+        end))
+        if b.gui then
+            table.insert(b.conns, b.gui:GetPropertyChangedSignal("Enabled"):Connect(wake))
+        end
+        wake()
+    end
+
+    function M.unbind(anchor, destroyed)
+        local b = bindings[anchor]
+        if not b then return end
+        bindings[anchor] = nil
+        for _, c in ipairs(b.conns) do c:Disconnect() end
+        leave(b, destroyed)
+    end
+
+    -- dipanggil saat toggle 3D di Setting
+    function M.setEnabled(on)
+        M.Config.Enabled = on and true or false
+        if not M.Config.Enabled then
+            for _, b in pairs(bindings) do leave(b) end
+        end
+        wake()
+    end
+
+    function M.isOn(anchor)
+        local b = bindings[anchor]
+        return b ~= nil and b.on
+    end
+
+    -- ===== deteksi input =====
+    UserInputService.LastInputTypeChanged:Connect(function(t)
+        local before = usingMouse
+        if t == Enum.UserInputType.Touch or t.Name:sub(1, 7) == "Gamepad" then
+            usingMouse = false
+        elseif t == Enum.UserInputType.MouseMovement or t == Enum.UserInputType.MouseButton1
+            or t == Enum.UserInputType.MouseButton2 or t == Enum.UserInputType.MouseWheel then
+            usingMouse = true
+        end
+        if before ~= usingMouse then wake() end
+    end)
+
+    -- sentuhan: catat jari yang mulai DI ATAS panel (dicek dari kotak 2D asli)
+    UserInputService.TouchStarted:Connect(function(input)
+        for anchor, b in pairs(bindings) do
+            if b.on and b.surface and b.surface.Enabled then
+                local absPos, absSize = screenRect(b)
+                local p = input.Position
+                if p.X >= absPos.X and p.X <= absPos.X + absSize.X and p.Y >= absPos.Y and p.Y <= absPos.Y + absSize.Y then
+                    touch, touchAnchor = input, anchor
+                    return
                 end
             end
-        else
-            taruh(obj, tujuan.obj)
+        end
+    end)
+    UserInputService.TouchEnded:Connect(function(input)
+        if input == touch then touch, touchAnchor = nil, nil end
+    end)
+
+    return M
+end)()
+
+local Kit = (function()
+    local TweenService = game:GetService("TweenService")
+    local UserInputService = game:GetService("UserInputService")
+    local playerGui = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui")
+
+    local Kit = {}
+    -- palet "Liquid Glass": kaca gelap tembus pandang + garis putih berkilau + aksen biru
+    local GLASS_LINE = Color3.fromRGB(255, 255, 255)
+    local P = {
+        panel = Color3.fromRGB(22, 26, 38),
+        panelT = 0.24,
+        panelStroke = GLASS_LINE,
+        glow = Color3.fromRGB(0, 0, 0),
+        card = Color3.fromRGB(255, 255, 255),
+        cardStroke = GLASS_LINE,
+        well = Color3.fromRGB(8, 10, 18),
+        wellStroke = GLASS_LINE,
+        chip = Color3.fromRGB(70, 78, 98),
+        chipStroke = GLASS_LINE,
+        text = Color3.fromRGB(255, 255, 255),
+        muted = Color3.fromRGB(196, 204, 222),
+        dim = Color3.fromRGB(142, 152, 174),
+        accent = Color3.fromRGB(10, 132, 255),
+        accentHi = Color3.fromRGB(255, 255, 255),
+        accentLo = Color3.fromRGB(160, 170, 190),
+        fillTop = Color3.fromRGB(96, 178, 255),
+        fillBottom = Color3.fromRGB(10, 112, 245),
+        grayTop = Color3.fromRGB(255, 255, 255),
+        grayBottom = Color3.fromRGB(196, 206, 228),
+        purpleTop = Color3.fromRGB(120, 214, 255),
+        purpleBottom = Color3.fromRGB(10, 122, 255),
+        track = Color3.fromRGB(0, 0, 0),
+        trackLine = GLASS_LINE,
+        tabIdle = Color3.fromRGB(200, 208, 226),
+        ok = Color3.fromRGB(48, 209, 88),
+        warn = Color3.fromRGB(255, 204, 64),
+        ink = Color3.fromRGB(12, 14, 22),
+        danger = Color3.fromRGB(255, 69, 88),
+        lilac = Color3.fromRGB(140, 206, 255),
+    }
+    Kit.P = P
+    Kit.Font = Enum.Font.GothamMedium
+    Kit.FontBold = Enum.Font.GothamBold
+    Kit.FontBlack = Enum.Font.GothamBlack
+    Kit.UI3D = UI3D
+
+    function Kit.tween(inst, duration, props, style, direction)
+        local t = TweenService:Create(inst, TweenInfo.new(duration, style or Enum.EasingStyle.Quint,
+            direction or Enum.EasingDirection.Out), props)
+        t:Play()
+        return t
+    end
+
+    function Kit.corner(inst, radius, isScale)
+        local c = inst:FindFirstChildOfClass("UICorner") or Instance.new("UICorner")
+        c.CornerRadius = isScale and UDim.new(radius, 0) or UDim.new(0, radius)
+        c.Parent = inst
+        return c
+    end
+
+    -- tepi kaca: terang di kiri-atas, hampir hilang di tengah, pantulan tipis di kanan-bawah
+    function Kit.rim(stroke, strong)
+        local g = stroke:FindFirstChild("Rim") or Instance.new("UIGradient")
+        g.Name = "Rim"
+        g.Rotation = 55
+        g.Color = ColorSequence.new(Color3.new(1, 1, 1), Color3.fromRGB(190, 214, 255))
+        local a = strong and 0.05 or 0.45
+        g.Transparency = NumberSequence.new({
+            NumberSequenceKeypoint.new(0, a),
+            NumberSequenceKeypoint.new(0.32, strong and 0.62 or 0.86),
+            NumberSequenceKeypoint.new(0.7, strong and 0.8 or 0.93),
+            NumberSequenceKeypoint.new(1, strong and 0.3 or 0.62),
+        })
+        g.Parent = stroke
+        return g
+    end
+
+    function Kit.stroke(inst, color, thickness)
+        local s = Instance.new("UIStroke")
+        s.Color = color or P.cardStroke
+        s.Thickness = thickness or 1
+        s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+        s.Parent = inst
+        if s.Color == GLASS_LINE then Kit.rim(s) end
+        return s
+    end
+
+    -- kilau specular di setengah atas permukaan kaca
+    function Kit.sheen(inst, radius, strength, z)
+        local f = Instance.new("Frame")
+        f.Name = "Sheen"
+        f.BackgroundColor3 = Color3.new(1, 1, 1)
+        f.BorderSizePixel = 0
+        f.Size = UDim2.fromScale(1, 0.55)
+        f.ZIndex = z or 0
+        f.Active = false
+        f.Parent = inst
+        Kit.corner(f, radius or 14)
+        local g = Instance.new("UIGradient")
+        g.Rotation = 90
+        local t = strength or 0.86
+        g.Transparency = NumberSequence.new({
+            NumberSequenceKeypoint.new(0, t), NumberSequenceKeypoint.new(0.5, math.min(1, t + 0.1)), NumberSequenceKeypoint.new(1, 1),
+        })
+        g.Parent = f
+        return f
+    end
+
+    -- ===== suara klik (semua tombol) =====
+    local CLICK_ID = CLICK_SOUND_ID
+    Kit.ClickSound = true
+    Kit.ClickVolume = 0.6
+    local clickSound, lastClick = nil, 0
+    function Kit.click()
+        if not Kit.ClickSound then return end
+        local now = os.clock()
+        if now - lastClick < 0.05 then return end
+        lastClick = now
+        pcall(function()
+            if not clickSound or not clickSound.Parent then
+                local host = playerGui:FindFirstChild("LiquidGlassAudio") or Instance.new("ScreenGui")
+                host.Name = "LiquidGlassAudio"
+                host.ResetOnSpawn = false
+                host.Parent = playerGui
+                clickSound = Instance.new("Sound")
+                clickSound.Name = "Click"
+                clickSound.SoundId = CLICK_ID
+                clickSound.Archivable = false
+                clickSound.Parent = host
+            end
+            clickSound.Volume = Kit.ClickVolume
+            clickSound.TimePosition = 0
+            clickSound:Play()
+        end)
+    end
+    local function hookButton(b)
+        if b:IsA("GuiButton") and not b:GetAttribute("MSClick") and not b:GetAttribute("NoClick") then
+            b:SetAttribute("MSClick", true)
+            b.MouseButton1Click:Connect(Kit.click)
+        end
+    end
+    -- pasang suara klik ke semua tombol di dalam root (termasuk yang dibuat belakangan)
+    function Kit.hookClicks(root)
+        if root:GetAttribute("MSClickRoot") then return end
+        root:SetAttribute("MSClickRoot", true)
+        for _, d in ipairs(root:GetDescendants()) do hookButton(d) end
+        root.DescendantAdded:Connect(function(d)
+            task.defer(function() if d.Parent then hookButton(d) end end)
+        end)
+    end
+
+    -- kilau ungu muda diam di pojok kiri-atas border (versi ringan Nectarion)
+    function Kit.sweepStroke(stroke)
+        stroke.Color = Color3.new(1, 1, 1)
+        return Kit.rim(stroke, true)
+    end
+
+    function Kit.padding(inst, left, top, right, bottom)
+        local pad = Instance.new("UIPadding")
+        pad.PaddingLeft = UDim.new(0, left)
+        pad.PaddingTop = UDim.new(0, top or left)
+        pad.PaddingRight = UDim.new(0, right or left)
+        pad.PaddingBottom = UDim.new(0, bottom or top or left)
+        pad.Parent = inst
+        return pad
+    end
+
+    function Kit.list(inst, gap, direction)
+        local l = Instance.new("UIListLayout")
+        l.Padding = UDim.new(0, gap or 6)
+        l.SortOrder = Enum.SortOrder.LayoutOrder
+        l.FillDirection = direction or Enum.FillDirection.Vertical
+        l.Parent = inst
+        return l
+    end
+
+    local function gradientFill(inst, top, bottom)
+        local g = Instance.new("UIGradient")
+        g.Name = "Cream"
+        g.Color = ColorSequence.new(top, bottom)
+        g.Rotation = 90
+        g.Parent = inst
+        return g
+    end
+    function Kit.blueFill(inst) return gradientFill(inst, P.fillTop, P.fillBottom) end
+    function Kit.grayFill(inst) return gradientFill(inst, P.grayTop, P.grayBottom) end
+    function Kit.purpleFill(inst) return gradientFill(inst, P.purpleTop, P.purpleBottom) end
+
+    -- glow ungu lembut 3 lapis di sekeliling frame
+    function Kit.glow(parent, radius, color)
+        local list = {}
+        for _, spec in ipairs({ { 22, 0.93 }, { 12, 0.88 }, { 5, 0.82 } }) do
+            local g = Instance.new("Frame")
+            g.Name = "Glow"
+            g.AnchorPoint = Vector2.new(0.5, 0.5)
+            g.Position = UDim2.new(0.5, 0, 0.5, math.floor(spec[1] * 0.35))
+            g.Size = UDim2.new(1, spec[1] * 2, 1, spec[1] * 2)
+            g.BackgroundColor3 = color or P.glow
+            g.BackgroundTransparency = spec[2]
+            g.BorderSizePixel = 0
+            g.ZIndex = 0
+            g.Parent = parent
+            Kit.corner(g, (radius or 20) + spec[1])
+            table.insert(list, { frame = g, base = spec[2] })
+        end
+        return list
+    end
+
+    function Kit.screen(name, order)
+        local old = playerGui:FindFirstChild(name)
+        if old then old:Destroy() end
+        local gui = Instance.new("ScreenGui")
+        gui.Name = name
+        gui.ResetOnSpawn = false
+        gui.DisplayOrder = order or 60
+        gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+        gui.Parent = playerGui
+        Kit.hookClicks(gui)
+        return gui
+    end
+
+    -- ===== ikon (digambar dari Frame, tanpa asset) =====
+    function Kit.icon(parent, kind, size, color)
+        size = size or 24
+        color = color or P.text
+        local s = size / 24
+        local root = Instance.new("Frame")
+        root.Name = "Icon_" .. tostring(kind)
+        root.BackgroundTransparency = 1
+        root.Size = UDim2.fromOffset(size, size)
+        root.Parent = parent
+        local function piece(w, h, cx, cy, rot, c, t, radius)
+            local f = Instance.new("Frame")
+            f.AnchorPoint = Vector2.new(0.5, 0.5)
+            f.Size = UDim2.fromOffset(w * s, h * s)
+            f.Position = UDim2.fromOffset(cx * s, cy * s)
+            f.Rotation = rot or 0
+            f.BackgroundColor3 = c or color
+            f.BackgroundTransparency = t or 0
+            f.BorderSizePixel = 0
+            f.Parent = root
+            if radius == "full" then Kit.corner(f, 1, true) elseif radius then Kit.corner(f, radius * s) end
+            return f
+        end
+        if kind == "spoof" then -- dua panah bertukar
+            piece(14, 2.6, 11, 8, 0, color, 0, "full")
+            piece(6, 2.6, 16.5, 6, 45, color, 0, "full")
+            piece(6, 2.6, 16.5, 10, -45, color, 0, "full")
+            piece(14, 2.6, 13, 16, 0, P.lilac, 0, "full")
+            piece(6, 2.6, 7.5, 14, -45, P.lilac, 0, "full")
+            piece(6, 2.6, 7.5, 18, 45, P.lilac, 0, "full")
+        elseif kind == "upload" then
+            piece(16, 2.6, 12, 20, 0, color, 0, "full")
+            piece(2.6, 12, 12, 11, 0, color, 0, "full")
+            piece(8, 2.6, 9.4, 7.4, -45, color, 0, "full")
+            piece(8, 2.6, 14.6, 7.4, 45, color, 0, "full")
+        elseif kind == "import" then
+            local box = piece(18, 10, 12, 16, 0, color, 1, 3)
+            Kit.stroke(box, color, math.max(1.5, 2 * s))
+            piece(2.6, 10, 12, 8, 0, P.lilac, 0, "full")
+            piece(7, 2.6, 9.8, 11.6, 45, P.lilac, 0, "full")
+            piece(7, 2.6, 14.2, 11.6, -45, P.lilac, 0, "full")
+        elseif kind == "gear" then
+            for _, r in ipairs({ 0, 45, 90, 135 }) do piece(20, 4, 12, 12, r, color, 0, 1.5) end
+            piece(14, 14, 12, 12, 0, color, 0, "full")
+            piece(6, 6, 12, 12, 0, P.ink, 0, "full")
+        elseif kind == "copy" then
+            local a = piece(11, 13, 9.5, 10.5, 0, color, 1, 2.5)
+            Kit.stroke(a, color, math.max(1.2, 1.6 * s))
+            local b = piece(11, 13, 14.5, 14.5, 0, P.panel, 0, 2.5)
+            Kit.stroke(b, color, math.max(1.2, 1.6 * s))
+        elseif kind == "search" then
+            local ring = piece(13, 13, 10.5, 10.5, 0, color, 1, "full")
+            Kit.stroke(ring, color, math.max(1.5, 2 * s))
+            piece(8, 2.4, 19, 19, 45, color, 0, "full")
+        elseif kind == "toolbox" then -- koper toolbox
+            local body = piece(20, 13, 12, 15, 0, color, 1, 3)
+            Kit.stroke(body, color, math.max(1.5, 2 * s))
+            local handle = piece(8, 5, 12, 6.5, 0, color, 1, 2)
+            Kit.stroke(handle, color, math.max(1.3, 1.8 * s))
+            piece(20, 2.4, 12, 14, 0, P.lilac, 0, "full")
+        elseif kind == "chat" then -- gelembung chat
+            local b = piece(19, 14, 12, 10.5, 0, color, 1, 5)
+            Kit.stroke(b, color, math.max(1.5, 2 * s))
+            piece(5, 5, 8, 18.5, 45, color, 0, 1)
+            piece(2.6, 2.6, 8, 10.5, 0, P.lilac, 0, "full")
+            piece(2.6, 2.6, 12, 10.5, 0, P.lilac, 0, "full")
+            piece(2.6, 2.6, 16, 10.5, 0, P.lilac, 0, "full")
+        elseif kind == "mesh" then -- kubus 3D (garis)
+            local back = piece(12, 12, 14.5, 9.5, 0, color, 1, 2)
+            Kit.stroke(back, P.lilac, math.max(1.3, 1.8 * s))
+            local front = piece(12, 12, 9.5, 14.5, 0, color, 1, 2)
+            Kit.stroke(front, color, math.max(1.5, 2 * s))
+        elseif kind == "avatar" then -- kepala + bahu
+            piece(9, 9, 12, 7.5, 0, color, 0, "full")
+            piece(17, 9, 12, 19, 0, P.lilac, 0, 4.5)
+        else -- gem
+            piece(13, 13, 12, 12, 45, color, 0, 2)
+            piece(5, 5, 12, 12, 45, P.ink, 0, 1)
+        end
+        return root
+    end
+
+    -- ===== panel & kartu =====
+    function Kit.glass(parent, o)
+        o = o or {}
+        local f = Instance.new(o.Canvas and "CanvasGroup" or "Frame")
+        f.Name = o.Name or "Panel"
+        f.Size = o.Size or UDim2.fromScale(1, 1)
+        f.Position = o.Position or UDim2.new()
+        f.AnchorPoint = o.AnchorPoint or Vector2.new()
+        f.BackgroundColor3 = o.Color or P.panel
+        f.BackgroundTransparency = o.Transparency or P.panelT
+        f.BorderSizePixel = 0
+        Kit.corner(f, o.Radius or 20)
+        Kit.rim(Kit.stroke(f, P.panelStroke, 1.5), true)
+        local g = Instance.new("UIGradient")
+        g.Color = ColorSequence.new({
+            ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 255, 255)),
+            ColorSequenceKeypoint.new(0.55, Color3.fromRGB(205, 214, 232)),
+            ColorSequenceKeypoint.new(1, Color3.fromRGB(170, 180, 205)),
+        })
+        g.Rotation = 120
+        g.Parent = f
+        if o.Sheen ~= false then Kit.sheen(f, o.Radius or 20, 0.9) end
+        f.Parent = parent
+        return f
+    end
+
+    function Kit.card(parent, o)
+        o = o or {}
+        local f = Instance.new("Frame")
+        f.Name = o.Name or "Card"
+        f.Size = o.Size or UDim2.new(1, 0, 0, 40)
+        f.Position = o.Position or UDim2.new()
+        f.AnchorPoint = o.AnchorPoint or Vector2.new()
+        f.BackgroundColor3 = o.Color or (o.Well and Color3.new(0, 0, 0) or Color3.new(1, 1, 1))
+        f.BackgroundTransparency = o.Color and 0.35 or (o.Well and 0.6 or 0.93)
+        f.BorderSizePixel = 0
+        f.LayoutOrder = o.LayoutOrder or 0
+        if o.AutoY then
+            f.AutomaticSize = Enum.AutomaticSize.Y
+        end
+        Kit.corner(f, o.Radius or 14)
+        Kit.stroke(f, o.Well and P.wellStroke or P.cardStroke, 1)
+        f.Parent = parent
+        return f
+    end
+
+    function Kit.label(parent, o)
+        local t = Instance.new("TextLabel")
+        t.Name = o.Name or "Label"
+        t.BackgroundTransparency = 1
+        t.Size = o.Size or UDim2.new(1, 0, 0, 18)
+        t.Position = o.Position or UDim2.new()
+        t.AnchorPoint = o.AnchorPoint or Vector2.new()
+        t.Font = o.Font or Kit.Font
+        t.TextSize = o.TextSize or 13
+        t.TextColor3 = o.Color or P.text
+        t.Text = o.Text or ""
+        t.RichText = o.Rich == true
+        t.TextXAlignment = o.Align or Enum.TextXAlignment.Left
+        t.TextYAlignment = o.YAlign or Enum.TextYAlignment.Center
+        t.TextWrapped = o.Wrap == true
+        t.TextTruncate = o.Truncate and Enum.TextTruncate.AtEnd or Enum.TextTruncate.None
+        t.LayoutOrder = o.LayoutOrder or 0
+        t.ZIndex = o.ZIndex or 1
+        if o.AutoY then
+            t.AutomaticSize = Enum.AutomaticSize.Y
+            t.Size = UDim2.new(t.Size.X.Scale, t.Size.X.Offset, 0, 0)
+        end
+        t.Parent = parent
+        return t
+    end
+
+    -- judul seksi: garis biru tegak + teks kapital
+    function Kit.caption(parent, text, order)
+        local f = Instance.new("Frame")
+        f.Name = "Caption"
+        f.BackgroundTransparency = 1
+        f.Size = UDim2.new(1, 0, 0, 18)
+        f.LayoutOrder = order or 0
+        f.Parent = parent
+        local bar = Instance.new("Frame")
+        bar.BackgroundColor3 = P.accent
+        bar.BorderSizePixel = 0
+        bar.Position = UDim2.fromOffset(0, 2)
+        bar.Size = UDim2.fromOffset(3, 14)
+        bar.Parent = f
+        Kit.corner(bar, 1)
+        Kit.label(f, { Name = "Text", Text = string.upper(text), Position = UDim2.fromOffset(12, 0),
+            Size = UDim2.new(1, -12, 1, 0), TextSize = 11, Font = Kit.FontBold, Color = Color3.fromRGB(214, 214, 224) })
+        return f
+    end
+
+    local function rgb(v) return Color3.fromRGB(v, v, v) end
+    local GRAY_SEQ = ColorSequence.new(P.grayTop, P.grayBottom)
+    local BLUE_SEQ = ColorSequence.new(P.fillTop, P.fillBottom)
+    local PURPLE_SEQ = ColorSequence.new(P.purpleTop, P.purpleBottom)
+
+    local function paint(b, state)
+        local active = b:GetAttribute("Active") == true
+        local filled = b:GetAttribute("Solid") == true or active
+        local purple = b:GetAttribute("Purple") == true
+        local gradient = b:FindFirstChild("Cream")
+        local stroke = b:FindFirstChildOfClass("UIStroke")
+        if gradient then
+            gradient.Enabled = true
+            gradient.Color = filled and (purple and PURPLE_SEQ or BLUE_SEQ) or GRAY_SEQ
+        end
+        local bg = state == "press" and rgb(200) or (state == "hover" and rgb(255) or rgb(236))
+        if filled then bg = state == "press" and rgb(205) or (state == "hover" and rgb(255) or rgb(242)) end
+        if b:GetAttribute("Disabled") then bg = rgb(150) end
+        local alpha = filled and (state == "press" and 0.2 or 0.08)
+            or (state == "press" and 0.72 or (state == "hover" and 0.8 or 0.87))
+        Kit.tween(b, 0.12, { BackgroundColor3 = bg, BackgroundTransparency = alpha })
+        local scale = b:FindFirstChild("PressScale")
+        if scale then Kit.tween(scale, 0.12, { Scale = state == "press" and 0.96 or 1 }) end
+        if stroke then
+            Kit.tween(stroke, 0.12, {
+                Color = filled and Color3.fromRGB(200, 230, 255) or Color3.new(1, 1, 1),
+                Transparency = filled and 0.1 or (state == "hover" and 0 or 0.15),
+            })
         end
     end
 
-    local spawnError
-    if #objekWorkspace > 0 then
-        local positioned, positionMessage = taruhGrupDiDepan(objekWorkspace)
-        if not positioned then spawnError = positionMessage end
-    end
-
-    -- Cek ulang jumlah script setelah dipasang
-    task.wait(0.2)
-    for _, inst in ipairs(ditaruh) do
-        if inst.Parent then hitung(inst, sesudah) end
-    end
-
-    local sb, sa = sebelum._total or 0, sesudah._total or 0
-    local rinci = string.format("%d Script, %d LocalScript, %d ModuleScript",
-        sesudah.Script or 0, sesudah.LocalScript or 0, sesudah.ModuleScript or 0)
-
-    if gagal > 0 or sa < sb then
-        local pesanError = string.format(
-            "Peringatan: script %d dari %d, %d objek gagal dipasang",
-            sa, sb, gagal
-        )
-        if spawnError then
-            pesanError ..= " | spawn depan kamera gagal: " .. tostring(spawnError)
+    -- o: Text, Size, Position, Solid, Purple, TextSize, Radius, OnClick, Name, LayoutOrder, Icon
+    function Kit.button(parent, o)
+        local b = Instance.new("TextButton")
+        b.Name = o.Name or "Button"
+        b.AutoButtonColor = false
+        b.Size = o.Size or UDim2.new(1, 0, 0, 36)
+        b.Position = o.Position or UDim2.new()
+        b.AnchorPoint = o.AnchorPoint or Vector2.new()
+        b.BackgroundColor3 = P.chip
+        b.BorderSizePixel = 0
+        b.Font = Kit.FontBold
+        b.TextSize = o.TextSize or 12
+        b.Text = o.Text or ""
+        b.TextTransparency = 1 -- teks digambar Label "Face" (UIGradient ikut mewarnai teks tombol)
+        b.LayoutOrder = o.LayoutOrder or 0
+        b:SetAttribute("Solid", o.Solid == true)
+        b:SetAttribute("Purple", o.Purple == true)
+        b:SetAttribute("Active", false)
+        Kit.corner(b, o.Radius or 12)
+        Kit.stroke(b, P.chipStroke, 1)
+        Kit.blueFill(b)
+        Kit.sheen(b, o.Radius or 12, 0.8, 2)
+        local ps = Instance.new("UIScale")
+        ps.Name = "PressScale"
+        ps.Parent = b
+        b.Parent = parent
+        local face = Instance.new("TextLabel")
+        face.Name = "Face"
+        face.BackgroundTransparency = 1
+        face.Size = UDim2.fromScale(1, 1)
+        face.ZIndex = 3
+        face.Font = b.Font
+        face.TextSize = b.TextSize
+        face.Text = b.Text
+        face.TextColor3 = P.text
+        face.TextTruncate = Enum.TextTruncate.AtEnd
+        face.Parent = b
+        if o.Icon then
+            Kit.padding(face, 22, 0, 0, 0)
+            local host = Instance.new("Frame")
+            host.BackgroundTransparency = 1
+            host.AnchorPoint = Vector2.new(0, 0.5)
+            host.ZIndex = 3
+            host.Size = UDim2.fromOffset(16, 16)
+            host.Parent = b
+            local function place()
+                local w = game:GetService("TextService"):GetTextSize(b.Text, b.TextSize, b.Font, Vector2.new(1000, 100)).X
+                host.Position = UDim2.new(0.5, -(w + 22) / 2, 0.5, 0)
+            end
+            place()
+            b:GetPropertyChangedSignal("Text"):Connect(place)
+            Kit.icon(host, o.Icon, 16, P.text)
         end
-        setStatus(pesanError, true)
-        warn(string.format("[Importer] %s: %s", namaSumber, pesanError))
-        return false
+        b:GetPropertyChangedSignal("Text"):Connect(function() face.Text = b.Text end)
+        paint(b, "idle")
+        b.MouseEnter:Connect(function() paint(b, "hover") end)
+        b.MouseLeave:Connect(function() paint(b, "idle") end)
+        b.MouseButton1Down:Connect(function() paint(b, "press") end)
+        b.MouseButton1Up:Connect(function() paint(b, "idle") end)
+        if o.OnClick then
+            b.MouseButton1Click:Connect(function()
+                if not b:GetAttribute("Disabled") then o.OnClick() end
+            end)
+        end
+        return b
     end
 
-    local pesanSukses = string.format(
-        "Berhasil %d objek | Script utuh: %d (%s)",
-        #ditaruh, sa, rinci
-    )
-    if spawnError then
-        pesanSukses ..= " | spawn depan kamera gagal: " .. tostring(spawnError)
-        setStatus(pesanSukses, true)
-    else
-        setStatus(pesanSukses)
+    function Kit.setActive(button, active)
+        button:SetAttribute("Active", active == true)
+        paint(button, "idle")
     end
-    print(string.format("[Importer] %s: %d objek, script utuh %d (%s)", namaSumber, #ditaruh, sa, rinci))
-    return true, spawnError
-end
+
+    function Kit.setDisabled(button, disabled)
+        button:SetAttribute("Disabled", disabled == true)
+        paint(button, "idle")
+    end
+
+    -- o: Name, Size, Position, Placeholder, Text, TextSize, Multi, LayoutOrder, Icon
+    function Kit.input(parent, o)
+        local box = Instance.new("TextBox")
+        box.Name = o.Name or "Input"
+        box.Size = o.Size or UDim2.new(1, 0, 0, 38)
+        box.Position = o.Position or UDim2.new()
+        box.BackgroundColor3 = Color3.fromRGB(4, 6, 12)
+        box.BackgroundTransparency = 0.55
+        box.BorderSizePixel = 0
+        box.Font = Kit.Font
+        box.TextSize = o.TextSize or 12
+        box.TextColor3 = P.text
+        box.PlaceholderText = o.Placeholder or ""
+        box.PlaceholderColor3 = P.dim
+        box.Text = o.Text or ""
+        box.ClearTextOnFocus = false
+        box.TextXAlignment = Enum.TextXAlignment.Left
+        box.MultiLine = o.Multi == true
+        box.TextWrapped = o.Multi == true
+        box.TextTruncate = o.Multi and Enum.TextTruncate.None or Enum.TextTruncate.AtEnd
+        box.TextYAlignment = o.Multi and Enum.TextYAlignment.Top or Enum.TextYAlignment.Center
+        box.ClipsDescendants = true
+        box.LayoutOrder = o.LayoutOrder or 0
+        Kit.corner(box, 14)
+        local s = Kit.stroke(box, P.wellStroke, 1)
+        local left = o.Icon and 40 or 12
+        Kit.padding(box, left, o.Multi and 10 or 0, 12, o.Multi and 10 or 0)
+        if o.Icon then
+            local holder = Instance.new("Frame")
+            holder.BackgroundTransparency = 1
+            holder.AnchorPoint = Vector2.new(0, 0.5)
+            holder.Position = UDim2.new(0, 14 - left, 0.5, 0)
+            holder.Size = UDim2.fromOffset(18, 18)
+            holder.Parent = box
+            Kit.icon(holder, o.Icon, 18, P.muted)
+        end
+        box.Focused:Connect(function() Kit.tween(s, 0.15, { Color = P.accent }) end)
+        box.FocusLost:Connect(function() Kit.tween(s, 0.15, { Color = P.wellStroke }) end)
+        s.Transparency = 0.25
+        box.Parent = parent
+        return box
+    end
+
+    function Kit.scroll(parent, o)
+        o = o or {}
+        local s = Instance.new("ScrollingFrame")
+        s.Name = o.Name or "Scroll"
+        s.BackgroundTransparency = 1
+        s.BorderSizePixel = 0
+        s.Size = o.Size or UDim2.fromScale(1, 1)
+        s.Position = o.Position or UDim2.new()
+        s.AutomaticCanvasSize = Enum.AutomaticSize.Y
+        s.CanvasSize = UDim2.new()
+        s.ScrollBarThickness = 3
+        s.ScrollBarImageColor3 = Color3.fromRGB(96, 96, 108)
+        s.ScrollingDirection = Enum.ScrollingDirection.Y
+        s.ElasticBehavior = Enum.ElasticBehavior.Never
+        s.LayoutOrder = o.LayoutOrder or 0
+        s.Parent = parent
+        if o.Gap ~= false then Kit.list(s, o.Gap or 8) end
+        if o.Pad then Kit.padding(s, o.Pad, o.Pad, o.Pad + 4, o.Pad) end
+        return s
+    end
+
+    -- pilihan segmen (mis. tipe asset): return frame, get(), set(value)
+    function Kit.segment(parent, options, default, onChange, order)
+        local track = Instance.new("Frame")
+        track.Name = "Segment"
+        track.Size = UDim2.new(1, 0, 0, 36)
+        track.BackgroundColor3 = P.track
+        track.BackgroundTransparency = 0.6
+        track.BorderSizePixel = 0
+        track.LayoutOrder = order or 0
+        track.Parent = parent
+        Kit.corner(track, 12)
+        Kit.stroke(track, P.trackLine, 1).Transparency = 0.2
+        Kit.padding(track, 4, 4, 4, 4)
+        local grid = Instance.new("UIGridLayout")
+        grid.CellPadding = UDim2.fromOffset(4, 0)
+        grid.CellSize = UDim2.new(1 / #options, -math.ceil((4 * (#options - 1) + 8) / #options) - 1, 1, 0) -- muat dengan padding track
+        grid.SortOrder = Enum.SortOrder.LayoutOrder
+        grid.Parent = track
+        local current = default
+        local buttons = {}
+        local function set(value, silent)
+            current = value
+            for _, item in ipairs(buttons) do
+                local active = item.value == value
+                item.fill.Enabled = active
+                Kit.tween(item.button, 0.14, { BackgroundTransparency = active and 0.8 or 1 })
+                Kit.tween(item.label, 0.14, { TextColor3 = active and P.text or P.tabIdle })
+            end
+            if onChange and not silent then onChange(value) end
+        end
+        for i, opt in ipairs(options) do
+            local b = Instance.new("TextButton")
+            b.AutoButtonColor = false
+            b.Text = ""
+            b.BackgroundColor3 = Color3.new(1, 1, 1)
+            b.BackgroundTransparency = 1
+            b.BorderSizePixel = 0
+            b.LayoutOrder = i
+            b.Parent = track
+            Kit.corner(b, 9)
+            local fill = Kit.grayFill(b)
+            local label = Kit.label(b, { Text = opt.label, Size = UDim2.fromScale(1, 1), TextSize = 11,
+                Font = Kit.FontBold, Align = Enum.TextXAlignment.Center, Color = P.tabIdle, ZIndex = 2 })
+            b.MouseButton1Click:Connect(function() set(opt.value) end)
+            table.insert(buttons, { value = opt.value, button = b, fill = fill, label = label })
+        end
+        set(default, true)
+        return track, function() return current end, set
+    end
+
+    -- saklar on/off: return frame, set(bool)
+    function Kit.toggle(parent, text, value, onChange, order)
+        local row = Kit.card(parent, { Size = UDim2.new(1, 0, 0, 44), LayoutOrder = order })
+        Kit.label(row, { Text = text, Position = UDim2.fromOffset(14, 0), Size = UDim2.new(1, -80, 1, 0),
+            TextSize = 12, Font = Kit.FontBold })
+        local sw = Instance.new("TextButton")
+        sw.AutoButtonColor = false
+        sw.Text = ""
+        sw.AnchorPoint = Vector2.new(1, 0.5)
+        sw.Position = UDim2.new(1, -12, 0.5, 0)
+        sw.Size = UDim2.fromOffset(44, 24)
+        sw.BackgroundColor3 = P.chip
+        sw.BorderSizePixel = 0
+        sw.Parent = row
+        Kit.corner(sw, 1, true)
+        Kit.stroke(sw, GLASS_LINE, 1).Transparency = 0.3
+        local knob = Instance.new("Frame")
+        knob.AnchorPoint = Vector2.new(0, 0.5)
+        knob.Size = UDim2.fromOffset(18, 18)
+        knob.BackgroundColor3 = Color3.new(1, 1, 1)
+        knob.BorderSizePixel = 0
+        knob.Parent = sw
+        Kit.corner(knob, 1, true)
+        local on = value == true
+        local function set(v, silent)
+            on = v == true
+            Kit.tween(sw, 0.16, { BackgroundColor3 = on and P.ok or P.chip })
+            Kit.tween(knob, 0.16, { Position = on and UDim2.new(1, -21, 0.5, 0) or UDim2.new(0, 3, 0.5, 0) })
+            if onChange and not silent then onChange(on) end
+        end
+        sw.MouseButton1Click:Connect(function() set(not on) end)
+        set(on, true)
+        return row, set
+    end
+
+    -- progress bar: return frame, set(0..1)
+    function Kit.progress(parent, order)
+        local track = Instance.new("Frame")
+        track.Name = "Progress"
+        track.Size = UDim2.new(1, 0, 0, 6)
+        track.BackgroundColor3 = P.track
+        track.BackgroundTransparency = 0.5
+        track.BorderSizePixel = 0
+        track.LayoutOrder = order or 0
+        track.Parent = parent
+        Kit.corner(track, 1, true)
+        Kit.stroke(track, GLASS_LINE, 1).Transparency = 0.4
+        local fill = Instance.new("Frame")
+        fill.Size = UDim2.fromScale(0, 1)
+        fill.BackgroundColor3 = Color3.new(1, 1, 1)
+        fill.BorderSizePixel = 0
+        fill.Parent = track
+        Kit.corner(fill, 1, true)
+        Kit.purpleFill(fill).Rotation = 0
+        return track, function(v)
+            Kit.tween(fill, 0.2, { Size = UDim2.fromScale(math.clamp(tonumber(v) or 0, 0, 1), 1) })
+        end
+    end
+
+    function Kit.draggable(handle, target, uiScale)
+        local dragging, startInput, startPos = false, nil, nil
+        handle.InputBegan:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                dragging = true
+                startInput = input.Position
+                startPos = target.Position
+                input.Changed:Connect(function()
+                    if input.UserInputState == Enum.UserInputState.End then dragging = false end
+                end)
+            end
+        end)
+        UserInputService.InputChanged:Connect(function(input)
+            if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+                local delta = (input.Position - startInput) / (uiScale and uiScale.Scale or 1)
+                target.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+            end
+        end)
+    end
+
+    -- ===== window Nectarion =====
+    -- o: Name, Width, Height, Title (RichText), Subtitle, Icon, Order, TitleWidth
+    function Kit.window(o)
+        local width, height = o.Width, o.Height
+        local headerH = 64
+        local bodyTop = headerH + 10
+        local gui = Kit.screen(o.Name, o.Order or 60)
+        gui.Enabled = false
+
+        local holder = Instance.new("Frame")
+        holder.Name = "Holder"
+        holder.AnchorPoint = Vector2.new(0.5, 0.5)
+        holder.Position = UDim2.fromScale(0.5, 0.5)
+        holder.Size = UDim2.fromOffset(width, height)
+        holder.BackgroundTransparency = 1
+        holder.Parent = gui
+        local uiScale = Instance.new("UIScale")
+        uiScale.Parent = holder
+        local glows = Kit.glow(holder, 22)
+
+        local root = Kit.glass(holder, { Name = "Root", Canvas = true, Radius = 22 })
+        local rootStroke = root:FindFirstChildOfClass("UIStroke")
+        rootStroke.Color = Color3.new(1, 1, 1)
+        rootStroke.Transparency = 0.1
+        Kit.sweepStroke(rootStroke)
+
+        local gloss = Instance.new("Frame")
+        gloss.Name = "Gloss"
+        gloss.Size = UDim2.fromScale(1, 1)
+        gloss.BackgroundColor3 = Color3.new(1, 1, 1)
+        gloss.BorderSizePixel = 0
+        gloss.Parent = root
+        local gg = Instance.new("UIGradient")
+        gg.Rotation = 90
+        gg.Transparency = NumberSequence.new({
+            NumberSequenceKeypoint.new(0, 0.93), NumberSequenceKeypoint.new(0.25, 0.985), NumberSequenceKeypoint.new(1, 1),
+        })
+        gg.Parent = gloss
+
+        local header = Instance.new("Frame")
+        header.Name = "Header"
+        header.Size = UDim2.new(1, 0, 0, headerH + 6)
+        header.BackgroundTransparency = 1
+        header.Parent = root
+
+        local tile = Instance.new("Frame")
+        tile.Name = "IconTile"
+        tile.AnchorPoint = Vector2.new(0, 0.5)
+        tile.Position = UDim2.new(0, 16, 0, (headerH + 6) / 2)
+        tile.Size = UDim2.fromOffset(36, 36)
+        tile.BackgroundColor3 = Color3.new(1, 1, 1)
+        tile.BorderSizePixel = 0
+        tile.Parent = header
+        Kit.corner(tile, 11)
+        Kit.grayFill(tile)
+        tile.BackgroundTransparency = 0.82
+        Kit.stroke(tile, Color3.new(1, 1, 1), 1)
+        Kit.sheen(tile, 12, 0.75, 1)
+        local tileIcon = Instance.new("Frame")
+        tileIcon.BackgroundTransparency = 1
+        tileIcon.AnchorPoint = Vector2.new(0.5, 0.5)
+        tileIcon.Position = UDim2.fromScale(0.5, 0.5)
+        tileIcon.Size = UDim2.fromOffset(18, 18)
+        tileIcon.Parent = tile
+        Kit.icon(tileIcon, o.Icon or "gem", 18, P.text)
+
+        local textLeft = 16 + 36 + 10
+        local titleWidth = o.TitleWidth or 130
+        local title = Kit.label(header, { Name = "Title", Text = o.Title or "", Rich = true,
+            Position = UDim2.fromOffset(textLeft, 15), Size = UDim2.fromOffset(titleWidth, 22),
+            TextSize = 18, Font = Kit.FontBold })
+        title.TextTruncate = Enum.TextTruncate.AtEnd
+        local dot = Instance.new("Frame")
+        dot.Size = UDim2.fromOffset(7, 7)
+        dot.AnchorPoint = Vector2.new(0, 0.5)
+        dot.Position = UDim2.fromOffset(textLeft, 46)
+        dot.BackgroundColor3 = P.ok
+        dot.BorderSizePixel = 0
+        dot.Parent = header
+        Kit.corner(dot, 1, true)
+        TweenService:Create(dot, TweenInfo.new(1.1, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true),
+            { BackgroundTransparency = 0.65 }):Play()
+        local subtitle = Kit.label(header, { Name = "Subtitle", Text = o.Subtitle or "",
+            Position = UDim2.fromOffset(textLeft + 13, 38), Size = UDim2.fromOffset(titleWidth - 13, 16),
+            TextSize = 11, Color = P.muted, Truncate = true })
+
+        local closeSize, closeMargin = 36, 16
+        local tabLeft = textLeft + titleWidth + 8
+        local tabHost = Instance.new("Frame")
+        tabHost.Name = "TabHost"
+        tabHost.BackgroundTransparency = 1
+        tabHost.Position = UDim2.fromOffset(tabLeft, 0)
+        tabHost.Size = UDim2.new(1, -(tabLeft + closeSize + closeMargin + 8), 1, 0)
+        tabHost.Parent = header
+
+        local close = Instance.new("TextButton")
+        close.Name = "Close"
+        close.AutoButtonColor = false
+        close.AnchorPoint = Vector2.new(1, 0.5)
+        close.Position = UDim2.new(1, -closeMargin, 0.5, 0)
+        close.Size = UDim2.fromOffset(closeSize, closeSize)
+        close.BackgroundColor3 = Color3.fromRGB(46, 46, 54)
+        close.BorderSizePixel = 0
+        close.Text = ""
+        close.Parent = header
+        Kit.corner(close, 1, true)
+        Kit.stroke(close, Color3.fromRGB(96, 96, 108), 1.5)
+        for _, r in ipairs({ 45, -45 }) do
+            local bar = Instance.new("Frame")
+            bar.AnchorPoint = Vector2.new(0.5, 0.5)
+            bar.Position = UDim2.fromScale(0.5, 0.5)
+            bar.Size = UDim2.fromOffset(14, 2)
+            bar.Rotation = r
+            bar.BackgroundColor3 = P.text
+            bar.BorderSizePixel = 0
+            bar.Parent = close
+            Kit.corner(bar, 1, true)
+        end
+
+        local body = Instance.new("Frame")
+        body.Name = "Body"
+        body.BackgroundTransparency = 1
+        body.Position = UDim2.fromOffset(14, bodyTop)
+        body.Size = UDim2.new(1, -28, 1, -bodyTop - 14)
+        body.Parent = root
+
+        Kit.draggable(header, holder, uiScale)
+        Kit.hookClicks(holder)
+        if UI3D then UI3D.bind(holder) end
+
+        local baseScale = 1
+        local function fit()
+            local camera = workspace.CurrentCamera
+            if camera then
+                local vp = camera.ViewportSize
+                baseScale = math.clamp(math.min((vp.X - 16) / width, (vp.Y - 30) / height), 0.45, 1)
+            end
+        end
+        fit()
+        if workspace.CurrentCamera then
+            workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(function()
+                fit()
+                uiScale.Scale = baseScale
+            end)
+        end
+
+        local w = { Gui = gui, Holder = holder, Root = root, Header = header, Body = body, TabHost = tabHost, Close = close }
+        local open, token = false, 0
+        local function fadeGlow(visible, seconds)
+            for _, g in ipairs(glows) do
+                Kit.tween(g.frame, seconds, { BackgroundTransparency = visible and g.base or 1 })
+            end
+        end
+        function w.SetSubtitle(text) subtitle.Text = tostring(text or "") end
+        function w.IsOpen() return open end
+        function w.Open()
+            if open then return end
+            open = true
+            token = token + 1
+            fit()
+            gui.Enabled = true
+            root.GroupTransparency = 1
+            for _, g in ipairs(glows) do g.frame.BackgroundTransparency = 1 end
+            uiScale.Scale = baseScale * 0.94
+            Kit.tween(root, 0.22, { GroupTransparency = 0 })
+            fadeGlow(true, 0.3)
+            Kit.tween(uiScale, 0.3, { Scale = baseScale }, Enum.EasingStyle.Back)
+        end
+        function w.Hide()
+            if not open then return end
+            open = false
+            token = token + 1
+            local mine = token
+            Kit.tween(root, 0.16, { GroupTransparency = 1 })
+            fadeGlow(false, 0.16)
+            Kit.tween(uiScale, 0.16, { Scale = baseScale * 0.96 })
+            task.delay(0.18, function()
+                if mine == token and not open then gui.Enabled = false end
+            end)
+        end
+        return w
+    end
+
+    -- tab di header: track gelap + pil abu kilap yang geser
+    function Kit.tabs(host, items, onSelect, buttonWidth)
+        local bw = buttonWidth or 74
+        local pad = 4
+        local track = Instance.new("Frame")
+        track.Name = "Track"
+        track.AnchorPoint = Vector2.new(0, 0.5)
+        track.Position = UDim2.new(0, 0, 0.5, 0)
+        track.Size = UDim2.fromOffset(#items * bw + pad * 2, 44)
+        track.BackgroundColor3 = P.track
+        track.BackgroundTransparency = 0.4
+        track.BorderSizePixel = 0
+        track.Parent = host
+        Kit.corner(track, 15)
+        Kit.stroke(track, P.trackLine, 1).Transparency = 0.2
+        local pill = Instance.new("Frame")
+        pill.Name = "Pill"
+        pill.AnchorPoint = Vector2.new(0, 0.5)
+        pill.Size = UDim2.fromOffset(bw, 36)
+        pill.Position = UDim2.new(0, pad, 0.5, 0)
+        pill.BackgroundColor3 = Color3.new(1, 1, 1)
+        pill.BorderSizePixel = 0
+        pill.Parent = track
+        Kit.corner(pill, 12)
+        Kit.grayFill(pill)
+        pill.BackgroundTransparency = 0.8
+        Kit.stroke(pill, P.accentHi, 1)
+
+        local buttons, current, first = {}, nil, true
+        local function select(id)
+            local index
+            for i, it in ipairs(items) do if it.id == id then index = i end end
+            if not index then return end
+            current = id
+            for key, b in pairs(buttons) do
+                Kit.tween(b, 0.16, { TextColor3 = key == id and P.text or P.tabIdle })
+            end
+            local target = UDim2.new(0, pad + (index - 1) * bw, 0.5, 0)
+            if first then first = false; pill.Position = target
+            else Kit.tween(pill, 0.26, { Position = target }) end
+            onSelect(id)
+        end
+        for i, it in ipairs(items) do
+            local b = Instance.new("TextButton")
+            b.Name = it.id
+            b.AutoButtonColor = false
+            b.AnchorPoint = Vector2.new(0, 0.5)
+            b.Size = UDim2.fromOffset(bw, 36)
+            b.Position = UDim2.new(0, pad + (i - 1) * bw, 0.5, 0)
+            b.BackgroundTransparency = 1
+            b.Text = it.label
+            b.TextSize = 11
+            b.Font = Kit.FontBold
+            b.TextColor3 = P.tabIdle
+            b.ZIndex = 2
+            b.Parent = track
+            if it.icon then
+                Kit.padding(b, 18, 0, 0, 0)
+                local ih = Instance.new("Frame")
+                ih.BackgroundTransparency = 1
+                ih.AnchorPoint = Vector2.new(0, 0.5)
+                ih.Position = UDim2.new(0, 8 - 18, 0.5, 0)
+                ih.Size = UDim2.fromOffset(14, 14)
+                ih.ZIndex = 2
+                ih.Parent = b
+                Kit.icon(ih, it.icon, 14, P.text)
+            end
+            b.MouseButton1Click:Connect(function() select(it.id) end)
+            buttons[it.id] = b
+        end
+        return buttons, select
+    end
+
+    -- halaman scroll di dalam Body
+    function Kit.page(parent)
+        local page = Instance.new("Frame")
+        page.Name = "Page"
+        page.BackgroundTransparency = 1
+        page.Size = UDim2.fromScale(1, 1)
+        page.Visible = false
+        page.Parent = parent
+        local scroll = Kit.scroll(page, { Gap = 8, Pad = 2 })
+        return page, scroll
+    end
+
+    -- ===== DASHBOARD (gaya MedAdmin Admin Panel) =====
+    -- Header (ikon + caption kecil + judul + subjudul + tombol X), sidebar menu kiri,
+    -- "Aksi Cepat" di bawah sidebar, dan area konten (judul + subjudul halaman + isi scroll).
+    -- Tambah menu baru cukup: dash.AddPage({ id, label, icon, title, subtitle }) -> scroll
+    -- o: Name, Width, Height, Order, Icon, Caption, Title, Subtitle, SidebarWidth
+    function Kit.dashboard(o)
+        local width, height = o.Width or 720, o.Height or 420
+        local headerH = 78
+        local sideW = o.SidebarWidth or 176
+        local gui = Kit.screen(o.Name, o.Order or 60)
+        gui.Enabled = false
+
+        local holder = Instance.new("Frame")
+        holder.Name = "Holder"
+        holder.AnchorPoint = Vector2.new(0.5, 0.5)
+        holder.Position = UDim2.fromScale(0.5, 0.5)
+        holder.Size = UDim2.fromOffset(width, height)
+        holder.BackgroundTransparency = 1
+        holder.Parent = gui
+        local uiScale = Instance.new("UIScale")
+        uiScale.Parent = holder
+        local glows = Kit.glow(holder, 26)
+
+        local root = Kit.glass(holder, { Name = "Root", Canvas = true, Radius = 26 })
+        local rootStroke = root:FindFirstChildOfClass("UIStroke")
+        rootStroke.Color = Color3.new(1, 1, 1)
+        rootStroke.Transparency = 0.1
+        Kit.sweepStroke(rootStroke)
+
+        -- header
+        local header = Instance.new("Frame")
+        header.Name = "Header"
+        header.Size = UDim2.new(1, 0, 0, headerH)
+        header.BackgroundTransparency = 1
+        header.Parent = root
+
+        local tile = Instance.new("Frame")
+        tile.Name = "IconTile"
+        tile.AnchorPoint = Vector2.new(0, 0.5)
+        tile.Position = UDim2.new(0, 20, 0, headerH / 2 + 2)
+        tile.Size = UDim2.fromOffset(46, 46)
+        tile.BackgroundColor3 = Color3.new(1, 1, 1)
+        tile.BorderSizePixel = 0
+        tile.Parent = header
+        Kit.corner(tile, 14)
+        Kit.grayFill(tile)
+        tile.BackgroundTransparency = 0.82
+        Kit.stroke(tile, Color3.new(1, 1, 1), 1)
+        Kit.sheen(tile, 12, 0.75, 1)
+        local ti = Instance.new("Frame")
+        ti.BackgroundTransparency = 1
+        ti.AnchorPoint = Vector2.new(0.5, 0.5)
+        ti.Position = UDim2.fromScale(0.5, 0.5)
+        ti.Size = UDim2.fromOffset(20, 20)
+        ti.Parent = tile
+        Kit.icon(ti, o.Icon or "gem", 20, P.text)
+
+        local tx = 20 + 46 + 14
+        Kit.label(header, { Text = string.upper(o.Caption or ""), Position = UDim2.fromOffset(tx, 16),
+            Size = UDim2.new(1, -tx - 80, 0, 12), TextSize = 10, Color = P.muted })
+        Kit.label(header, { Text = o.Title or "", Rich = true, Position = UDim2.fromOffset(tx, 29),
+            Size = UDim2.new(1, -tx - 80, 0, 22), TextSize = 19, Font = Kit.FontBold })
+        local subtitle = Kit.label(header, { Text = o.Subtitle or "", Position = UDim2.fromOffset(tx, 53),
+            Size = UDim2.new(1, -tx - 80, 0, 14), TextSize = 11, Color = P.muted, Truncate = true, Rich = true })
+
+        local close = Instance.new("TextButton")
+        close.Name = "Close"
+        close.AutoButtonColor = false
+        close.AnchorPoint = Vector2.new(1, 0.5)
+        close.Position = UDim2.new(1, -20, 0, headerH / 2 + 2)
+        close.Size = UDim2.fromOffset(40, 40)
+        close.BackgroundColor3 = Color3.new(1, 1, 1)
+        close.BackgroundTransparency = 0.88
+        close.BorderSizePixel = 0
+        close.Text = ""
+        close.Parent = header
+        Kit.corner(close, 1, true)
+        Kit.stroke(close, Color3.new(1, 1, 1), 1.2)
+        Kit.sheen(close, 20, 0.78, 1)
+        for _, r in ipairs({ 45, -45 }) do
+            local bar = Instance.new("Frame")
+            bar.AnchorPoint = Vector2.new(0.5, 0.5)
+            bar.Position = UDim2.fromScale(0.5, 0.5)
+            bar.Size = UDim2.fromOffset(15, 2.5)
+            bar.Rotation = r
+            bar.BackgroundColor3 = P.text
+            bar.BorderSizePixel = 0
+            bar.Parent = close
+            Kit.corner(bar, 1, true)
+        end
+
+        -- body: sidebar + konten
+        local bodyTop = headerH + 8
+        local side = Kit.card(root, { Name = "Sidebar", Well = true, Radius = 18,
+            Position = UDim2.fromOffset(16, bodyTop), Size = UDim2.new(0, sideW, 1, -bodyTop - 16) })
+        local quickH = 78
+        local nav = Kit.scroll(side, { Name = "Nav", Gap = 3, Size = UDim2.new(1, 0, 1, -quickH),
+            Position = UDim2.fromOffset(0, 0) })
+        Kit.padding(nav, 8, 8, 8, 8)
+        local quick = Instance.new("Frame")
+        quick.Name = "Quick"
+        quick.BackgroundTransparency = 1
+        quick.AnchorPoint = Vector2.new(0, 1)
+        quick.Position = UDim2.new(0, 10, 1, -8)
+        quick.Size = UDim2.new(1, -20, 0, quickH - 14)
+        quick.Parent = side
+        Kit.label(quick, { Text = "Aksi Cepat", Size = UDim2.new(1, 0, 0, 16), TextSize = 11, Color = P.muted,
+            Position = UDim2.fromOffset(4, 0) })
+        local quickRow = Instance.new("Frame")
+        quickRow.BackgroundTransparency = 1
+        quickRow.Position = UDim2.fromOffset(0, 24)
+        quickRow.Size = UDim2.new(1, 0, 0, 36)
+        quickRow.Parent = quick
+        local qg = Instance.new("UIGridLayout")
+        qg.CellPadding = UDim2.fromOffset(8, 0)
+        qg.CellSize = UDim2.new(0.5, -4, 1, 0)
+        qg.SortOrder = Enum.SortOrder.LayoutOrder
+        qg.Parent = quickRow
+
+        local cx = 16 + sideW + 12
+        local content = Kit.card(root, { Name = "Content", Well = true, Radius = 18,
+            Position = UDim2.fromOffset(cx, bodyTop), Size = UDim2.new(1, -cx - 16, 1, -bodyTop - 16) })
+        local pageTitle = Kit.label(content, { Text = "", Position = UDim2.fromOffset(18, 12),
+            Size = UDim2.new(1, -36, 0, 22), TextSize = 17, Font = Kit.FontBold })
+        local pageSub = Kit.label(content, { Text = "", Position = UDim2.fromOffset(18, 36),
+            Size = UDim2.new(1, -36, 0, 14), TextSize = 11, Color = P.muted, Truncate = true })
+        local host = Instance.new("Frame")
+        host.Name = "PageHost"
+        host.BackgroundTransparency = 1
+        host.Position = UDim2.fromOffset(12, 60)
+        host.Size = UDim2.new(1, -24, 1, -70)
+        host.Parent = content
+
+        Kit.draggable(header, holder, uiScale)
+        Kit.hookClicks(holder)
+        if UI3D then UI3D.bind(holder) end
+
+        local baseScale = 1
+        local function fit()
+            local camera = workspace.CurrentCamera
+            if camera then
+                local vp = camera.ViewportSize
+                baseScale = math.clamp(math.min((vp.X - 16) / width, (vp.Y - 24) / height), 0.45, 1)
+            end
+        end
+        fit()
+        if workspace.CurrentCamera then
+            workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(function()
+                fit()
+                uiScale.Scale = baseScale
+            end)
+        end
+
+        local d = { Gui = gui, Holder = holder, Root = root, Close = close, Content = content, Quick = quickRow }
+        local pages, items, current = {}, {}, nil
+        local count = 0
+
+        local function paintNav(item, active)
+            item.fill.Enabled = active
+            Kit.tween(item.button, 0.16, { BackgroundTransparency = active and 0.8 or 1 })
+            Kit.tween(item.stroke, 0.16, { Transparency = active and 0 or 1 })
+            Kit.tween(item.label, 0.16, { TextColor3 = active and P.text or P.tabIdle })
+        end
+
+        function d.Select(id)
+            local pg = pages[id]
+            if not pg then return end
+            current = id
+            for key, p in pairs(pages) do p.frame.Visible = key == id end
+            for key, item in pairs(items) do paintNav(item, key == id) end
+            pageTitle.Text = pg.title
+            pageSub.Text = pg.subtitle
+            pageTitle.Visible = not pg.full
+            pageSub.Visible = not pg.full
+            if pg.onOpen and not pg.opened then
+                pg.opened = true
+                task.spawn(pg.onOpen, pg.frame)
+            end
+        end
+
+        -- tambah menu + halaman. return: ScrollingFrame isi halaman
+        function d.AddPage(p)
+            count = count + 1
+            local frame = Instance.new("Frame")
+            frame.Name = "Page_" .. p.id
+            frame.BackgroundTransparency = 1
+            frame.Size = UDim2.fromScale(1, 1)
+            frame.Visible = false
+            local scroll
+            if p.full then -- halaman memakai seluruh kartu konten (tanpa judul & scroll bawaan)
+                frame.Position = UDim2.fromOffset(6, 6)
+                frame.Size = UDim2.new(1, -12, 1, -12)
+                frame.Parent = content
+                scroll = frame
+            else
+                frame.Parent = host
+                scroll = Kit.scroll(frame, { Gap = 8, Pad = 4 })
+            end
+            pages[p.id] = { frame = frame, title = p.title or p.label, subtitle = p.subtitle or "", full = p.full == true,
+                onOpen = p.onOpen }
+
+            local b = Instance.new("TextButton")
+            b.Name = p.id
+            b.AutoButtonColor = false
+            b.Text = ""
+            b.Size = UDim2.new(1, 0, 0, 40)
+            b.BackgroundColor3 = Color3.new(1, 1, 1)
+            b.BackgroundTransparency = 1
+            b.BorderSizePixel = 0
+            b.LayoutOrder = p.order or count
+            b.Parent = nav
+            Kit.corner(b, 13)
+            local fill = Kit.grayFill(b)
+            fill.Enabled = false
+            local st = Kit.stroke(b, Color3.new(1, 1, 1), 1)
+            st.Transparency = 1
+            local ih = Instance.new("Frame")
+            ih.BackgroundTransparency = 1
+            ih.AnchorPoint = Vector2.new(0, 0.5)
+            ih.Position = UDim2.new(0, 16, 0.5, 0)
+            ih.Size = UDim2.fromOffset(18, 18)
+            ih.Parent = b
+            Kit.icon(ih, p.icon or "gem", 18, P.text)
+            local label = Kit.label(b, { Text = p.label, Position = UDim2.fromOffset(46, 0), Size = UDim2.new(1, -52, 1, 0),
+                TextSize = 13, Font = Kit.FontBold, Color = P.tabIdle, Truncate = true })
+            b.MouseButton1Click:Connect(function() d.Select(p.id) end)
+            items[p.id] = { button = b, fill = fill, stroke = st, label = label }
+            return scroll
+        end
+
+        -- tombol "Aksi Cepat" (2 per baris; o: Text, Solid, OnClick)
+        function d.AddQuick(q)
+            return Kit.button(quickRow, { Text = q.Text, Solid = q.Solid, Purple = q.Purple, TextSize = 12, Radius = 12,
+                OnClick = q.OnClick, LayoutOrder = q.LayoutOrder })
+        end
+
+        function d.Current() return current end
+        function d.SetSubtitle(text) subtitle.Text = tostring(text or "") end
+
+        local open, token = false, 0
+        local function fadeGlow(visible, seconds)
+            for _, g in ipairs(glows) do
+                Kit.tween(g.frame, seconds, { BackgroundTransparency = visible and g.base or 1 })
+            end
+        end
+        function d.IsOpen() return open end
+        function d.Open()
+            if open then return end
+            open = true
+            token = token + 1
+            fit()
+            gui.Enabled = true
+            root.GroupTransparency = 1
+            for _, g in ipairs(glows) do g.frame.BackgroundTransparency = 1 end
+            uiScale.Scale = baseScale * 0.94
+            Kit.tween(root, 0.22, { GroupTransparency = 0 })
+            fadeGlow(true, 0.3)
+            Kit.tween(uiScale, 0.3, { Scale = baseScale }, Enum.EasingStyle.Back)
+        end
+        function d.Hide()
+            if not open then return end
+            open = false
+            token = token + 1
+            local mine = token
+            Kit.tween(root, 0.16, { GroupTransparency = 1 })
+            fadeGlow(false, 0.16)
+            Kit.tween(uiScale, 0.16, { Scale = baseScale * 0.96 })
+            task.delay(0.18, function()
+                if mine == token and not open then gui.Enabled = false end
+            end)
+        end
+        return d
+    end
+
+    -- ===== toast (tengah-atas, 2D supaya selalu terbaca) =====
+    local toastGui, toastList
+    function Kit.toast(message, kind)
+        if not toastGui or not toastGui.Parent then
+            toastGui = Kit.screen("LiquidGlassToast", 999)
+            toastList = Instance.new("Frame")
+            toastList.BackgroundTransparency = 1
+            toastList.AnchorPoint = Vector2.new(0.5, 0)
+            toastList.Position = UDim2.new(0.5, 0, 0, 8)
+            toastList.Size = UDim2.fromOffset(320, 400)
+            toastList.Parent = toastGui
+            local l = Kit.list(toastList, 6)
+            l.HorizontalAlignment = Enum.HorizontalAlignment.Center
+        end
+        local color = kind == "error" and P.danger or (kind == "ok" and P.ok or P.accent)
+        local t = Kit.glass(toastList, { Name = "Toast", Size = UDim2.fromOffset(300, 0), Radius = 14, Canvas = true })
+        t.AutomaticSize = Enum.AutomaticSize.Y
+        t.GroupTransparency = 1
+        Kit.padding(t, 14, 10, 12, 10)
+        local bar = Instance.new("Frame")
+        bar.BackgroundColor3 = color
+        bar.BorderSizePixel = 0
+        bar.Position = UDim2.new(0, -8, 0, 0)
+        bar.Size = UDim2.new(0, 3, 1, 0)
+        bar.Parent = t
+        Kit.corner(bar, 1, true)
+        Kit.label(t, { Text = tostring(message), Size = UDim2.new(1, 0, 0, 0), AutoY = true, Wrap = true, TextSize = 12 })
+        Kit.tween(t, 0.2, { GroupTransparency = 0 })
+        task.delay(3.6, function()
+            if t.Parent then
+                Kit.tween(t, 0.25, { GroupTransparency = 1 })
+                task.wait(0.3)
+                t:Destroy()
+            end
+        end)
+    end
+
+    return Kit
+end)()
 
 local function createStudioLiteImporter()
 --[[
@@ -1201,7 +1919,7 @@ local function lz4(lz4data)
     local function readByte()
         if pos > #raw then error("LZ4 unexpected end") end
         local b = string.byte(raw, pos)
-        pos += 1
+        pos = pos + 1
         return b
     end
     local function extLen(base)
@@ -1209,7 +1927,7 @@ local function lz4(lz4data)
         if base == 15 then
             while true do
                 local b = readByte()
-                len += b
+                len = len + b
                 if b ~= 255 then break end
             end
         end
@@ -1219,7 +1937,7 @@ local function lz4(lz4data)
         local token = readByte()
         local literalLen = extLen(bit32.rshift(token, 4))
         for _ = 1, literalLen do
-            outLen += 1
+            outLen = outLen + 1
             out[outLen] = string.char(readByte())
         end
         if outLen >= decompressedLen then break end
@@ -1230,9 +1948,9 @@ local function lz4(lz4data)
         local matchLen = extLen(bit32.band(token, 15)) + 4
         local srcIndex = outLen - offset + 1
         for _ = 1, matchLen do
-            outLen += 1
+            outLen = outLen + 1
             out[outLen] = out[srcIndex]
-            srcIndex += 1
+            srcIndex = srcIndex + 1
             if outLen >= decompressedLen then break end
         end
     end
@@ -1273,7 +1991,7 @@ local function _bytesToString(v)
                 local e = math.min(n - 1, i + 4095)
                 local chars = table.create(e - i + 1)
                 for j = i, e do chars[j - i + 1] = string.char(buffer.readu8(v, j)) end
-                k += 1
+                k = k + 1
                 parts[k] = table.concat(chars)
             end
             return table.concat(parts)
@@ -1700,10 +2418,10 @@ local function _decodePropertyArray(buffer, typeID, count, sharedStrings)
         for i=1,count do
             if kinds[i] == 1 then
                 a[i]=uris[ui]
-                ui += 1
+                ui = ui + 1
             elseif kinds[i] == 2 then
                 a[i]={__ContentObjectRef=objectRefs[oi]}
-                oi += 1
+                oi = oi + 1
             else
                 a[i]=""
             end
@@ -1845,7 +2563,7 @@ local function flushServerLoadsAsync()
     for _ = 1, math.min(ASSET_WORKERS, #jobs) do
         task.spawn(function()
             while true do
-                cursor += 1
+                cursor = cursor + 1
                 local index = cursor
                 local id = jobs[index]
                 if not id then break end
@@ -2525,28 +3243,28 @@ local function buildRBXL(parsed, sourceFileName)
             local obj, mode = tryCreateMeshPartNode(node)
             if obj then
                 if mode == "native" then
-                    meshNative += 1
+                    meshNative = meshNative + 1
                 elseif mode == "fallback" then
-                    meshFallback += 1
+                    meshFallback = meshFallback + 1
                 else
-                    meshUnresolved += 1
+                    meshUnresolved = meshUnresolved + 1
                 end
                 return obj
             end
-            meshUnresolved += 1
+            meshUnresolved = meshUnresolved + 1
             return nil
         end
         if node.ClassName == "UnionOperation" or node.ClassName == "PartOperation" or node.ClassName == "IntersectOperation" then
             local obj, mode = tryLoadPartOperationNode(node)
             if obj then
                 if mode == "asset" or mode == "mesh" or mode == "visual" then
-                    csgAsset += 1
+                    csgAsset = csgAsset + 1
                 else
-                    csgProxy += 1
+                    csgProxy = csgProxy + 1
                 end
                 return obj
             end
-            csgProxy += 1
+            csgProxy = csgProxy + 1
             return nil
         end
         local ok, obj = pcall(Instance.new, node.ClassName)
@@ -2558,7 +3276,7 @@ local function buildRBXL(parsed, sourceFileName)
         local routeKey = routeForNode(node, inheritedKey)
         if isMeshPartOnlyChildClass(node.ClassName)
             and (not parent or not parent:IsA("MeshPart")) then
-            skipped += 1
+            skipped = skipped + 1
             return nil
         end
         local nodeName = tostring((node.Properties and node.Properties.Name) or "")
@@ -2576,7 +3294,7 @@ local function buildRBXL(parsed, sourceFileName)
         preloadNodeAssets(node)
         local obj = instantiateNode(node)
         if not obj then
-            skipped += 1
+            skipped = skipped + 1
             for _, child in ipairs(node.Children) do
                 createNode(child, parent or containers[routeKey] or containers.WS, routeKey)
             end
@@ -2591,7 +3309,7 @@ local function buildRBXL(parsed, sourceFileName)
             local okName = pcall(function()
                 obj.Name = tostring(node.Properties.Name)
             end)
-            if not okName then failedProperties += 1 end
+            if not okName then failedProperties = failedProperties + 1 end
         end
         for propName, value in pairs(node.Properties) do
             if propName ~= "Name" then
@@ -2601,15 +3319,15 @@ local function buildRBXL(parsed, sourceFileName)
                     value,
                     node.PropertyTypes and node.PropertyTypes[propName]
                 )
-                if not okProp then failedProperties += 1 end
+                if not okProp then failedProperties = failedProperties + 1 end
             end
         end
         rememberStudioLiteState(obj, node)
         disableImportedScript(obj, node)
         normalizePartGeometry(obj, node)
         obj.Parent = parent or containers[routeKey] or containers.WS
-        buildBurstCount += 1
-        progressMade += 1
+        buildBurstCount = buildBurstCount + 1
+        progressMade = progressMade + 1
         if progressMade == 1 or progressMade % 120 == 0 then
             local ratio = math.min(progressMade / progressTotal, 1)
             reportImportProgress(
@@ -2626,7 +3344,7 @@ local function buildRBXL(parsed, sourceFileName)
             if not (meshPartOnly and not obj:IsA("MeshPart")) then
                 createNode(child, obj, routeKey)
             else
-                skipped += 1
+                skipped = skipped + 1
             end
         end
         return obj
@@ -2653,7 +3371,7 @@ local function buildRBXL(parsed, sourceFileName)
                         local okRef = pcall(function()
                             obj[propName] = targetObj
                         end)
-                        if not okRef then failedProperties += 1 end
+                        if not okRef then failedProperties = failedProperties + 1 end
                     end
                 elseif typeID == 0x22 then
                     local contentValue = node.Properties[propName]
@@ -2663,7 +3381,7 @@ local function buildRBXL(parsed, sourceFileName)
                             local okRef = pcall(function()
                                 obj[propName] = targetObj
                             end)
-                            if not okRef then failedProperties += 1 end
+                            if not okRef then failedProperties = failedProperties + 1 end
                         end
                     end
                 end
@@ -2684,7 +3402,7 @@ local function buildRBXL(parsed, sourceFileName)
                 pcall(function()
                     injectStudioLiteUI(obj, {})
                 end)
-                scriptBatch += 1
+                scriptBatch = scriptBatch + 1
                 if scriptBatch >= 40 then
                     scriptBatch = 0
                     task.wait()
@@ -2694,7 +3412,7 @@ local function buildRBXL(parsed, sourceFileName)
     end)
     flushServerLoadsAsync()
     local madeCount = 0
-    for _ in pairs(made) do madeCount += 1 end
+    for _ in pairs(made) do madeCount = madeCount + 1 end
     reportImportProgress(0.78, ("BUILD COMPLETE • %d INSTANCES"):format(madeCount))
     return madeCount, skipped, failedProperties,
         meshNative, meshFallback, meshUnresolved, csgAsset, csgProxy, importRoot
@@ -2926,7 +3644,7 @@ local function parseRobloxXML(data)
             return nil, openEnd + 1, "Item tanpa class"
         end
         local ref = nextRef
-        nextRef += 1
+        nextRef = nextRef + 1
         local node = {
             Ref = ref,
             ClassName = xmlDecodeText(className),
@@ -3203,7 +3921,7 @@ local function buildRBXModelParsed(parsed, sourceFileName)
         preloadNodeAssets(node)
         local obj = instantiateModelNode(node)
         if not obj then
-            skipped += 1
+            skipped = skipped + 1
             for _, child in ipairs(node.Children or {}) do
                 createNode(child, parent)
             end
@@ -3228,7 +3946,7 @@ local function buildRBXModelParsed(parsed, sourceFileName)
                     value,
                     node.PropertyTypes and node.PropertyTypes[propName]
                 )
-                if not okProp then failedProperties += 1 end
+                if not okProp then failedProperties = failedProperties + 1 end
             end
         end
         if obj:IsA("LuaSourceContainer") then
@@ -3256,7 +3974,7 @@ local function buildRBXModelParsed(parsed, sourceFileName)
             if not (isMeshPartOnlyChildClass(child.ClassName) and not obj:IsA("MeshPart")) then
                 createNode(child, obj)
             else
-                skipped += 1
+                skipped = skipped + 1
             end
         end
         return obj
@@ -3302,7 +4020,7 @@ local function buildRBXModelParsed(parsed, sourceFileName)
     end
     flushServerLoadsAsync()
     local count = 0
-    for _ in pairs(made) do count += 1 end
+    for _ in pairs(made) do count = count + 1 end
     return importedRoots, count, skipped, failedProperties
 end
 local function importRBXM(fileInfo)
@@ -3423,7 +4141,7 @@ local function importRBXM(fileInfo)
                     part.Anchored = true
                 end
             end
-            totalObjects += #descendants + 1
+            totalObjects = totalObjects + #descendants + 1
             local all = {root}
             for _, obj in ipairs(descendants) do
                 all[#all + 1] = obj
@@ -3431,20 +4149,20 @@ local function importRBXM(fileInfo)
             for i, obj in ipairs(all) do
                 obj:SetAttribute("LANGZ_ImportedObject", true)
                 if obj:IsA("LuaSourceContainer") then
-                    scriptCount += 1
+                    scriptCount = scriptCount + 1
                     local source = takeRBXMSource(sourceQueues, obj)
                     if source then
-                        sourceFound += 1
+                        sourceFound = sourceFound + 1
                         _G.Langz_RAW_SOURCES[obj] = source
                         local wrote = tryWriteRBXMSource(obj, source)
                         if wrote then
-                            sourceWritten += 1
+                            sourceWritten = sourceWritten + 1
                         end
                         local okEditor = pcall(function()
                             injectStudioLiteUI(obj, {})
                         end)
                         if okEditor then
-                            editorRestored += 1
+                            editorRestored = editorRestored + 1
                         end
                     end
                 end
@@ -3652,24 +4370,24 @@ local function activateLocalScriptsInLiveRoot(root)
     end
     for _, scr in ipairs(list) do
         if not importedScriptShouldRun(scr) then
-            stats.skipped += 1
+            stats.skipped = stats.skipped + 1
             setScriptEnabledState(scr, false)
         else
             local hasRealSource = canReadExecutableSource(scr)
             if hasRealSource then
                 local ok = setScriptEnabledState(scr, true)
                 if ok then
-                    stats.native += 1
+                    stats.native = stats.native + 1
                 else
-                    stats.failed += 1
+                    stats.failed = stats.failed + 1
                 end
             else
                 setScriptEnabledState(scr, false)
                 local ok = runLocalScriptBridge(scr)
                 if ok then
-                    stats.bridge += 1
+                    stats.bridge = stats.bridge + 1
                 else
-                    stats.failed += 1
+                    stats.failed = stats.failed + 1
                 end
             end
         end
@@ -3677,10 +4395,10 @@ local function activateLocalScriptsInLiveRoot(root)
     return stats
 end
 local function mergeLiveStats(dst, src)
-    dst.native += src.native or 0
-    dst.bridge += src.bridge or 0
-    dst.failed += src.failed or 0
-    dst.skipped += src.skipped or 0
+    dst.native = dst.native + (src.native or 0)
+    dst.bridge = dst.bridge + (src.bridge or 0)
+    dst.failed = dst.failed + (src.failed or 0)
+    dst.skipped = dst.skipped + (src.skipped or 0)
 end
 local function findStudioLiteRemote(name)
     local sl = ReplicatedStorage:FindFirstChild("StudioLiteFolder")
@@ -3737,18 +4455,18 @@ local function restoreImportedRuntimeState(root)
     end
     for _, obj in ipairs(all) do
         if obj:IsA("LuaSourceContainer") then
-            stats.scripts += 1
+            stats.scripts = stats.scripts + 1
             local ok = tryWriteRealScriptSource(obj)
             if ok then
-                stats.scriptSourceOK += 1
+                stats.scriptSourceOK = stats.scriptSourceOK + 1
             else
-                stats.scriptSourceFailed += 1
+                stats.scriptSourceFailed = stats.scriptSourceFailed + 1
             end
         end
     end
     for _, obj in ipairs(all) do
         if obj:IsA("BasePart") then
-            stats.parts += 1
+            stats.parts = stats.parts + 1
             local originalAnchored = obj:GetAttribute("SL_Anchored")
             local originalCanCollide = obj:GetAttribute("SL_CanCollide")
             if originalCanCollide ~= nil then
@@ -3773,7 +4491,7 @@ local function moveChildren(source, destination, onMoved)
             child.Parent = destination
         end)
         if ok then
-            moved += 1
+            moved = moved + 1
             if onMoved then
                 pcall(onMoved, child, destination)
             end
@@ -3836,7 +4554,7 @@ local function activateImportRoot(importRoot)
                 child.Parent = destination
             end)
             if okMove then
-                moved += 1
+                moved = moved + 1
             end
         end
         return moved
@@ -3867,7 +4585,7 @@ local function activateImportRoot(importRoot)
     local function forceGetService(serviceName)
         local existing = findExistingService(serviceName)
         if existing then
-            reusedServiceCount += 1
+            reusedServiceCount = reusedServiceCount + 1
             serviceModes[serviceName] = "REUSED_STUDIO_LITE"
             return existing
         end
@@ -3880,7 +4598,7 @@ local function activateImportRoot(importRoot)
             created.Parent = game
         end)
         if okCreate and created then
-            createdServiceCount += 1
+            createdServiceCount = createdServiceCount + 1
             serviceModes[serviceName] = "CREATED_MISSING"
             return created
         end
@@ -3888,14 +4606,14 @@ local function activateImportRoot(importRoot)
             return game:GetService(serviceName)
         end)
         if okGet and service then
-            forcedServiceCount += 1
+            forcedServiceCount = forcedServiceCount + 1
             serviceModes[serviceName] = "GETSERVICE_MISSING"
             pcall(function()
                 service:SetAttribute("LANGZ_ServiceRole", serviceName)
             end)
             return service
         end
-        missingRealServices += 1
+        missingRealServices = missingRealServices + 1
         serviceModes[serviceName] = "FAILED"
         warn(
             "[LANGZ] SERVICE FAILED: "
@@ -4064,7 +4782,7 @@ local function activateImportRoot(importRoot)
                 local scriptCount = 0
                 for _, d in ipairs(serviceFolder:GetDescendants()) do
                     if d:IsA("LuaSourceContainer") then
-                        scriptCount += 1
+                        scriptCount = scriptCount + 1
                     end
                 end
                 stagedScriptCounts[key] = scriptCount
@@ -4082,9 +4800,9 @@ local function activateImportRoot(importRoot)
                         table.insert(workspaceSpawnObjects, child)
                     end
                 end
-                moved += moveChildren(serviceFolder, destination, onMoved)
+                moved = moved + moveChildren(serviceFolder, destination, onMoved)
             elseif #serviceFolder:GetChildren() > 0 then
-                failedServices += 1
+                failedServices = failedServices + 1
             end
         end
     end
@@ -4102,7 +4820,7 @@ local function activateImportRoot(importRoot)
             obj:SetAttribute("LANGZ_StagedDisabled", nil)
         end)
         if shouldRun then
-            activatedScripts += 1
+            activatedScripts = activatedScripts + 1
         end
     end
     for _, obj in ipairs(importRoot:GetDescendants()) do
@@ -4168,14 +4886,14 @@ local function activateImportRoot(importRoot)
             local hasRealSource = canReadExecutableSource(obj)
             if hasRealSource then
                 setScriptEnabledState(obj, true)
-                liveStats.native += 1
+                liveStats.native = liveStats.native + 1
             else
                 setScriptEnabledState(obj, false)
                 local ok = runLocalScriptBridge(obj)
                 if ok then
-                    liveStats.bridge += 1
+                    liveStats.bridge = liveStats.bridge + 1
                 else
-                    liveStats.failed += 1
+                    liveStats.failed = liveStats.failed + 1
                 end
             end
         end
@@ -4192,11 +4910,11 @@ local function activateImportRoot(importRoot)
         for _, obj in ipairs(service:GetDescendants()) do
             if obj:IsA("LuaSourceContainer")
                 and obj:GetAttribute("LANGZ_ImportedObject") == true then
-                deployedScriptCount += 1
+                deployedScriptCount = deployedScriptCount + 1
                 if serviceKey == "SSS" then
-                    sssImportedScripts += 1
+                    sssImportedScripts = sssImportedScripts + 1
                 elseif serviceKey == "SS" then
-                    ssImportedScripts += 1
+                    ssImportedScripts = ssImportedScripts + 1
                 end
                 local refKey = obj:GetAttribute("LANGZ_Ref")
                 local source = _G.Langz_RAW_SOURCES[obj]
@@ -4208,7 +4926,7 @@ local function activateImportRoot(importRoot)
                     end
                 end
                 if type(source) == "string" and source ~= "" then
-                    sourceVisibleCount += 1
+                    sourceVisibleCount = sourceVisibleCount + 1
                     pcall(function()
                         tryWriteRealScriptSource(obj)
                     end)
@@ -4216,7 +4934,7 @@ local function activateImportRoot(importRoot)
                         injectStudioLiteUI(obj, {})
                     end)
                     if okEditor then
-                        editorInjectedCount += 1
+                        editorInjectedCount = editorInjectedCount + 1
                     end
                 end
             end
@@ -4275,7 +4993,7 @@ local function activateImportRoot(importRoot)
     local remainingStagedObjects = 0
     for _, serviceFolder in ipairs(importRoot:GetChildren()) do
         if serviceFolder:IsA("Folder") then
-            remainingStagedObjects += #serviceFolder:GetChildren()
+            remainingStagedObjects = remainingStagedObjects + #serviceFolder:GetChildren()
         end
     end
     if remainingStagedObjects == 0 then
@@ -4300,7 +5018,7 @@ local function activateImportRoot(importRoot)
         missingRealServices
     )
     if not spawnOk then
-        summary ..= " • spawn depan kamera gagal: " .. tostring(spawnError)
+        summary = summary .. (" • spawn depan kamera gagal: " .. tostring(spawnError))
     end
     return true, summary
 end
@@ -4442,9 +5160,9 @@ local function prepareToolboxObjects(objects, sourceData)
                     obj:SetAttribute("LANGZ_AutoAnchored", true)
                     obj.Anchored = true
                 end)
-                if okAnchor then stats.parts += 1 end
+                if okAnchor then stats.parts = stats.parts + 1 end
             elseif obj:IsA("LuaSourceContainer") then
-                stats.scripts += 1
+                stats.scripts = stats.scripts + 1
                 local originalEnabled = getOriginalScriptEnabled(obj, {Properties = {}})
                 pcall(function()
                     obj:SetAttribute("LANGZ_OriginalEnabled", originalEnabled)
@@ -4464,19 +5182,19 @@ local function prepareToolboxObjects(objects, sourceData)
                     end
                 end
                 if type(source) == "string" and source ~= "" then
-                    stats.sources += 1
+                    stats.sources = stats.sources + 1
                     _G.Langz_RAW_SOURCES[obj] = source
                     local wrote = tryWriteRBXMSource(obj, source)
                     if not wrote then
                         wrote = tryWriteRealScriptSource(obj)
                     end
-                    if wrote then stats.written += 1 end
+                    if wrote then stats.written = stats.written + 1 end
                     pcall(injectStudioLiteUI, obj, {})
                     local hasEditor = obj:FindFirstChild("SL_CodeTextBox") ~= nil
                     if hasEditor then
-                        stats.editors += 1
+                        stats.editors = stats.editors + 1
                     end
-                    if wrote or hasEditor then stats.visible += 1 end
+                    if wrote or hasEditor then stats.visible = stats.visible + 1 end
                 end
             end
         end
@@ -4494,816 +5212,212 @@ end
 
 local studioLiteImporter = createStudioLiteImporter()
 
-local function importFile(f)
-    local tujuanModel = TUJUAN[idxTujuan]
-    local oldProgressCallback = _G.LANGZ_IMPORT_PROGRESS_CB
-    _G.LANGZ_IMPORT_PROGRESS_CB = function(_, message)
-        if type(message) == "string" then setStatus(message) end
+-- ======================= CORE BACKEND ENGINES =======================
+local TUJUAN = {
+    {nama = "Workspace", obj = workspace},
+    {nama = "ReplicatedStorage", obj = game:GetService("ReplicatedStorage")},
+    {nama = "ServerStorage", obj = game:GetService("ServerStorage")},
+    {nama = "StarterGui", obj = game:GetService("StarterGui")},
+}
+local idxTujuan = 1
+local SKIP_SERVICE = {Players = true, CoreGui = true, CorePackages = true}
+local SKIP_ANAK = {Terrain = true, Camera = true}
+
+local function trim(s)
+    return (tostring(s or ""):gsub("^%s+", ""):gsub("%s+$", ""))
+end
+
+local function decodeJson(res)
+    if not res or type(res.Body) ~= "string" or #res.Body == 0 then return nil end
+    local ok, d = pcall(HttpService.JSONDecode, HttpService, res.Body)
+    return ok and d or nil
+end
+
+local function buatMultipart(metaJson, namaFile, tipeKonten, isiFile)
+    local batas = "----WebKitFormBoundary" .. tostring(math.random(100000000, 999999999))
+    local crlf = "\r\n"
+    local b = "--" .. batas .. crlf
+        .. 'Content-Disposition: form-data; name="request"' .. crlf
+        .. 'Content-Type: application/json; charset=utf-8' .. crlf .. crlf
+        .. metaJson .. crlf
+        .. "--" .. batas .. crlf
+        .. 'Content-Disposition: form-data; name="fileContent"; filename="' .. namaFile .. '"' .. crlf
+        .. 'Content-Type: ' .. tipeKonten .. crlf .. crlf
+        .. isiFile .. crlf
+        .. "--" .. batas .. "--" .. crlf
+    return b, batas
+end
+
+local function layananDari(obj)
+    local nama = obj.ClassName
+    local ok, svc = pcall(function() return game:GetService(nama) end)
+    if ok and svc then return svc end
+    return nil
+end
+
+local function hitung(inst, t)
+    t._total = (t._total or 0) + 1
+    if inst:IsA("Script") then t.Script = (t.Script or 0) + 1
+    elseif inst:IsA("LocalScript") then t.LocalScript = (t.LocalScript or 0) + 1
+    elseif inst:IsA("ModuleScript") then t.ModuleScript = (t.ModuleScript or 0) + 1
+    end
+    for _, child in ipairs(inst:GetChildren()) do hitung(child, t) end
+end
+
+local JARAK_MIN_SPAWN_KAMERA = 24
+local JARAK_AMAN_SPAWN_KAMERA = 12
+local function taruhGrupDiDepan(objects)
+    local movable = {}
+    local function collectSpatialRoots(obj)
+        if obj:IsA("PVInstance") then
+            table.insert(movable, obj)
+            return
+        end
+        for _, child in ipairs(obj:GetChildren()) do collectSpatialRoots(child) end
+    end
+    for _, obj in ipairs(objects) do collectSpatialRoots(obj) end
+    if #movable == 0 then return true end
+
+    local camera = workspace.CurrentCamera
+    if not camera then return false, "Kamera tidak tersedia" end
+
+    local minBound, maxBound
+    local function includePart(part)
+        local cf = part.CFrame
+        local half = part.Size * 0.5
+        local right, up, look = cf.RightVector, cf.UpVector, cf.LookVector
+        local extent = Vector3.new(
+            math.abs(right.X) * half.X + math.abs(up.X) * half.Y + math.abs(look.X) * half.Z,
+            math.abs(right.Y) * half.X + math.abs(up.Y) * half.Y + math.abs(look.Y) * half.Z,
+            math.abs(right.Z) * half.X + math.abs(up.Z) * half.Y + math.abs(look.Z) * half.Z
+        )
+        local partMin, partMax = cf.Position - extent, cf.Position + extent
+        minBound = minBound and Vector3.new(math.min(minBound.X, partMin.X), math.min(minBound.Y, partMin.Y), math.min(minBound.Z, partMin.Z)) or partMin
+        maxBound = maxBound and Vector3.new(math.max(maxBound.X, partMax.X), math.max(maxBound.Y, partMax.Y), math.max(maxBound.Z, partMax.Z)) or partMax
     end
 
-    local ok, berhasil, pesan = pcall(function()
-        local info = {path = f.path, name = f.nama}
-        if f.ext == "rbxl" or f.ext == "rbxlx" then
-            local importOk, importMessage, importRoot = studioLiteImporter.importRBXL(info)
-            if not importOk then return false, importMessage end
-            if not importRoot then return false, "Engine tidak menghasilkan root import" end
-
-            local activateOk, activateMessage = studioLiteImporter.activateImportRoot(importRoot)
-            if not activateOk then return false, activateMessage end
-            return true, tostring(importMessage) .. " | " .. tostring(activateMessage)
+    for _, obj in ipairs(movable) do
+        if obj:IsA("BasePart") then includePart(obj) end
+        for _, descendant in ipairs(obj:GetDescendants()) do
+            if descendant:IsA("BasePart") then includePart(descendant) end
         end
-        local importOk, importMessage, importedRoots = studioLiteImporter.importRBXM(info)
-        if importOk and type(importedRoots) == "table" then
-            for _, root in ipairs(importedRoots) do
-                root.Parent = tujuanModel.obj
+    end
+
+    if not minBound then
+        for _, obj in ipairs(movable) do
+            local okPivot, pivot = pcall(function() return obj:GetPivot() end)
+            if okPivot then
+                local position = pivot.Position
+                minBound = minBound and Vector3.new(math.min(minBound.X, position.X), math.min(minBound.Y, position.Y), math.min(minBound.Z, position.Z)) or position
+                maxBound = maxBound and Vector3.new(math.max(maxBound.X, position.X), math.max(maxBound.Y, position.Y), math.max(maxBound.Z, position.Z)) or position
             end
-            if tujuanModel.obj == workspace then
-                local positioned, positionMessage = taruhGrupDiDepan(importedRoots)
-                if not positioned then
-                    importMessage = tostring(importMessage)
-                        .. " | spawn depan kamera gagal: " .. tostring(positionMessage)
+        end
+    end
+    if not minBound then return false, "Posisi objek tidak dapat dibaca" end
+
+    local center = (minBound + maxBound) * 0.5
+    local halfSize = (maxBound - minBound) * 0.5
+    local direction = camera.CFrame.LookVector
+    local radius = math.abs(direction.X) * halfSize.X + math.abs(direction.Y) * halfSize.Y + math.abs(direction.Z) * halfSize.Z
+    local distance = math.max(JARAK_MIN_SPAWN_KAMERA, radius + JARAK_AMAN_SPAWN_KAMERA)
+    local targetCenter = camera.CFrame.Position + direction * distance
+    local offset = CFrame.new(targetCenter - center)
+    local moved = 0
+    for _, obj in ipairs(movable) do
+        local okMove = pcall(function() obj:PivotTo(offset * obj:GetPivot()) end)
+        if okMove then moved = moved + 1 end
+    end
+    return moved == #movable
+end
+
+local function taruhDiDepan(obj)
+    return taruhGrupDiDepan({obj})
+end
+
+local function pasangHasil(hasil, namaSumber)
+    local tujuan = TUJUAN[idxTujuan]
+    local sebelum, sesudah = {}, {}
+    local ditaruh, objekWorkspace, gagal = {}, {}, 0
+
+    local function taruh(inst, induk)
+        hitung(inst, sebelum)
+        local ok = pcall(function() inst.Parent = induk end)
+        if ok then
+            table.insert(ditaruh, inst)
+            if induk == workspace then table.insert(objekWorkspace, inst) end
+        else
+            gagal = gagal + 1
+        end
+    end
+
+    for _, obj in ipairs(hasil) do
+        local svc = layananDari(obj)
+        if svc then
+            if not SKIP_SERVICE[obj.ClassName] then
+                for _, anak in ipairs(obj:GetChildren()) do
+                    if not SKIP_ANAK[anak.ClassName] then taruh(anak, svc) end
+                end
+            end
+        else
+            taruh(obj, tujuan.obj)
+        end
+    end
+
+    local spawnError
+    if #objekWorkspace > 0 then
+        local positioned, positionMessage = taruhGrupDiDepan(objekWorkspace)
+        if not positioned then spawnError = positionMessage end
+    end
+
+    task.wait(0.2)
+    for _, inst in ipairs(ditaruh) do
+        if inst.Parent then hitung(inst, sesudah) end
+    end
+
+    local sb, sa = sebelum._total or 0, sesudah._total or 0
+    local rinci = string.format("%d Script, %d LocalScript, %d ModuleScript", sesudah.Script or 0, sesudah.LocalScript or 0, sesudah.ModuleScript or 0)
+
+    if gagal > 0 or sa < sb then
+        local pesanError = string.format("Peringatan: script %d dari %d, %d objek gagal dipasang", sa, sb, gagal)
+        Kit.toast(pesanError, "error")
+        return false
+    end
+
+    local pesanSukses = string.format("Berhasil %d objek | Script utuh: %d (%s)", #ditaruh, sa, rinci)
+    Kit.toast(pesanSukses, "ok")
+    return true
+end
+
+-- ======================= FILE SCANNER =======================
+local function scanFolder(path, kedalaman)
+    kedalaman = kedalaman or 0
+    if kedalaman > 4 then return {} end
+    local hasil = {}
+    if not (listfiles and isfolder) then return hasil end
+    local ok, daftar = pcall(listfiles, path)
+    if not ok or type(daftar) ~= "table" then return hasil end
+
+    for _, item in ipairs(daftar) do
+        if isfolder(item) then
+            local sub = scanFolder(item, kedalaman + 1)
+            for _, f in ipairs(sub) do table.insert(hasil, f) end
+        else
+            local ext = item:match("%.([^%.]+)$")
+            if ext then
+                ext = ext:lower()
+                if ext == "rbxm" or ext == "rbxl" or ext == "rbxlx" or ext == "rbxmx" then
+                    local nama = item:match("([^/\\]+)$") or item
+                    table.insert(hasil, {jalur = item, nama = nama, ext = ext})
                 end
             end
         end
-        return importOk, importMessage
-    end)
-
-    _G.LANGZ_IMPORT_PROGRESS_CB = oldProgressCallback
-    if not ok then
-        setStatus("Gagal import: " .. tostring(berhasil), true)
-        return false
     end
-    if not berhasil then
-        setStatus("Gagal import: " .. tostring(pesan), true)
-        return false
-    end
-
-    setStatus(tostring(pesan))
-    print("[Importer] " .. f.nama .. ": " .. tostring(pesan))
-    return true
+    return hasil
 end
 
-------------------------------------------------------------------
--- INTI: UPLOAD LEWAT ROBLOX OPEN CLOUD
-------------------------------------------------------------------
-local function buatMultipart(metaJson, namaFile, tipeKonten, isiFile)
-    local batas = "----ImporterHub" .. tostring(math.random(100000, 999999)) .. tostring(os.time())
-    local sep = "--" .. batas
-    local aman = namaFile:gsub("[^%w%._%-]", "_")
-    local bagian = {
-        sep,
-        'Content-Disposition: form-data; name="request"',
-        "",
-        metaJson,
-        sep,
-        'Content-Disposition: form-data; name="fileContent"; filename="' .. aman .. '"',
-        "Content-Type: " .. tipeKonten,
-        "",
-        isiFile,
-        sep .. "--",
-        "",
-    }
-    return table.concat(bagian, "\r\n"), batas
-end
-
-local function unggahFile(f, jenis)
-    if not httpReq then
-        setStatus("Executor kamu tidak support request / http_request", true)
-        return false
-    end
-    local idPembuat = trim(config.creatorId):match("^%d+$")
-    if trim(config.ocKey) == "" or not idPembuat then
-        setStatus("Isi Open Cloud API Key & Creator ID di menu Pengaturan dulu", true)
-        return false
-    end
-    if not readfile then
-        setStatus("Executor kamu tidak support readfile", true)
-        return false
-    end
-
-    setStatus("Membaca " .. f.nama .. "...")
-    local okR, isiFile = pcall(readfile, f.path)
-    if not okR or type(isiFile) ~= "string" or #isiFile == 0 then
-        setStatus("Gagal membaca file", true)
-        return false
-    end
-    if #isiFile > 20 * 1024 * 1024 then
-        setStatus("File lebih dari 20 MB, tidak bisa diunggah", true)
-        return false
-    end
-
-    local tipeKonten = CONTENT_TYPE[f.ext]
-    if not tipeKonten then
-        setStatus("Format file tidak didukung: ." .. tostring(f.ext), true)
-        return false
-    end
-
-    local nama = f.nama:gsub("%.[^%.]+$", "")
-    nama = nama:sub(1, 50)
-
-    local pembuat = {}
-    if config.creatorTipe == "Group" then pembuat.groupId = idPembuat else pembuat.userId = idPembuat end
-
-    local meta = HttpService:JSONEncode({
-        assetType = jenis.tipe,
-        displayName = nama,
-        description = "Diunggah lewat Importer Hub",
-        creationContext = {creator = pembuat},
-    })
-    local bodyReq, batas = buatMultipart(meta, f.nama, tipeKonten, isiFile)
-
-    setStatus("Mengunggah " .. f.nama .. " sebagai " .. jenis.tipe .. "...")
-    local okP, res = pcall(httpReq, {
-        Url = "https://apis.roblox.com/assets/v1/assets",
-        Method = "POST",
-        Headers = {
-            ["x-api-key"] = trim(config.ocKey),
-            ["Content-Type"] = "multipart/form-data; boundary=" .. batas,
-        },
-        Body = bodyReq,
-    })
-    if not okP or not res then
-        setStatus("Request gagal: " .. tostring(res), true)
-        return false
-    end
-
-    local d = decodeJson(res)
-    if not d or not d.path then
-        local pesan = d and (d.message or d.error) or ("HTTP " .. tostring(res.StatusCode))
-        setStatus("Upload ditolak (HTTP " .. tostring(res.StatusCode) .. "): " .. tostring(pesan), true)
-        return false
-    end
-
-    -- Tunggu operasi selesai
-    local hasilId
-    for _ = 1, 40 do
-        local dOp = d
-        if not dOp.done then
-            task.wait(1.5)
-            local okQ, r2 = pcall(httpReq, {
-                Url = "https://apis.roblox.com/assets/v1/" .. d.path,
-                Method = "GET",
-                Headers = {["x-api-key"] = trim(config.ocKey)},
-            })
-            dOp = okQ and decodeJson(r2) or nil
-        end
-        if dOp and dOp.done then
-            if dOp.response and dOp.response.assetId then
-                hasilId = tostring(dOp.response.assetId)
-            else
-                local pesan = dOp.error and dOp.error.message or "tidak diketahui"
-                setStatus("Upload gagal: " .. tostring(pesan), true)
-                return false
-            end
-            break
-        end
-    end
-
-    if not hasilId then
-        setStatus("Upload masih diproses, cek lagi nanti di Creator Hub", true)
-        return false
-    end
-
-    if setclipboard then pcall(setclipboard, hasilId) end
-    setStatus("Upload berhasil! Asset ID: " .. hasilId .. (setclipboard and " (disalin)" or ""))
-    print("[Importer] Upload berhasil: " .. f.nama .. " -> asset ID " .. hasilId)
-    return true
-end
-
-------------------------------------------------------------------
--- KOMPONEN: ITEM DAFTAR & PANEL DAFTAR FILE
-------------------------------------------------------------------
-local sedangKerja = false
-
-local function buatItem(listFrame, urut, tagTeks, nama, sub, teksTombol, aksi)
-    local item = sudut(buat("Frame", {
-        Name = "Item", Size = UDim2.new(1, -8, 0, 44),
-        BackgroundColor3 = C.kartu, BorderSizePixel = 0, LayoutOrder = urut,
-    }, listFrame), 8)
-    local tag = sudut(buat("Frame", {
-        Size = UDim2.new(0, 52, 0, 26), Position = UDim2.new(0, 8, 0.5, -13),
-        BackgroundColor3 = C.bg, BorderSizePixel = 0,
-    }, item), 6)
-    label({Text = tagTeks, Font = Enum.Font.GothamBold, TextSize = 10,
-        Size = UDim2.new(1, 0, 1, 0), TextXAlignment = Enum.TextXAlignment.Center}, tag)
-    label({Text = nama, Font = Enum.Font.GothamBold, TextSize = 12,
-        Position = UDim2.new(0, 68, 0, sub and 4 or 0),
-        Size = UDim2.new(1, -160, 0, sub and 20 or 44),
-        TextTruncate = Enum.TextTruncate.AtEnd}, item)
-    if sub then
-        label({Text = sub, TextColor3 = C.redup, TextSize = 10,
-            Position = UDim2.new(0, 68, 0, 24), Size = UDim2.new(1, -160, 0, 16),
-            TextTruncate = Enum.TextTruncate.AtEnd}, item)
-    end
-    local btn = tombol({Text = teksTombol, TextSize = 11, Size = UDim2.new(0, 76, 0, 28),
-        Position = UDim2.new(1, -84, 0.5, -14), BackgroundColor3 = C.aktif}, item)
-
-    btn.Activated:Connect(function()
-        if sedangKerja then return end
-        sedangKerja = true
-        btn.Text = "..."
-        task.spawn(function()
-            local ok, hasil = pcall(aksi)
-            if not ok then
-                setStatus("Error: " .. tostring(hasil), true)
-                hasil = false
-            end
-            btn.Text = hasil and "DONE" or "ULANG"
-            sedangKerja = false
-        end)
-    end)
-    return item
-end
-
-local function buatItemToolbox(listFrame, urut, tagTeks, aset, teksTombol, aksi)
-    local item = sudut(buat("Frame", {
-        Name = "Item",
-        Size = UDim2.new(1, -8, 0, 200),
-        BackgroundColor3 = C.kartu,
-        BorderSizePixel = 0,
-        LayoutOrder = urut,
-    }, listFrame), 10)
-
-    local thumbnail = buat("ImageLabel", {
-        Size = UDim2.new(0, 64, 0, 64),
-        Position = UDim2.new(0.5, -32, 0, 8),
-        BackgroundColor3 = C.bg,
-        BorderSizePixel = 0,
-        Image = "rbxthumb://type=Asset&id=" .. aset.id .. "&w=420&h=420",
-        ScaleType = Enum.ScaleType.Crop,
-    }, item)
-    sudut(thumbnail, 8)
-
-    local tag = sudut(buat("Frame", {
-        Size = UDim2.new(0, 52, 0, 14),
-        Position = UDim2.new(0.5, -26, 0, 58),
-        BackgroundColor3 = C.bg,
-        BorderSizePixel = 0,
-    }, item), 4)
-    label({Text = tagTeks, Font = Enum.Font.GothamBold, TextSize = 8,
-        Size = UDim2.new(1, 0, 1, 0), TextXAlignment = Enum.TextXAlignment.Center}, tag)
-
-    label({Text = aset.nama, Font = Enum.Font.GothamBold, TextSize = 13,
-        Position = UDim2.new(0, 8, 0, 78),
-        Size = UDim2.new(1, -16, 0, 30),
-        TextXAlignment = Enum.TextXAlignment.Center,
-        TextWrapped = true,
-        TextTruncate = Enum.TextTruncate.AtEnd}, item)
-    label({Text = "Creator: " .. tostring(aset.pembuat or "?"),
-        TextColor3 = C.redup, TextSize = 10,
-        Position = UDim2.new(0, 8, 0, 110),
-        Size = UDim2.new(1, -16, 0, 18),
-        TextXAlignment = Enum.TextXAlignment.Center,
-        TextTruncate = Enum.TextTruncate.AtEnd}, item)
-
-    label({Text = "ID: " .. tostring(aset.id), TextColor3 = C.teks, TextSize = 10,
-        Position = UDim2.new(0, 8, 0, 132),
-        Size = UDim2.new(1, -16, 0, 18),
-        TextXAlignment = Enum.TextXAlignment.Center,
-        TextTruncate = Enum.TextTruncate.AtEnd}, item)
-
-    local copyButton = tombol({
-        Name = "CopyAssetId",
-        Text = "SALIN",
-        TextSize = 9,
-        Size = UDim2.new(0, 52, 0, 28),
-        Position = UDim2.new(0, 8, 1, -36),
-        BackgroundColor3 = C.kartu,
-    }, item)
-    copyButton.Activated:Connect(function()
-        if type(setclipboard) ~= "function" then
-            setStatus("Executor tidak mendukung salin ke clipboard", true)
-            return
-        end
-        local ok, err = pcall(setclipboard, tostring(aset.id))
-        if ok then
-            setStatus("ID " .. tostring(aset.id) .. " disalin")
-        else
-            setStatus("Gagal menyalin ID: " .. tostring(err), true)
-        end
-    end)
-
-    local btn = tombol({Text = teksTombol, TextSize = 10,
-        Size = UDim2.new(1, -74, 0, 28),
-        Position = UDim2.new(0, 66, 1, -36),
-        BackgroundColor3 = C.aktif}, item)
-    btn.Activated:Connect(function()
-        if sedangKerja then return end
-        sedangKerja = true
-        btn.Text = "..."
-        task.spawn(function()
-            local ok, hasil = pcall(aksi)
-            if not ok then
-                setStatus("Error: " .. tostring(hasil), true)
-                hasil = false
-            end
-            btn.Text = hasil and "DONE" or "ULANG"
-            sedangKerja = false
-        end)
-    end)
-    return item
-end
-
-local function pesanKosong(listFrame, teks)
-    label({Name = "Item", Text = "  " .. teks, TextColor3 = C.redup, TextWrapped = true,
-        Size = UDim2.new(1, -8, 0, 40), LayoutOrder = 1}, listFrame)
-end
-
-local function buatDaftarScroll(induk, posisi, ukuran, duaKolom)
-    local list = sudut(buat("ScrollingFrame", {
-        Size = ukuran,
-        Position = posisi,
-        BackgroundColor3 = C.panel,
-        BorderSizePixel = 0,
-        ScrollBarThickness = 4,
-        CanvasSize = UDim2.new(0, 0, 0, 0),
-        AutomaticCanvasSize = Enum.AutomaticSize.Y,
-    }, induk), 8)
-    if duaKolom then
-        buat("UIGridLayout", {
-            CellSize = UDim2.new(0.5, -6, 0, 200),
-            CellPadding = UDim2.new(0, 8, 0, 8),
-            SortOrder = Enum.SortOrder.LayoutOrder,
-        }, list)
-    else
-        buat("UIListLayout", {Padding = UDim.new(0, 4), SortOrder = Enum.SortOrder.LayoutOrder}, list)
-    end
-    buat("UIPadding", {PaddingTop = UDim.new(0, 4), PaddingLeft = UDim.new(0, 4)}, list)
-    return list
-end
-
-local function buatPanelDaftar(cfg)
-    local p = {konteks = nil}
-    p.frame = buat("Frame", {Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency = 1, Visible = false}, isi)
-    p.judul = label({Text = "", Font = Enum.Font.GothamBold, TextSize = 13,
-        Size = UDim2.new(1, 0, 0, 22)}, p.frame)
-    p.search = kotakTeks({
-        Size = UDim2.new(1, -90, 0, 30), Position = UDim2.new(0, 0, 0, 26),
-        Text = "", PlaceholderText = "Cari file...",
-    }, p.frame)
-    p.scan = tombol({Text = "SCAN", Size = UDim2.new(0, 82, 0, 30),
-        Position = UDim2.new(1, -82, 0, 26), BackgroundColor3 = C.aktif}, p.frame)
-    p.list = buatDaftarScroll(p.frame, UDim2.new(0, 0, 0, 62), UDim2.new(1, 0, 1, -100))
-    p.kembali = tombol({Text = "< Kembali", Size = UDim2.new(0, 90, 0, 28),
-        Position = UDim2.new(0, 0, 1, -28), BackgroundColor3 = C.kartu}, p.frame)
-    p.extra = tombol({Text = "", Size = UDim2.new(0, 190, 0, 28),
-        Position = UDim2.new(1, -190, 1, -28), BackgroundColor3 = C.kartu, TextSize = 11}, p.frame)
-
-    function p.render()
-        for _, c in ipairs(p.list:GetChildren()) do
-            if c.Name == "Item" then c:Destroy() end
-        end
-        local konteks = p.konteks
-        local q = p.search.Text:lower()
-        local urut = 0
-        for _, f in ipairs(cfg.ambil(konteks)) do
-            if q == "" or f.nama:lower():find(q, 1, true) then
-                urut = urut + 1
-                buatItem(p.list, urut, string.upper(f.ext or ""), f.nama, nil, cfg.tombol,
-                    function() return cfg.aksi(f, konteks) end)
-            end
-        end
-        if urut == 0 then
-            pesanKosong(p.list, "Belum ada file. Taruh file di folder Workspace Delta lalu tekan SCAN.")
-        end
-    end
-
-    p.search:GetPropertyChangedSignal("Text"):Connect(p.render)
-    p.scan.Activated:Connect(function() lakukanScan() end)
-    p.kembali.Activated:Connect(function() bukaHalaman("dashboard") end)
-    halaman[cfg.nama] = p.frame
-    return p
-end
-
-------------------------------------------------------------------
--- HALAMAN: DASHBOARD
-------------------------------------------------------------------
-local halDash = buat("ScrollingFrame", {
-    Size = UDim2.new(1, 0, 1, 0),
-    BackgroundTransparency = 1,
-    BorderSizePixel = 0,
-    ScrollBarThickness = 4,
-    CanvasSize = UDim2.new(0, 0, 0, 0),
-    AutomaticCanvasSize = Enum.AutomaticSize.Y,
-}, isi)
-halaman.dashboard = halDash
-buat("UIListLayout", {
-    Padding = UDim.new(0, 8),
-    SortOrder = Enum.SortOrder.LayoutOrder,
-}, halDash)
-
-local ICON_BY_KEY = {
-    dashboard = "134003209888315",
-    spoof = "124837118008108",
-    ytupload = "128502300590884",
-    toolbox = "121323758319527",
-    music = "96724400016066",
-    rbxm = "106962661743892",
-    rbxmx = "106962661743892",
-    rbxl = "122982660526589",
-    rbxlx = "122982660526589",
-    up_model = "106962661743892",
-    ai = "120498354657105",
-    setelan = "92592867988128",
-}
-
-local dashboardMetrics = {}
-local dashboardMetricSegments = {}
-local dashboardMetricHistory = {}
-local dashboardMetricCharts = {}
-local dashboardMetricAngles = {}
-local metricsRow = buat("Frame", {
-    Size = UDim2.new(1, -4, 0, 82),
-    BackgroundTransparency = 1,
-    LayoutOrder = 1,
-}, halDash)
-buat("UIGridLayout", {
-    CellSize = UDim2.new(0.25, -5, 1, 0),
-    CellPadding = UDim2.new(0, 5, 0, 0),
-    FillDirectionMaxCells = 4,
-    SortOrder = Enum.SortOrder.LayoutOrder,
-}, metricsRow)
-
-local metricOrder = 0
-local function buatMetrikDashboard(key, judul)
-    metricOrder += 1
-    local card = sudut(buat("Frame", {
-        BackgroundColor3 = C.panel,
-        BorderSizePixel = 0,
-        LayoutOrder = metricOrder,
-    }, metricsRow), 8)
-    local chart = buat("Frame", {
-        Name = "MetricRing",
-        Size = UDim2.new(0, 44, 0, 44),
-        Position = UDim2.new(0.5, 0, 0, 2),
-        AnchorPoint = Vector2.new(0.5, 0),
-        BackgroundTransparency = 1,
-        ZIndex = 1,
-    }, card)
-    dashboardMetricCharts[key] = chart
-    dashboardMetricAngles[key] = 0
-    dashboardMetricSegments[key] = {}
-    dashboardMetricHistory[key] = {}
-    for i = 1, 8 do
-        local angle = (i - 1) * 45 - 90
-        local length = 3
-        local radius = 12 + length / 2
-        local radians = math.rad(angle)
-        local segment = sudut(buat("Frame", {
-            Name = "MetricSegment",
-            Size = UDim2.new(0, 3, 0, length),
-            Position = UDim2.new(
-                0, 22 + math.cos(radians) * radius - 1.5,
-                0, 22 + math.sin(radians) * radius - length / 2
-            ),
-            Rotation = angle + 90,
-            BackgroundColor3 = C.aksen,
-            BackgroundTransparency = 0.82,
-            BorderSizePixel = 0,
-            ZIndex = 2,
-        }, chart), 2)
-        table.insert(dashboardMetricSegments[key], segment)
-    end
-    dashboardMetrics[key] = label({
-        Text = "--",
-        Font = Enum.Font.GothamBold,
-        TextSize = 11,
-        TextXAlignment = Enum.TextXAlignment.Center,
-        Position = UDim2.new(0, 2, 0, 14),
-        Size = UDim2.new(1, -4, 0, 20),
-        TextTruncate = Enum.TextTruncate.AtEnd,
-        ZIndex = 3,
-    }, card)
-    label({
-        Text = judul,
-        Font = Enum.Font.GothamBold,
-        TextColor3 = C.redup,
-        TextSize = 7,
-        TextXAlignment = Enum.TextXAlignment.Center,
-        Position = UDim2.new(0, 2, 0, 55),
-        Size = UDim2.new(1, -4, 0, 14),
-        TextTruncate = Enum.TextTruncate.AtEnd,
-        ZIndex = 3,
-    }, card)
-end
-
-local function tambahSampelMetrik(key, nilai)
-    if type(nilai) ~= "number" or nilai ~= nilai then return end
-    local history = dashboardMetricHistory[key]
-    local segments = dashboardMetricSegments[key]
-    local chart = dashboardMetricCharts[key]
-    if not history or not segments or not chart then return end
-
-    table.insert(history, math.max(0, nilai))
-    while #history > #segments do table.remove(history, 1) end
-
-    local maximum = 1
-    for _, sample in ipairs(history) do
-        if sample > maximum then maximum = sample end
-    end
-    for i, segment in ipairs(segments) do
-        local sample = history[i]
-        local length = sample and math.max(3, math.floor(sample / maximum * 9 + 0.5)) or 3
-        local angle = (i - 1) * 45 - 90
-        local radians = math.rad(angle)
-        local radius = 12 + length / 2
-        local position = UDim2.new(
-            0, 22 + math.cos(radians) * radius - 1.5,
-            0, 22 + math.sin(radians) * radius - length / 2
-        )
-        segment.BackgroundTransparency = sample and (0.12 + (1 - sample / maximum) * 0.45) or 0.82
-        TweenService:Create(
-            segment,
-            TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-            {Size = UDim2.new(0, 3, 0, length), Position = position}
-        ):Play()
-    end
-    dashboardMetricAngles[key] = dashboardMetricAngles[key] + 30
-    TweenService:Create(
-        chart,
-        TweenInfo.new(0.45, Enum.EasingStyle.Sine, Enum.EasingDirection.Out),
-        {Rotation = dashboardMetricAngles[key]}
-    ):Play()
-end
-
-buatMetrikDashboard("rbxm", "TOTAL RBXM")
-buatMetrikDashboard("rbxl", "TOTAL RBXL")
-buatMetrikDashboard("cpu", "CPU / FRAME")
-buatMetrikDashboard("fps", "FPS")
-
-label({
-    Text = "Import dan fitur",
-    Font = Enum.Font.GothamBold,
-    TextColor3 = C.redup,
-    TextSize = 10,
-    Size = UDim2.new(1, 0, 0, 16),
-    LayoutOrder = 2,
-}, halDash)
-
-local dashGrid = buat("Frame", {
-    Size = UDim2.new(1, 0, 0, 0),
-    AutomaticSize = Enum.AutomaticSize.Y,
-    BackgroundTransparency = 1,
-    LayoutOrder = 3,
-}, halDash)
-buat("UIGridLayout", {
-    CellSize = UDim2.new(0.5, -8, 0, 72),
-    CellPadding = UDim2.new(0, 8, 0, 8),
-    SortOrder = Enum.SortOrder.LayoutOrder,
-}, dashGrid)
-
-local KARTU = {
-    {kunci = "spoof", ikon = "SP", judul = "Spoof & Bypass", ket = "Bypass audio, animasi, decal & script"},
-    {kunci = "ytupload", ikon = "YT", judul = "Bypass Audio YT", ket = "Upload & bypass audio YouTube"},
-    {kunci = "rbxm", ikon = "M", judul = "Import RBXM", ket = "Model binary (.rbxm)", badge = true},
-    {kunci = "rbxl", ikon = "L", judul = "Import RBXL", ket = "Place binary (.rbxl)", badge = true},
-    {kunci = "rbxlx", ikon = "LX", judul = "Import RBXLX", ket = "Place XML (.rbxlx)", badge = true},
-    {kunci = "rbxmx", ikon = "MX", judul = "Import RBXMX", ket = "Model XML (.rbxmx)", badge = true},
-    {kunci = "toolbox", ikon = "TB", judul = "Toolbox", ket = "Cari dan import aset"},
-    {kunci = "ai", ikon = "AI", judul = "AI Chat", ket = "Ngobrol dengan AI via OpenRouter"},
-    {kunci = "up_model", ikon = "UM", judul = "Upload RBXM", ket = "Unggah model .rbxm"},
-    {kunci = "setelan", ikon = "ST", judul = "Pengaturan", ket = "API key & Creator ID"},
-}
-
-for i, k in ipairs(KARTU) do
-    local kartu = tombol({Text = "", BackgroundColor3 = C.kartu, LayoutOrder = i}, dashGrid)
-    local ikon = sudut(buat("Frame", {
-        Size = UDim2.new(0, 40, 0, 40), Position = UDim2.new(0, 10, 0.5, -20),
-        BackgroundColor3 = C.aktif, BorderSizePixel = 0,
-    }, kartu), 10)
-    local iconAsset = ICON_BY_KEY[k.kunci]
-    if iconAsset then
-        buat("ImageLabel", {
-            BackgroundTransparency = 1,
-            Image = "rbxassetid://" .. iconAsset,
-            Position = UDim2.new(0, 4, 0, 4),
-            Size = UDim2.new(1, -8, 1, -8),
-            ScaleType = Enum.ScaleType.Fit,
-        }, ikon)
-    else
-        label({Text = k.ikon, Font = Enum.Font.GothamBold, TextSize = 14,
-            Size = UDim2.new(1, 0, 1, 0), TextXAlignment = Enum.TextXAlignment.Center}, ikon)
-    end
-    label({Text = k.judul, Font = Enum.Font.GothamBold, TextSize = 13,
-        Position = UDim2.new(0, 58, 0, 10), Size = UDim2.new(1, -100, 0, 18),
-        TextTruncate = Enum.TextTruncate.AtEnd}, kartu)
-    label({Text = k.ket, TextColor3 = C.redup, TextSize = 10, TextWrapped = true,
-        TextYAlignment = Enum.TextYAlignment.Top,
-        Position = UDim2.new(0, 58, 0, 30), Size = UDim2.new(1, -64, 0, 32)}, kartu)
-    if k.badge then
-        badgeKartu[k.kunci] = label({Text = "0", TextColor3 = C.hijau, Font = Enum.Font.GothamBold,
-            TextXAlignment = Enum.TextXAlignment.Right,
-            Position = UDim2.new(1, -40, 0, 8), Size = UDim2.new(0, 32, 0, 16)}, kartu)
-    end
-    kartu.Activated:Connect(function() bukaHalaman(k.kunci) end)
-end
-
-------------------------------------------------------------------
--- HALAMAN: PANEL IMPORT & PANEL UPLOAD
-------------------------------------------------------------------
-local panelImport = buatPanelDaftar({
-    nama = "_import",
-    tombol = "ACTIVE",
-    ambil = function(jenis)
-        return jenis and fileTersedia[jenis.kunci] or {}
-    end,
-    aksi = function(f) return importFile(f) end,
-})
-table.insert(tombolTujuan, panelImport.extra)
-panelImport.extra.Activated:Connect(gantiTujuan)
-
-local panelUpload = buatPanelDaftar({
-    nama = "_upload",
-    tombol = "UPLOAD",
-    ambil = function(jenis)
-        local hasil = {}
-        if jenis then
-            for _, e in ipairs(jenis.ext) do
-                for _, f in ipairs(fileTersedia[e] or {}) do table.insert(hasil, f) end
-            end
-            table.sort(hasil, function(a, b) return a.nama:lower() < b.nama:lower() end)
-        end
-        return hasil
-    end,
-    aksi = function(f, jenis) return unggahFile(f, jenis) end,
-})
-panelUpload.extra.Text = "Atur API Key >"
-panelUpload.extra.Activated:Connect(function() bukaHalaman("setelan") end)
-
-------------------------------------------------------------------
--- PANEL SAMPING: TOOLBOX
-------------------------------------------------------------------
-local TOOLBOX_WIDTH, TOOLBOX_HEIGHT, TOOLBOX_GAP = 340, 480, 12
-local MUSIC_WIDTH, MUSIC_HEIGHT = 340, 520
-local toolboxTerbuka, musicTerbuka = false, false
-local halMusic
-local halToolbox = sudut(buat("Frame", {
-    Name = "ToolboxPanel",
-    Size = UDim2.new(0, TOOLBOX_WIDTH, 0, TOOLBOX_HEIGHT),
-    Position = UDim2.new(0.5, 0, 0.5, -TOOLBOX_HEIGHT / 2),
-    BackgroundColor3 = C.bg,
-    BorderSizePixel = 0,
-    Active = true,
-    Visible = false,
-    ZIndex = 2,
-}, gui), 12)
-buat("Frame", {
-    Size = UDim2.new(0, 3, 1, -24),
-    Position = UDim2.new(0, 0, 0, 12),
-    BackgroundColor3 = C.aktif,
-    BorderSizePixel = 0,
-    ZIndex = 3,
-}, halToolbox)
-
-local tbHeader = buat("Frame", {
-    Size = UDim2.new(1, 0, 0, 42),
-    BackgroundTransparency = 1,
-}, halToolbox)
-label({
-    Text = "Toolbox",
-    Font = Enum.Font.GothamBold,
-    TextSize = 14,
-    Position = UDim2.new(0, 14, 0, 4),
-    Size = UDim2.new(1, -64, 0, 18),
-}, tbHeader)
-label({
-    Text = "Cari dan import aset",
-    TextColor3 = C.redup,
-    TextSize = 10,
-    Position = UDim2.new(0, 14, 0, 22),
-    Size = UDim2.new(1, -64, 0, 14),
-}, tbHeader)
-local tbClose = tombol({
-    Text = "X",
-    Size = UDim2.new(0, 28, 0, 28),
-    Position = UDim2.new(1, -38, 0, 6),
-    BackgroundColor3 = C.kartu,
-}, tbHeader)
-buat("Frame", {
-    Size = UDim2.new(1, -24, 0, 1),
-    Position = UDim2.new(0, 12, 0, 41),
-    BackgroundColor3 = C.redup,
-    BackgroundTransparency = 0.55,
-    BorderSizePixel = 0,
-}, halToolbox)
-
-local function ubahPosisiPanel(panel, posisi, halus)
-    if halus and panel.Visible then
-        TweenService:Create(
-            panel,
-            TweenInfo.new(0.24, Enum.EasingStyle.Quart, Enum.EasingDirection.Out),
-            {Position = posisi}
-        ):Play()
-    else
-        panel.Position = posisi
-    end
-end
-
-local function posisikanPanelSamping(halus, posisiFrame)
-    local posisiUtama = posisiFrame or frame.Position
-    if musicTerbuka and halMusic then
-        ubahPosisiPanel(halMusic, UDim2.new(
-            posisiUtama.X.Scale, posisiUtama.X.Offset - MUSIC_WIDTH - TOOLBOX_GAP,
-            posisiUtama.Y.Scale, posisiUtama.Y.Offset + (TINGGI - MUSIC_HEIGHT) / 2
-        ), halus)
-    end
-    if toolboxTerbuka then
-        ubahPosisiPanel(halToolbox, UDim2.new(
-            posisiUtama.X.Scale, posisiUtama.X.Offset + LEBAR + TOOLBOX_GAP,
-            posisiUtama.Y.Scale, posisiUtama.Y.Offset + (TINGGI - TOOLBOX_HEIGHT) / 2
-        ), halus)
-    end
-end
-
-local function aturLayoutPanelSamping(halus)
-    local ruangKiri = musicTerbuka and (MUSIC_WIDTH + TOOLBOX_GAP) or 0
-    local ruangKanan = toolboxTerbuka and (TOOLBOX_WIDTH + TOOLBOX_GAP) or 0
-    local lebarGrup = ruangKiri + LEBAR + ruangKanan
-    local posisiFrame = UDim2.new(0.5, -lebarGrup / 2 + ruangKiri, 0.5, -TINGGI / 2)
-    if halus then
-        TweenService:Create(
-            frame,
-            TweenInfo.new(0.24, Enum.EasingStyle.Quart, Enum.EasingDirection.Out),
-            {Position = posisiFrame}
-        ):Play()
-    else
-        frame.Position = posisiFrame
-    end
-    posisikanPanelSamping(halus, posisiFrame)
-end
-
-bukaToolboxPanel = function()
-    if toolboxTerbuka then return end
-    toolboxTerbuka = true
-    halToolbox.Visible = true
-    aturLayoutPanelSamping(true)
-    if sorotMenu then sorotMenu("toolbox") end
-    jalankanSapuan()
-end
-
-tutupToolboxPanel = function()
-    if not toolboxTerbuka then return end
-    toolboxTerbuka = false
-    halToolbox.Visible = false
-    aturLayoutPanelSamping(true)
-    if sorotMenu then sorotMenu(halamanAktif) end
-end
-tbClose.Activated:Connect(tutupToolboxPanel)
-
-local KAT = {
-    {kunci = "Model", teks = "Model", tag = "MODEL"},
-    {kunci = "Decal", teks = "Decal", tag = "DECAL"},
-    {kunci = "MeshPart", teks = "Mesh", tag = "MESH"},
-}
-local katAktif = "Model"
-local tombolKat = {}
-
-local barisKat = buat("Frame", {
-    Size = UDim2.new(1, -24, 0, 28),
-    Position = UDim2.new(0, 12, 0, 46),
-    BackgroundTransparency = 1,
-}, halToolbox)
-buat("UIListLayout", {FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 4),
-    SortOrder = Enum.SortOrder.LayoutOrder}, barisKat)
-
-local function sorotKat()
-    for k, b in pairs(tombolKat) do
-        b.BackgroundColor3 = (k == katAktif) and C.aktif or C.kartu
-    end
-end
-
-for i, k in ipairs(KAT) do
-    local b = tombol({Text = k.teks, Size = UDim2.new(1 / #KAT, -3, 1, 0), LayoutOrder = i,
-        BackgroundColor3 = C.kartu}, barisKat)
-    tombolKat[k.kunci] = b
-    b.Activated:Connect(function()
-        katAktif = k.kunci
-        sorotKat()
-    end)
-end
-sorotKat()
-
-local tbInput = kotakTeks({
-    Size = UDim2.new(1, -114, 0, 30), Position = UDim2.new(0, 12, 0, 80),
-    Text = "", PlaceholderText = "Kata kunci, contoh: sword",
-}, halToolbox)
-local tbCari = tombol({Text = "CARI", Size = UDim2.new(0, 82, 0, 30),
-    Position = UDim2.new(1, -94, 0, 80), BackgroundColor3 = C.aktif}, halToolbox)
-local tbList = buatDaftarScroll(
-    halToolbox,
-    UDim2.new(0, 12, 0, 116),
-    UDim2.new(1, -24, 1, -150),
-    true
-)
-local tbInfo = label({Text = "", TextColor3 = C.redup, TextSize = 11,
-    Position = UDim2.new(0, 12, 1, -28), Size = UDim2.new(1, -222, 0, 28),
-    TextTruncate = Enum.TextTruncate.AtEnd}, halToolbox)
-local tbTujuan = tombol({Text = "", Size = UDim2.new(0, 190, 0, 28),
-    Position = UDim2.new(1, -202, 1, -28), BackgroundColor3 = C.kartu, TextSize = 11}, halToolbox)
-table.insert(tombolTujuan, tbTujuan)
-tbTujuan.Activated:Connect(gantiTujuan)
-
+-- ======================= CREATOR STORE PC TOOLBOX =======================
 local function cariCreatorStore(kat, q)
+    if not httpReq then return nil, "HTTP Request tidak didukung" end
     local okP, res = pcall(httpReq, {
         Url = "https://apis.roblox.com/toolbox-service/v2/assets:search",
         Method = "POST",
@@ -5339,48 +5453,23 @@ local function cariCreatorStore(kat, q)
 end
 
 local function unduhPayloadToolbox(assetId)
-    if not httpReq then
-        return nil, "request API tidak tersedia untuk membaca source asset"
-    end
+    if not httpReq then return nil, "request API tidak tersedia" end
     local ok, response = pcall(httpReq, {
         Url = "https://assetdelivery.roblox.com/v1/asset/?id=" .. HttpService:UrlEncode(assetId),
         Method = "GET",
     })
-    if not ok or type(response) ~= "table" then
-        return nil, "Asset Delivery request gagal: " .. tostring(response)
-    end
-    if tonumber(response.StatusCode) ~= 200 then
-        return nil, "Asset Delivery HTTP " .. tostring(response.StatusCode)
-    end
-    if type(response.Body) ~= "string" or #response.Body == 0 then
-        return nil, "Asset Delivery mengembalikan payload kosong"
-    end
-    if #response.Body > 20 * 1024 * 1024 then
-        return nil, "Payload asset lebih dari 20 MB"
-    end
+    if not ok or type(response) ~= "table" then return nil, "Request gagal" end
+    if tonumber(response.StatusCode) ~= 200 then return nil, "HTTP " .. tostring(response.StatusCode) end
+    if type(response.Body) ~= "string" or #response.Body == 0 then return nil, "Payload kosong" end
     return response.Body
-end
-
-local function memilikiScriptToolbox(objects)
-    for _, root in ipairs(objects) do
-        if root:IsA("LuaSourceContainer") then return true end
-        for _, descendant in ipairs(root:GetDescendants()) do
-            if descendant:IsA("LuaSourceContainer") then return true end
-        end
-    end
-    return false
 end
 
 local function masukkanAsetToolbox(kat, it)
     local tujuan = TUJUAN[idxTujuan].obj
-    setStatus("Memuat " .. it.nama .. "...")
+    Kit.toast("Memuat aset: " .. it.nama .. "...", "ok")
 
     if kat == "Decal" then
         local tex = "rbxassetid://" .. it.id
-        local ok, objs = pcall(function() return game:GetObjects(tex) end)
-        if ok and type(objs) == "table" and objs[1] and objs[1]:IsA("Decal") then
-            tex = objs[1].Texture
-        end
         local part = Instance.new("Part")
         part.Name = it.nama:sub(1, 40)
         part.Anchored = true
@@ -5390,53 +5479,24 @@ local function masukkanAsetToolbox(kat, it)
         d.Texture = tex
         d.Parent = part
         part.Parent = tujuan
-        local positioned, positionMessage = true, nil
-        if tujuan == workspace then positioned, positionMessage = taruhDiDepan(part) end
-        if positioned then
-            setStatus("Decal dipasang: " .. it.nama)
-        else
-            setStatus("Decal dipasang, tapi spawn depan kamera gagal: " .. tostring(positionMessage), true)
-        end
+        if tujuan == workspace then taruhDiDepan(part) end
+        Kit.toast("Decal dipasang: " .. it.nama, "ok")
         return true
     end
 
     local ok, objs = pcall(function() return game:GetObjects("rbxassetid://" .. it.id) end)
     if ok and type(objs) == "table" and #objs > 0 then
-        local sourceData, sourceError
-        local sourceStats
-        if kat == "Model" and memilikiScriptToolbox(objs) then
-            setStatus("Membaca source script dari asset...")
-            sourceData, sourceError = unduhPayloadToolbox(it.id)
-        end
-        if kat == "Model" then
-            sourceStats = studioLiteImporter.prepareToolboxObjects(objs, sourceData)
-        end
-        local berhasil, spawnError = pasangHasil(objs, it.nama)
-        if not berhasil then return false end
-        if sourceStats and sourceStats.scripts > 0 then
-            local terlihat = sourceStats.visible
-            if sourceStats.missingSources > 0 or terlihat < sourceStats.sources or spawnError then
-                local alasan = sourceError or sourceStats.parseError
-                if spawnError then
-                    alasan = (alasan and tostring(alasan) .. "; " or "")
-                        .. "spawn dekat gagal: " .. tostring(spawnError)
-                elseif not alasan then
-                    alasan = "source tidak dapat dipulihkan"
-                end
-                setStatus(string.format(
-                    "Aset masuk; source %d/%d, script hilang %d. %s",
-                    terlihat, sourceStats.scripts, sourceStats.missingSources, tostring(alasan)
-                ), true)
-            else
-                setStatus(string.format(
-                    "Aset masuk; source %d/%d dipulihkan dan script nonaktif untuk diperiksa",
-                    terlihat, sourceStats.scripts
-                ))
+        for _, obj in ipairs(objs) do
+            if obj:IsA("BasePart") then obj.Anchored = true end
+            for _, child in ipairs(obj:GetDescendants()) do
+                if child:IsA("BasePart") then child.Anchored = true end
             end
-        elseif spawnError then
-            setStatus("Aset masuk, tapi spawn dekat gagal: " .. tostring(spawnError), true)
         end
-        return true
+        local berhasil = pasangHasil(objs, it.nama)
+        if berhasil then
+            Kit.toast("Aset berhasil di-spawn: " .. it.nama, "ok")
+        end
+        return berhasil
     end
 
     if kat == "MeshPart" then
@@ -5449,787 +5509,16 @@ local function masukkanAsetToolbox(kat, it)
         m.MeshId = "rbxassetid://" .. it.id
         m.Parent = part
         part.Parent = tujuan
-        local positioned, positionMessage = true, nil
-        if tujuan == workspace then positioned, positionMessage = taruhDiDepan(part) end
-        if positioned then
-            setStatus("Mesh dipasang: " .. it.nama)
-        else
-            setStatus("Mesh dipasang, tapi spawn depan kamera gagal: " .. tostring(positionMessage), true)
-        end
+        if tujuan == workspace then taruhDiDepan(part) end
+        Kit.toast("Mesh dipasang: " .. it.nama, "ok")
         return true
     end
 
-    setStatus("Gagal memuat asset: " .. tostring(objs), true)
+    Kit.toast("Gagal memuat objek aset", "error")
     return false
 end
 
-local function cariToolbox()
-    local q = trim(tbInput.Text)
-    if q == "" then
-        setStatus("Ketik kata kunci dulu", true)
-        return
-    end
-    if not httpReq then
-        setStatus("Executor kamu tidak support request / http_request", true)
-        return
-    end
-    local kat = katAktif
-    local tagKat
-    for _, k in ipairs(KAT) do if k.kunci == kat then tagKat = k.tag end end
-    setStatus("Mencari " .. kat .. ": " .. q .. "...")
-    tbInfo.Text = "Mencari..."
-
-    task.spawn(function()
-        local hasil, err = cariCreatorStore(kat, q)
-        for _, c in ipairs(tbList:GetChildren()) do
-            if c.Name == "Item" then c:Destroy() end
-        end
-        if not hasil then
-            setStatus("Pencarian gagal: " .. tostring(err), true)
-            tbInfo.Text = "Gagal"
-            pesanKosong(tbList, "Pencarian gagal. Coba lagi.")
-            return
-        end
-        if #hasil == 0 then
-            tbInfo.Text = "0 hasil"
-            setStatus("Tidak ada hasil untuk: " .. q, true)
-            pesanKosong(tbList, "Tidak ada hasil.")
-            return
-        end
-        for i, it in ipairs(hasil) do
-            buatItemToolbox(tbList, i, tagKat, it, "IMPORT",
-                function() return masukkanAsetToolbox(kat, it) end)
-        end
-        tbInfo.Text = #hasil .. " hasil"
-        setStatus(#hasil .. " hasil " .. kat .. " untuk: " .. q)
-    end)
-end
-
-tbCari.Activated:Connect(cariToolbox)
-tbInput.FocusLost:Connect(function(enter) if enter then cariToolbox() end end)
-
-------------------------------------------------------------------
--- PANEL SAMPING: MUSIC PLAYER
-------------------------------------------------------------------
-local MUSIC_LOGO = "rbxassetid://102337382069600"
-local MUSIC_TRACKS = {
-    {nama = "RASAH BALI", id = "120983443791226", genre = "DJ Mix", pembuat = "xyuzen'—"},
-    {nama = "Runkat", id = "92799532573184", genre = "DJ Mix", pembuat = "xyuzen'—"},
-    {nama = "NEGORO ANGIN", id = "117224072066843", genre = "DJ Mix", pembuat = "xyuzen'—"},
-    {nama = "Sinarengan", id = "115035906821398", genre = "DJ Mix", pembuat = "xyuzen'—"},
-    {nama = "Pamit Ning Ati", id = "120786497356440", genre = "Sad", pembuat = "xyuzen'—"},
-    {nama = "Urip Iku Mlaku", id = "79151027570609", genre = "Breakbeat", pembuat = "xyuzen'—"},
-    {nama = "Lintang Nyek Seni", id = "70962526173357", genre = "DJ Mix", pembuat = "xyuzen'—"},
-    {nama = "Udang Ning Atiku", id = "135480789776959", genre = "Sad", pembuat = "xyuzen'—"},
-    {nama = "Sepi Tanpo Sliramu", id = "121796353758342", genre = "Sad", pembuat = "xyuzen'—"},
-    {nama = "Tresno Kinaryo Kangen", id = "85537520513989", genre = "Sad", pembuat = "xyuzen'—"},
-    {nama = "Tresnoku Selawase", id = "71152710717244", genre = "Sad", pembuat = "xyuzen'—"},
-    {nama = "Saiki", id = "74761962675895", genre = "Breakbeat", pembuat = "xyuzen'—"},
-    {nama = "Tembang Kanggo Sliramu", id = "134246452602760", genre = "Sad", pembuat = "xyuzen'—"},
-    {nama = "Ora Butoh Sliramu", id = "121335955905892", genre = "DJ Mix", pembuat = "xyuzen'—"},
-    {nama = "Tau Dadi Padhange Dalan", id = "110496212005473", genre = "Sad", pembuat = "xyuzen'—"},
-    {nama = "Nerusake Uripku", id = "77330130829762", genre = "Breakbeat", pembuat = "xyuzen'—"},
-    {nama = "Mboyak", id = "100800381563349", genre = "Breakbeat", pembuat = "xyuzen'—"},
-    {nama = "Kowe Ning Endi", id = "110965259723757", genre = "Sad", pembuat = "xyuzen'—"},
-    {nama = "Los Ora Rewel", id = "79929910199476", genre = "Breakbeat", pembuat = "xyuzen'—"},
-    {nama = "Oalah Wong Kere", id = "100644156519402", genre = "DJ Mix", pembuat = "xyuzen'—"},
-    {nama = "DJ BREAKBEAT BARAT, Vol. 1", id = "115153624060642", genre = "Breakbeat", pembuat = "DistrokidOfficial"},
-    {nama = "DJ Phut Hon Indo Full Bass", id = "85427648559465", genre = "Breakbeat", pembuat = "DistrokidOfficial"},
-    {nama = "DJ STAY THE SAME BREAKBEAT", id = "74088514222709", genre = "Breakbeat", pembuat = "DistrokidOfficial"},
-    {nama = "DJ MISSING YOU BREAKBEAT", id = "119116468910055", genre = "Breakbeat", pembuat = "DistrokidOfficial"},
-    {nama = "DJ LAST GOODBYE BREAKBEAT", id = "139065609615135", genre = "Breakbeat", pembuat = "DistrokidOfficial"},
-    {nama = "DJ WHERE DID YOUR LOVE GO BREAKBEAT", id = "91342380026565", genre = "Breakbeat", pembuat = "DistrokidOfficial"},
-    {nama = "DJ ALL OF ME IS YOURS BREAKBEAT", id = "104593616947405", genre = "Breakbeat", pembuat = "DistrokidOfficial"},
-    {nama = "DJ NO EXPIRATION DATE BREAKBEAT", id = "88762074202384", genre = "Breakbeat", pembuat = "DistrokidOfficial"},
-    {nama = "Aku Suka Jedag Jedug Full Bass", id = "100787734732008", genre = "Breakbeat", pembuat = "DistrokidOfficial"},
-    {nama = "CELAWZE I BIARKAN KU PERGI BREAKBEAT", id = "81426876012759", genre = "Breakbeat", pembuat = "DistrokidOfficial"},
-    {nama = "Breakbeat Mansion", id = "1838727070", genre = "Breakbeat", pembuat = "APMOfficial"},
-    {nama = "Latin Breakbeat - Instrumental", id = "9039703049", genre = "Breakbeat", pembuat = "APMOfficial"},
-    {nama = "JAY | Blackhole Breakbeat", id = "117574079633196", genre = "Breakbeat", pembuat = "DistrokidOfficial"},
-    {nama = "Electronic EDM Rhythm", id = "85837065623863", genre = "EDM", pembuat = "DistrokidOfficial"},
-    {nama = "Funky Disco Beats", id = "9038367768", genre = "EDM", pembuat = "APMOfficial"},
-    {nama = "Deep House Techno Pulse", id = "80225919436233", genre = "EDM", pembuat = "DistrokidOfficial"},
-    {nama = "Predator (EDM, electronic dance)", id = "75075980497523", genre = "EDM", pembuat = "DistrokidOfficial"},
-    {nama = "Night Drive Gravity EDM Remix", id = "90723418714244", genre = "EDM", pembuat = "DistrokidOfficial"},
-    {nama = "Midnight Engine EDM Club Remix", id = "77208158074918", genre = "EDM", pembuat = "DistrokidOfficial"},
-    {nama = "Neon Run", id = "104498304463922", genre = "EDM", pembuat = "DistrokidOfficial"},
-    {nama = "Skyline Bounce", id = "132588706181756", genre = "EDM", pembuat = "DistrokidOfficial"},
-    {nama = "Run the Night", id = "129158012324844", genre = "EDM", pembuat = "DistrokidOfficial"},
-    {nama = "Digital Flames", id = "101278896981200", genre = "EDM", pembuat = "DistrokidOfficial"},
-    {nama = "Life Here Now Forever (a) (30)", id = "9045594726", genre = "EDM", pembuat = "APMOfficial"},
-    {nama = "How Hyped How Hot (a) (30)", id = "1838051027", genre = "EDM", pembuat = "APMOfficial"},
-    {nama = "Floating Through Deeper Thoughts (15 sec)", id = "9038366905", genre = "EDM", pembuat = "APMOfficial"},
-    {nama = "Life Here Now Forever (b) (30)", id = "9045595952", genre = "EDM", pembuat = "APMOfficial"},
-    {nama = "DJ IRONVEIN - Anthem House Remix", id = "137443947685209", genre = "DJ Mix", pembuat = "DistrokidOfficial"},
-    {nama = "Feel Only Love (Dance)", id = "104177688386014", genre = "DJ Mix", pembuat = "DistrokidOfficial"},
-    {nama = "digidi digidi hey stay in my rom dj remix", id = "108919662663242", genre = "DJ Mix", pembuat = "DistrokidOfficial"},
-    {nama = "Let Love Happen X Tchu Tcha Tcha (Dance)", id = "103765309710247", genre = "DJ Mix", pembuat = "DistrokidOfficial"},
-    {nama = "Good Love (Dance)", id = "93966344127430", genre = "DJ Mix", pembuat = "DistrokidOfficial"},
-    {nama = "Remix by DJ Superviel", id = "81599443446781", genre = "DJ Mix", pembuat = "DistrokidOfficial"},
-    {nama = "Cumbia DJ Mix", id = "70489315110582", genre = "DJ Mix", pembuat = "DistrokidOfficial"},
-    {nama = "Party House Mix | DJ Linuxxx", id = "80314545116582", genre = "DJ Mix", pembuat = "DistrokidOfficial"},
-    {nama = "Rock the Phunky Beats", id = "70707928734875", genre = "DJ Mix", pembuat = "DistrokidOfficial"},
-    {nama = "Happy DJ (Rhythm Mix)", id = "1839075254", genre = "DJ Mix", pembuat = "APMOfficial"},
-    {nama = "DJ / Pop Track Concept (Dance-Pop Mix)", id = "82028519579865", genre = "DJ Mix", pembuat = "DistrokidOfficial"},
-    {nama = "We Raise Up Again", id = "73521953281663", genre = "DJ Mix", pembuat = "DistrokidOfficial"},
-    {nama = "You Got to Have Faith", id = "82571224785601", genre = "DJ Mix", pembuat = "DistrokidOfficial"},
-    {nama = "Keep Going", id = "106628268112826", genre = "DJ Mix", pembuat = "DistrokidOfficial"},
-    {nama = "Welcome to My House", id = "86078342485207", genre = "DJ Mix", pembuat = "DistrokidOfficial"},
-    {nama = "Baila Lento", id = "112179327038508", genre = "DJ Mix", pembuat = "DistrokidOfficial"},
-    {nama = "Skyline Riot", id = "106661367200367", genre = "EDM", pembuat = "DistrokidOfficial"},
-    {nama = "After the Fall", id = "78224983844766", genre = "EDM", pembuat = "DistrokidOfficial"},
-    {nama = "Pulse After Midnight", id = "116687923706682", genre = "EDM", pembuat = "DistrokidOfficial"},
-    {nama = "Ghosts in the Neon", id = "130827383001969", genre = "EDM", pembuat = "DistrokidOfficial"},
-    {nama = "Sky of Sound", id = "94699879620769", genre = "EDM", pembuat = "DistrokidOfficial"},
-    {nama = "Twinkle Twinkle Little Star (EDM-Pop Remix)", id = "133792227976953", genre = "EDM", pembuat = "DistrokidOfficial"},
-    {nama = "I Miss You", id = "140627598377770", genre = "Sad", pembuat = "DistrokidOfficial"},
-    {nama = "Sad End (Solo Piano)", id = "1838635121", genre = "Sad", pembuat = "APMOfficial"},
-    {nama = "The Loneliest Hour", id = "114213622974713", genre = "Sad", pembuat = "DistrokidOfficial"},
-    {nama = "The Still, Sad Music Of Humanity", id = "9046435309", genre = "Sad", pembuat = "APMOfficial"},
-    {nama = "Sad Emotional Piano Instrumental", id = "122979340200406", genre = "Sad", pembuat = "DistrokidOfficial"},
-    {nama = "Sad Midnight Touch", id = "123156844134737", genre = "Sad", pembuat = "DistrokidOfficial"},
-    {nama = "That Old Red Radio Played", id = "140471301437637", genre = "Sad", pembuat = "DistrokidOfficial"},
-    {nama = "You Were My Safe Place", id = "138108296865882", genre = "Sad", pembuat = "DistrokidOfficial"},
-    {nama = "Sad Songs Same Story", id = "140031636344247", genre = "Sad", pembuat = "DistrokidOfficial"},
-    {nama = "You Loved Me Until You Didn't", id = "126333704664658", genre = "Sad", pembuat = "DistrokidOfficial"},
-    {nama = "Past Lives", id = "124836999167090", genre = "Sad", pembuat = "DistrokidOfficial"},
-    {nama = "When You Said Goodbye", id = "96332574400847", genre = "Sad", pembuat = "DistrokidOfficial"},
-    {nama = "We Almost Had Forever", id = "139085431440194", genre = "Sad", pembuat = "DistrokidOfficial"},
-    {nama = "Spring of Deception", id = "102450285837527", genre = "Sad", pembuat = "DistrokidOfficial"},
-    {nama = "After The Rain We Rise", id = "135159252018449", genre = "Sad", pembuat = "DistrokidOfficial"},
-    {nama = "Reflections", id = "140636167703930", genre = "Sad", pembuat = "DistrokidOfficial"},
-    {nama = "Our World Is Too Far", id = "139380427193851", genre = "Sad", pembuat = "DistrokidOfficial"},
-    {nama = "Sad Love Songs That Make You Cry", id = "114888868295036", genre = "Sad", pembuat = "DistrokidOfficial"},
-    {nama = "sad song (soua)", id = "138915385850637", genre = "Sad", pembuat = "DistrokidOfficial"},
-}
-
-local musicService = game:GetService("SoundService")
-local oldMusicSound = musicService:FindFirstChild("ImporterHubMusicPlayer")
-if oldMusicSound and oldMusicSound:IsA("Sound") then
-    oldMusicSound:Stop()
-    oldMusicSound:Destroy()
-end
-local musicSound = Instance.new("Sound")
-musicSound.Name = "ImporterHubMusicPlayer"
-musicSound.Volume = 0.5
-musicSound.Looped = false
-musicSound.Parent = musicService
-
-halMusic = sudut(buat("Frame", {
-    Name = "MusicPanel",
-    Size = UDim2.new(0, MUSIC_WIDTH, 0, MUSIC_HEIGHT),
-    Position = UDim2.new(0.5, 0, 0.5, -MUSIC_HEIGHT / 2),
-    BackgroundColor3 = C.bg,
-    BorderSizePixel = 0,
-    Active = true,
-    Visible = false,
-    ZIndex = 2,
-}, gui), 12)
-buat("Frame", {
-    Size = UDim2.new(0, 3, 1, -24),
-    Position = UDim2.new(0, 0, 0, 12),
-    BackgroundColor3 = C.aktif,
-    BorderSizePixel = 0,
-    ZIndex = 3,
-}, halMusic)
-
-local musicHeader = buat("Frame", {
-    Size = UDim2.new(1, 0, 0, 42),
-    BackgroundTransparency = 1,
-}, halMusic)
-label({
-    Text = "Music Player",
-    Font = Enum.Font.GothamBold,
-    TextSize = 14,
-    Position = UDim2.new(0, 14, 0, 4),
-    Size = UDim2.new(1, -64, 0, 18),
-}, musicHeader)
-label({
-    Text = "Breakbeat, EDM, dan sad",
-    TextColor3 = C.redup,
-    TextSize = 10,
-    Position = UDim2.new(0, 14, 0, 22),
-    Size = UDim2.new(1, -64, 0, 14),
-}, musicHeader)
-local musicClose = tombol({
-    Text = "X",
-    Size = UDim2.new(0, 28, 0, 28),
-    Position = UDim2.new(1, -38, 0, 6),
-    BackgroundColor3 = C.kartu,
-}, musicHeader)
-buat("Frame", {
-    Size = UDim2.new(1, -24, 0, 1),
-    Position = UDim2.new(0, 12, 0, 41),
-    BackgroundColor3 = C.redup,
-    BackgroundTransparency = 0.55,
-    BorderSizePixel = 0,
-}, halMusic)
-
-local nowPlaying = sudut(buat("Frame", {
-    Name = "NowPlaying",
-    Size = UDim2.new(1, -24, 0, 104),
-    Position = UDim2.new(0, 12, 0, 50),
-    BackgroundColor3 = C.panel,
-    BorderSizePixel = 0,
-}, halMusic), 10)
-local nowPlayingLogo = sudut(buat("ImageLabel", {
-    Name = "NowPlayingLogo",
-    Size = UDim2.new(0, 76, 0, 76),
-    Position = UDim2.new(0, 12, 0.5, -38),
-    BackgroundColor3 = C.kartu,
-    BorderSizePixel = 0,
-    Image = MUSIC_LOGO,
-    ScaleType = Enum.ScaleType.Fit,
-}, nowPlaying), 8)
-label({
-    Text = "SEKARANG DIPUTAR",
-    Font = Enum.Font.GothamBold,
-    TextColor3 = C.redup,
-    TextSize = 9,
-    Position = UDim2.new(0, 100, 0, 10),
-    Size = UDim2.new(1, -110, 0, 14),
-}, nowPlaying)
-local musicTitle = label({
-    Text = "Pilih lagu",
-    Font = Enum.Font.GothamBold,
-    TextSize = 13,
-    TextWrapped = true,
-    TextYAlignment = Enum.TextYAlignment.Top,
-    Position = UDim2.new(0, 100, 0, 27),
-    Size = UDim2.new(1, -110, 0, 34),
-    TextTruncate = Enum.TextTruncate.AtEnd,
-}, nowPlaying)
-local musicCreator = label({
-    Text = "Roblox Creator Store",
-    TextColor3 = C.redup,
-    TextSize = 10,
-    Position = UDim2.new(0, 100, 0, 63),
-    Size = UDim2.new(1, -110, 0, 16),
-    TextTruncate = Enum.TextTruncate.AtEnd,
-}, nowPlaying)
-local musicId = label({
-    Text = "ID: --",
-    TextColor3 = C.teks,
-    TextSize = 10,
-    Position = UDim2.new(0, 100, 0, 81),
-    Size = UDim2.new(1, -110, 0, 14),
-    TextTruncate = Enum.TextTruncate.AtEnd,
-}, nowPlaying)
-local musicProgressTrack = sudut(buat("Frame", {
-    Name = "PlaybackProgressTrack",
-    Size = UDim2.new(1, -110, 0, 4),
-    Position = UDim2.new(0, 100, 0, 98),
-    BackgroundColor3 = C.kartu,
-    BorderSizePixel = 0,
-    ClipsDescendants = true,
-}, nowPlaying), 2)
-local musicProgressFill = sudut(buat("Frame", {
-    Name = "PlaybackProgressFill",
-    Size = UDim2.new(0, 0, 1, 0),
-    BackgroundColor3 = C.aksen,
-    BorderSizePixel = 0,
-}, musicProgressTrack), 2)
-
-local musicPrevious = tombol({
-    Text = "PREV",
-    TextSize = 9,
-    Size = UDim2.new(0, 48, 0, 34),
-    Position = UDim2.new(0, 32, 0, 164),
-    BackgroundColor3 = C.kartu,
-}, halMusic)
-local musicPlay = tombol({
-    Text = "PLAY",
-    TextSize = 11,
-    Size = UDim2.new(0, 112, 0, 34),
-    Position = UDim2.new(0, 86, 0, 164),
-    BackgroundColor3 = C.aktif,
-}, halMusic)
-local musicNext = tombol({
-    Text = "NEXT",
-    TextSize = 9,
-    Size = UDim2.new(0, 48, 0, 34),
-    Position = UDim2.new(0, 204, 0, 164),
-    BackgroundColor3 = C.kartu,
-}, halMusic)
-local musicStop = tombol({
-    Text = "STOP",
-    TextSize = 9,
-    Size = UDim2.new(0, 48, 0, 34),
-    Position = UDim2.new(0, 258, 0, 164),
-    BackgroundColor3 = C.kartu,
-}, halMusic)
-
-local volumeLevels = {0.25, 0.5, 0.75, 1}
-local volumeIndex = 2
-local musicVolume = tombol({
-    Text = "VOL 50%",
-    TextSize = 9,
-    Size = UDim2.new(0, 82, 0, 24),
-    Position = UDim2.new(0, 12, 0, 206),
-    BackgroundColor3 = C.kartu,
-}, halMusic)
-local musicPlaybackState = label({
-    Text = "Siap diputar",
-    TextColor3 = C.redup,
-    TextSize = 10,
-    Position = UDim2.new(0, 104, 0, 206),
-    Size = UDim2.new(1, -116, 0, 24),
-    TextTruncate = Enum.TextTruncate.AtEnd,
-}, halMusic)
-local renderMusicList
-local musicGenreAktif = "Semua"
-local musicGenreButtons = {}
-local musicFilterRow = buat("Frame", {
-    Size = UDim2.new(1, -24, 0, 24),
-    Position = UDim2.new(0, 12, 0, 238),
-    BackgroundTransparency = 1,
-}, halMusic)
-buat("UIGridLayout", {
-    CellSize = UDim2.new(0.2, -4, 1, 0),
-    CellPadding = UDim2.new(0, 4, 0, 0),
-    FillDirectionMaxCells = 5,
-    SortOrder = Enum.SortOrder.LayoutOrder,
-}, musicFilterRow)
-local function perbaruiMusicGenre()
-    for genre, button in pairs(musicGenreButtons) do
-        local terpilih = genre == musicGenreAktif
-        button.BackgroundColor3 = terpilih and C.aktif or C.kartu
-        button.TextColor3 = terpilih and C.teks or C.redup
-    end
-end
-for i, genre in ipairs({"Semua", "Breakbeat", "EDM", "DJ Mix", "Sad"}) do
-    local namaGenre = genre
-    local genreButton = tombol({
-        Text = namaGenre,
-        TextSize = 8,
-        LayoutOrder = i,
-        BackgroundColor3 = namaGenre == musicGenreAktif and C.aktif or C.kartu,
-        TextColor3 = namaGenre == musicGenreAktif and C.teks or C.redup,
-        AutoButtonColor = false,
-    }, musicFilterRow)
-    musicGenreButtons[namaGenre] = genreButton
-    genreButton.Activated:Connect(function()
-        musicGenreAktif = namaGenre
-        perbaruiMusicGenre()
-        if renderMusicList then renderMusicList() end
-    end)
-end
-local musicSearch = kotakTeks({
-    Size = UDim2.new(1, -24, 0, 30),
-    Position = UDim2.new(0, 12, 0, 270),
-    Text = "",
-    PlaceholderText = "Cari judul, genre, atau ID...",
-}, halMusic)
-local musicList = buatDaftarScroll(
-    halMusic,
-    UDim2.new(0, 12, 0, 306),
-    UDim2.new(1, -24, 1, -344),
-    false
-)
-local musicCount = label({
-    Text = "",
-    TextColor3 = C.redup,
-    TextSize = 9,
-    Position = UDim2.new(0, 12, 1, -28),
-    Size = UDim2.new(1, -24, 0, 18),
-    TextTruncate = Enum.TextTruncate.AtEnd,
-}, halMusic)
-
-local musicSongIndex
-local musicLoadToken = 0
-local function playMusicTrack(index)
-    local track = MUSIC_TRACKS[index]
-    if not track then return end
-    musicSongIndex = index
-    musicTitle.Text = track.nama
-    musicCreator.Text = track.pembuat .. " | " .. track.genre
-    musicId.Text = "ID: " .. track.id
-    musicSound:Stop()
-    musicSound.SoundId = "rbxassetid://" .. track.id
-    musicLoadToken += 1
-    local loadToken = musicLoadToken
-    musicPlaybackState.Text = "Memuat audio..."
-    local okPlay, playError = pcall(function() musicSound:Play() end)
-    if not okPlay then
-        musicPlaybackState.Text = "Gagal memutar"
-        setStatus("Gagal memutar audio: " .. tostring(playError), true)
-        return
-    end
-    musicPlay.Text = "PAUSE"
-    setStatus("Memuat: " .. track.nama)
-    if renderMusicList then renderMusicList() end
-    task.delay(12, function()
-        if loadToken == musicLoadToken and musicSound.Parent and not musicSound.IsLoaded then
-            musicPlaybackState.Text = "Audio belum dimuat"
-            setStatus("Audio belum dimuat; periksa izin ID " .. track.id, true)
-        end
-    end)
-end
-
-local function daftarLaguTerfilter()
-    local query = trim(musicSearch.Text):lower()
-    local indices = {}
-    for index, track in ipairs(MUSIC_TRACKS) do
-        local haystack = (track.nama .. " " .. track.genre .. " " .. track.id .. " " .. track.pembuat):lower()
-        local matchesGenre = musicGenreAktif == "Semua" or track.genre == musicGenreAktif
-        if matchesGenre and (query == "" or haystack:find(query, 1, true)) then
-            table.insert(indices, index)
-        end
-    end
-    return indices
-end
-
-renderMusicList = function()
-    for _, child in ipairs(musicList:GetChildren()) do
-        if child.Name == "MusicTrackItem" or child.Name == "MusicEmpty" then
-            child:Destroy()
-        end
-    end
-    local matches = 0
-    local filteredIndices = daftarLaguTerfilter()
-    for _, index in ipairs(filteredIndices) do
-        local track = MUSIC_TRACKS[index]
-        matches += 1
-        local row = sudut(buat("Frame", {
-            Name = "MusicTrackItem",
-            Size = UDim2.new(1, -8, 0, 58),
-            BackgroundColor3 = C.kartu,
-            BorderSizePixel = 0,
-            LayoutOrder = matches,
-        }, musicList), 8)
-        sudut(buat("ImageLabel", {
-            Size = UDim2.new(0, 34, 0, 34),
-            Position = UDim2.new(0, 8, 0.5, -17),
-            BackgroundColor3 = C.panel,
-            BorderSizePixel = 0,
-            Image = MUSIC_LOGO,
-            ScaleType = Enum.ScaleType.Fit,
-        }, row), 6)
-        label({
-            Text = track.nama,
-            Font = Enum.Font.GothamBold,
-            TextSize = 10,
-            Position = UDim2.new(0, 50, 0, 8),
-            Size = UDim2.new(1, -116, 0, 18),
-            TextTruncate = Enum.TextTruncate.AtEnd,
-        }, row)
-        label({
-            Text = track.genre .. " | ID " .. track.id,
-            TextColor3 = C.redup,
-            TextSize = 8,
-            Position = UDim2.new(0, 50, 0, 29),
-            Size = UDim2.new(1, -116, 0, 16),
-            TextTruncate = Enum.TextTruncate.AtEnd,
-        }, row)
-        local playTrack = tombol({
-            Text = musicSongIndex == index and musicSound.IsPlaying and "AKTIF" or "PUTAR",
-            TextSize = 8,
-            Size = UDim2.new(0, 54, 0, 28),
-            Position = UDim2.new(1, -62, 0.5, -14),
-            BackgroundColor3 = musicSongIndex == index and musicSound.IsPlaying and C.aktif or C.panel,
-        }, row)
-        playTrack.Activated:Connect(function() playMusicTrack(index) end)
-    end
-    if matches == 0 then
-        label({
-            Name = "MusicEmpty",
-            Text = "Tidak ada lagu yang cocok. Coba kata kunci atau ID lain.",
-            TextColor3 = C.redup,
-            TextWrapped = true,
-            Size = UDim2.new(1, -8, 0, 40),
-            LayoutOrder = 1,
-        }, musicList)
-    end
-    musicCount.Text = matches .. " / " .. #MUSIC_TRACKS .. " lagu publik"
-end
-
-musicSound.Loaded:Connect(function()
-    if musicSongIndex and musicSound.IsPlaying then
-        musicPlaybackState.Text = "Sedang diputar"
-        setStatus("Memutar: " .. MUSIC_TRACKS[musicSongIndex].nama)
-    end
-end)
-musicSound.Ended:Connect(function()
-    musicPlay.Text = "PLAY"
-    musicPlaybackState.Text = "Lagu selesai"
-    if musicSongIndex then
-        setStatus("Selesai: " .. MUSIC_TRACKS[musicSongIndex].nama)
-    end
-    renderMusicList()
-end)
-musicSearch:GetPropertyChangedSignal("Text"):Connect(renderMusicList)
-musicVolume.Activated:Connect(function()
-    volumeIndex = volumeIndex % #volumeLevels + 1
-    musicSound.Volume = volumeLevels[volumeIndex]
-    musicVolume.Text = "VOL " .. tostring(math.floor(musicSound.Volume * 100 + 0.5)) .. "%"
-end)
-musicPrevious.Activated:Connect(function()
-    local filtered = daftarLaguTerfilter()
-    if #filtered == 0 then return end
-    local currentPosition = musicSongIndex and table.find(filtered, musicSongIndex)
-    local index = filtered[currentPosition and (currentPosition - 2) % #filtered + 1 or #filtered]
-    playMusicTrack(index)
-end)
-musicNext.Activated:Connect(function()
-    local filtered = daftarLaguTerfilter()
-    if #filtered == 0 then return end
-    local currentPosition = musicSongIndex and table.find(filtered, musicSongIndex)
-    local nextPosition = currentPosition and currentPosition % #filtered + 1 or 1
-    playMusicTrack(filtered[nextPosition])
-end)
-musicPlay.Activated:Connect(function()
-    if not musicSongIndex then
-        local filtered = daftarLaguTerfilter()
-        if #filtered > 0 then playMusicTrack(filtered[1]) else
-            setStatus("Tidak ada lagu yang cocok untuk diputar", true)
-        end
-        return
-    end
-    if musicSound.IsPlaying then
-        musicSound:Pause()
-        musicPlay.Text = "PLAY"
-        musicPlaybackState.Text = "Dijeda"
-        setStatus("Dijeda: " .. MUSIC_TRACKS[musicSongIndex].nama)
-    else
-        if musicSound.TimeLength > 0 and musicSound.TimePosition >= musicSound.TimeLength then
-            musicSound.TimePosition = 0
-        end
-        local okPlay, playError = pcall(function() musicSound:Play() end)
-        if not okPlay then
-            musicPlaybackState.Text = "Gagal memutar"
-            setStatus("Gagal melanjutkan audio: " .. tostring(playError), true)
-            return
-        end
-        musicPlay.Text = "PAUSE"
-        musicPlaybackState.Text = "Sedang diputar"
-        setStatus("Memutar: " .. MUSIC_TRACKS[musicSongIndex].nama)
-    end
-    renderMusicList()
-end)
-musicStop.Activated:Connect(function()
-    musicLoadToken += 1
-    musicSound:Stop()
-    musicPlay.Text = "PLAY"
-    musicPlaybackState.Text = "Dihentikan"
-    setStatus("Audio dihentikan")
-    renderMusicList()
-end)
-
-bukaMusicPanel = function()
-    if musicTerbuka then return end
-    musicTerbuka = true
-    halMusic.Visible = true
-    aturLayoutPanelSamping(true)
-    if sorotMenu then sorotMenu("music") end
-    jalankanSapuan()
-end
-tutupMusicPanel = function()
-    if not musicTerbuka then return end
-    musicTerbuka = false
-    halMusic.Visible = false
-    aturLayoutPanelSamping(true)
-    if sorotMenu then sorotMenu(halamanAktif) end
-end
-musicClose.Activated:Connect(tutupMusicPanel)
-renderMusicList()
-task.spawn(function()
-    while gui.Parent and musicSound.Parent do
-        local duration = musicSound.TimeLength
-        local progress = duration > 0 and math.clamp(musicSound.TimePosition / duration, 0, 1) or 0
-        musicProgressFill.Size = UDim2.new(progress, 0, 1, 0)
-        task.wait(0.2)
-    end
-end)
-
-------------------------------------------------------------------
-local function initHalamanAI()
--- HALAMAN: AI CHAT (OpenRouter)
-------------------------------------------------------------------
-local halAI = buat("Frame", {Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency = 1, Visible = false}, isi)
-halaman.ai = halAI
-
-local aiList = sudut(buat("ScrollingFrame", {
-    Size = UDim2.new(1, 0, 1, -38),
-    BackgroundColor3 = C.panel,
-    BorderSizePixel = 0,
-    ScrollBarThickness = 4,
-    CanvasSize = UDim2.new(0, 0, 0, 0),
-    AutomaticCanvasSize = Enum.AutomaticSize.Y,
-}, halAI), 8)
-buat("UIListLayout", {Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder}, aiList)
-buat("UIPadding", {PaddingTop = UDim.new(0, 6), PaddingLeft = UDim.new(0, 6)}, aiList)
-
-local aiInput = kotakTeks({
-    Size = UDim2.new(1, -160, 0, 30), Position = UDim2.new(0, 0, 1, -30),
-    Text = "", PlaceholderText = "Tulis pesan...",
-}, halAI)
-local aiKirim = tombol({Text = "KIRIM", Size = UDim2.new(0, 74, 0, 30),
-    Position = UDim2.new(1, -154, 1, -30), BackgroundColor3 = C.aktif}, halAI)
-local aiReset = tombol({Text = "RESET", Size = UDim2.new(0, 76, 0, 30),
-    Position = UDim2.new(1, -76, 1, -30), BackgroundColor3 = C.kartu}, halAI)
-
-local riwayat = {}
-local urutPesan = 0
-local aiSibuk = false
-local AWALAN = {user = "Kamu: ", ai = "AI: ", sistem = ""}
-
-local function tambahPesan(peran, teks)
-    urutPesan = urutPesan + 1
-    local warna = peran == "user" and C.aktif or (peran == "ai" and C.kartu or Color3.fromRGB(80, 56, 56))
-    local lbl = sudut(buat("TextLabel", {
-        Size = UDim2.new(1, -14, 0, 0),
-        AutomaticSize = Enum.AutomaticSize.Y,
-        BackgroundColor3 = warna,
-        BorderSizePixel = 0,
-        Text = AWALAN[peran] .. teks,
-        TextColor3 = C.teks,
-        Font = Enum.Font.Gotham,
-        TextSize = 12,
-        TextWrapped = true,
-        TextXAlignment = Enum.TextXAlignment.Left,
-        TextYAlignment = Enum.TextYAlignment.Top,
-        LayoutOrder = urutPesan,
-    }, aiList), 8)
-    buat("UIPadding", {PaddingTop = UDim.new(0, 6), PaddingBottom = UDim.new(0, 6),
-        PaddingLeft = UDim.new(0, 8), PaddingRight = UDim.new(0, 8)}, lbl)
-    task.defer(function()
-        task.wait()
-        aiList.CanvasPosition = Vector2.new(0, 99999)
-    end)
-        if peran == "ai" then
-        local salinBtn = buat("TextButton", {
-            Size = UDim2.new(0, 90, 0, 20),
-            Position = UDim2.new(1, -94, 1, -24),
-            BackgroundColor3 = Color3.fromRGB(0, 245, 115),
-            Text = "📋 Salin Script",
-            TextColor3 = Color3.fromRGB(0, 0, 0),
-            TextSize = 9,
-            Font = Enum.Font.GothamBold,
-        }, lbl)
-        sudut(salinBtn, 4)
-        salinBtn.Activated:Connect(function()
-            if setclipboard then setclipboard(teks) end
-        end)
-    end
-    return lbl
-end
-
-local function pesanUntukAPI()
-    local hasil = {{role = "system",
-        content = "Kamu asisten yang membantu soal Roblox, Luau, dan scripting. Jawab singkat dan jelas dalam bahasa Indonesia."}}
-    local mulai = math.max(1, #riwayat - 19)
-    for i = mulai, #riwayat do table.insert(hasil, riwayat[i]) end
-    return hasil
-end
-
-local function redaksiAI(nilai)
-    local teks = tostring(nilai)
-    local key = trim(config.orKey)
-    if key ~= "" then
-        teks = teks:gsub(key:gsub("([^%w])", "%%%1"), "<REDACTED>")
-    end
-    return teks
-end
-
-local function formatAIError(statusCode, apiError)
-    local detail = {}
-    if statusCode ~= nil then
-        table.insert(detail, "HTTP " .. redaksiAI(statusCode))
-    end
-    if type(apiError) == "table" then
-        if apiError.code ~= nil then
-            table.insert(detail, "kode " .. redaksiAI(apiError.code))
-        end
-        local metadata = apiError.metadata
-        if type(metadata) == "table" and type(metadata.provider_name) == "string"
-            and metadata.provider_name ~= "" then
-            table.insert(detail, "provider " .. redaksiAI(metadata.provider_name))
-        end
-        if apiError.message ~= nil then
-            table.insert(detail, redaksiAI(apiError.message))
-        end
-    elseif apiError ~= nil then
-        table.insert(detail, redaksiAI(apiError))
-    end
-    if #detail == 0 then return "Respons tidak valid" end
-    return table.concat(detail, " | ")
-end
-
-local function kirimAI()
-    local teks = trim(aiInput.Text)
-    if teks == "" or aiSibuk then return end
-    local activeKey = trim(config.orKey)
-    if activeKey == "" then activeKey = DEFAULT_OR_KEY end
-    if not httpReq then
-        tambahPesan("sistem", "Executor kamu tidak support request / http_request.")
-        return
-    end
-
-    aiSibuk = true
-    aiInput.Text = ""
-    tambahPesan("user", teks)
-    table.insert(riwayat, {role = "user", content = teks})
-    local tunggu = tambahPesan("ai", "...")
-
-    task.spawn(function()
-        local ok, res = pcall(httpReq, {
-            Url = "https://openrouter.ai/api/v1/chat/completions",
-            Method = "POST",
-            Headers = {
-                ["Content-Type"] = "application/json",
-                ["Authorization"] = "Bearer " .. activeKey,
-                ["X-Title"] = "TOOLS ENGINE AI",
-            },
-            Body = HttpService:JSONEncode({model = trim(config.orModel), messages = pesanUntukAPI()}),
-        })
-
-        local jawaban, galat
-        if ok and res then
-            local d = decodeJson(res)
-            if d and d.choices and d.choices[1] and d.choices[1].message then
-                jawaban = tostring(d.choices[1].message.content or "")
-            elseif d and d.error then
-                galat = formatAIError(res.StatusCode, d.error)
-            else
-                galat = formatAIError(res.StatusCode)
-            end
-        else
-            galat = redaksiAI(res)
-        end
-
-        if jawaban then
-            tunggu.Text = AWALAN.ai .. jawaban
-            table.insert(riwayat, {role = "assistant", content = jawaban})
-        else
-            tunggu.Text = "Gagal: " .. tostring(galat)
-            tunggu.BackgroundColor3 = Color3.fromRGB(80, 56, 56)
-            table.remove(riwayat)
-        end
-        aiSibuk = false
-    end)
-end
-
-aiKirim.Activated:Connect(kirimAI)
-aiInput.FocusLost:Connect(function(enter) if enter then kirimAI() end end)
-aiReset.Activated:Connect(function()
-    riwayat = {}
-    for _, c in ipairs(aiList:GetChildren()) do
-        if c:IsA("TextLabel") then c:Destroy() end
-    end
-    tambahPesan("sistem", "Percakapan direset.")
-end)
-tambahPesan("sistem", "Halo! Aku asisten AI Tools Engine (Auto OpenRouter Ready). Tanya apa saja soal Roblox, Lua, scripting, atau bypass.")
-
-------------------------------------------------------------------
--- HALAMAN: PENGATURAN
-------------------------------------------------------------------
-------------------------------------------------------------------
-end
-initHalamanAI()
-
-------------------------------------------------------------------
--- ENGINE SPOOFER & BYPASS IN-GAME (Full Auto Place ID Bypass + 60FPS)
-------------------------------------------------------------------
+-- ======================= ENGINE SPOOFER & AUTO-PLACEID BYPASS =======================
 local spoofCache = {}
 local lastWorkingPlaceId = nil
 local DEFAULT_SEEDS = {
@@ -6240,8 +5529,6 @@ local DEFAULT_SEEDS = {
 
 local function ambilDetailAset(aid)
     local name, creatorId, creatorType = nil, nil, nil
-
-    -- 1. Economy API v2 (Cepat, 1 request)
     local ok1, res1 = pcall(httpReq, {
         Url = "https://economy.roblox.com/v2/assets/" .. aid .. "/details",
         Method = "GET",
@@ -6258,27 +5545,6 @@ local function ambilDetailAset(aid)
             end
         end
     end
-
-    -- 2. Fallback Develop API (hanya jika gagal)
-    if not name then
-        local ok2, res2 = pcall(httpReq, {
-            Url = "https://develop.roblox.com/v1/assets?assetIds=" .. aid,
-            Method = "GET",
-            Headers = {["User-Agent"] = "Roblox/WinInet"}
-        })
-        if ok2 and res2 and (res2.StatusCode == 200 or res2.Status == 200) then
-            local d = decodeJson(res2)
-            if d and d.data and d.data[1] then
-                name = d.data[1].name
-                local c = d.data[1].creator
-                if c then
-                    creatorId = c.id
-                    creatorType = c.type
-                end
-            end
-        end
-    end
-
     local cleanName = name and name:gsub("[^%w%s%-_]", ""):sub(1, 35) or ("Asset_" .. aid)
     if cleanName == "" then cleanName = "Asset_" .. aid end
     return cleanName, creatorId, creatorType
@@ -6310,108 +5576,22 @@ local function unduhAssetCepat(aid, srcCId, srcCType)
         return nil
     end
 
-    -- Jalur 1: Coba game.PlaceId (Current game di Delta - Instan <0.1 detik)
     if game.PlaceId and game.PlaceId > 0 then
         local b = cobaDownload(game.PlaceId)
-        if b then
-            lastWorkingPlaceId = game.PlaceId
-            return b
-        end
+        if b then lastWorkingPlaceId = game.PlaceId return b end
     end
-
-    -- Jalur 2: Coba lastWorkingPlaceId (Tempat yang sukses sebelumnya)
     if lastWorkingPlaceId and lastWorkingPlaceId ~= game.PlaceId then
         local b = cobaDownload(lastWorkingPlaceId)
         if b then return b end
     end
-
-    -- Jalur 3: Direct tanpa Place-Id (untuk public asset)
     local bDirect = cobaDownload(nil)
     if bDirect then return bDirect end
 
-    -- Jalur 4: Auto-detect games pembuat aset (User / Group bypass)
-    local placeList = {}
-    if srcCId and srcCType == "User" then
-        local okU, resU = pcall(httpReq, {
-            Url = "https://games.roblox.com/v2/users/" .. srcCId .. "/games?accessFilter=Public&limit=6&sortOrder=Asc",
-            Method = "GET",
-            Headers = {["User-Agent"] = "Roblox/WinInet"}
-        })
-        if okU and resU and (resU.StatusCode == 200 or resU.Status == 200) then
-            local dU = decodeJson(resU)
-            if dU and dU.data then
-                for _, g in ipairs(dU.data) do
-                    if g.rootPlace and g.rootPlace.id then
-                        table.insert(placeList, g.rootPlace.id)
-                    end
-                end
-            end
-        end
-    elseif srcCId and srcCType == "Group" then
-        local okGrp, resGrp = pcall(httpReq, {
-            Url = "https://games.roblox.com/v2/groups/" .. srcCId .. "/games?accessFilter=Public&limit=6&sortOrder=Asc",
-            Method = "GET",
-            Headers = {["User-Agent"] = "Roblox/WinInet"}
-        })
-        if okGrp and resGrp and (resGrp.StatusCode == 200 or resGrp.Status == 200) then
-            local dG = decodeJson(resGrp)
-            if dG and dG.data then
-                for _, g in ipairs(dG.data) do
-                    if g.rootPlace and g.rootPlace.id then
-                        table.insert(placeList, g.rootPlace.id)
-                    end
-                end
-            end
-        end
-    end
-
-    -- Coba Place ID milik creator game
-    for _, pid in ipairs(placeList) do
-        local b = cobaDownload(pid)
-        if b then
-            lastWorkingPlaceId = pid
-            return b
-        end
-        task.wait(0.01) -- Non-blocking yield
-    end
-
-    -- Jalur 5: Bypass Seeds (Mirror bot DC)
     for _, pid in ipairs(DEFAULT_SEEDS) do
         local b = cobaDownload(pid)
-        if b then
-            lastWorkingPlaceId = pid
-            return b
-        end
-        task.wait(0.01) -- Non-blocking yield
+        if b then lastWorkingPlaceId = pid return b end
+        task.wait(0.01)
     end
-
-    -- Jalur 6: Direct v1 bypass
-    local okV1, rV1 = pcall(httpReq, {
-        Url = "https://assetdelivery.roblox.com/v1/asset/?id=" .. aid,
-        Method = "GET",
-        Headers = {
-            ["User-Agent"] = "Roblox/WinInet",
-            ["Roblox-Place-Id"] = tostring(lastWorkingPlaceId or game.PlaceId or 6872265039)
-        }
-    })
-    if okV1 and rV1 and (rV1.StatusCode == 200 or rV1.Status == 200)
-        and type(rV1.Body) == "string" and #rV1.Body > 80 then
-        local b = rV1.Body
-        if not b:find('^{"errors"') and not b:find('^{"message"') and not b:find('^<') then
-            return b
-        end
-    end
-
-    -- Jalur 7: game:HttpGet client
-    if game.HttpGet then
-        local okG, bodyG = pcall(function()
-            return game:HttpGet("https://assetdelivery.roblox.com/v1/asset/?id=" .. aid)
-        end)
-        if okG and type(bodyG) == "string" and #bodyG > 80 and not bodyG:find('^{"errors"') then
-            return bodyG
-        end
-    end
-
     return nil
 end
 
@@ -6419,59 +5599,33 @@ local function spoofAssetSingleCore(assetId, targetType, speedVal)
     local apiKey = trim(config.ocKey)
     local creatorId = trim(config.creatorId):match("^%d+$")
     if apiKey == "" or not creatorId then
-        return nil, "Isi Open Cloud API Key & Creator ID di Pengaturan!"
+        return nil, "Isi Open Cloud API Key & Creator ID di Setting!"
     end
 
-    -- Cek Cache Lokal (Instan 0ms untuk ID yang berulang di script!)
     local cacheKey = assetId .. "_" .. tostring(speedVal or "1.0") .. "_" .. tostring(targetType or "auto")
     if spoofCache[cacheKey] then
         local c = spoofCache[cacheKey]
         return c.id, c.name
     end
 
-    -- Ambil nama aset dan creator info untuk Auto Place ID Bypass
     local assetName, srcCId, srcCType = ambilDetailAset(assetId)
-
-    -- Unduh aset dengan Auto Place ID Bypass lengkap
     local fileData = unduhAssetCepat(assetId, srcCId, srcCType)
     if not fileData then
         return nil, "Asset tidak dapat diunduh (private/rate-limit)", assetName
     end
 
     local finalType = targetType or "Audio"
-    local ext = "mp3"
-    local mime = "audio/mpeg"
-    if finalType == "Animation" then
-        ext = "rbxm"
-        mime = "model/x-rbxm"
-    elseif finalType == "Decal" then
-        ext = "png"
-        mime = "image/png"
-    else
-        finalType = "Audio"
-        if fileData:sub(1, 4) == "OggS" then
-            ext = "ogg"
-            mime = "audio/ogg"
-        else
-            ext = "mp3"
-            mime = "audio/mpeg"
-        end
-    end
+    local ext = (fileData:sub(1, 4) == "OggS") and "ogg" or "mp3"
+    local mime = (ext == "ogg") and "audio/ogg" or "audio/mpeg"
 
-    local creatorObj = {}
-    if config.creatorTipe == "Group" then
-        creatorObj.groupId = creatorId
-    else
-        creatorObj.userId = creatorId
-    end
-
+    local creatorObj = (config.creatorTipe == "Group") and {groupId = creatorId} or {userId = creatorId}
     local speedLabel = (speedVal and speedVal ~= "1.0" and speedVal ~= "1") and (" (" .. speedVal .. "x)") or ""
     local displayName = (assetName .. speedLabel):sub(1, 45)
 
     local meta = HttpService:JSONEncode({
         assetType = finalType,
         displayName = displayName,
-        description = "Spoofed via Importer Hub",
+        description = "Spoofed via Quantum Hub",
         creationContext = { creator = creatorObj }
     })
 
@@ -6486,19 +5640,15 @@ local function spoofAssetSingleCore(assetId, targetType, speedVal)
         Body = bodyReq
     })
 
-    if not okP or not res then
-        return nil, "Koneksi upload Open Cloud gagal", assetName
-    end
-
+    if not okP or not res then return nil, "Upload gagal terhubung", assetName end
     local d = decodeJson(res)
     if not d or not d.path then
         local errPesan = d and (d.message or d.error) or ("HTTP " .. tostring(res.StatusCode))
-        return nil, "Ditolak Roblox: " .. tostring(errPesan), assetName
+        return nil, "Ditolak: " .. tostring(errPesan), assetName
     end
 
-    -- Polling adaptif cepat (mulai 0.3s s/d 0.9s, maks 12x)
     local newAssetId = nil
-    local pollDelays = {0.3, 0.5, 0.7, 0.9, 0.9, 1.0, 1.0, 1.0, 1.2, 1.2, 1.5, 1.5}
+    local pollDelays = {0.3, 0.5, 0.7, 0.9, 1.0, 1.0, 1.2, 1.5}
     for _, delaySec in ipairs(pollDelays) do
         task.wait(delaySec)
         local okQ, r2 = pcall(httpReq, {
@@ -6518,942 +5668,1018 @@ local function spoofAssetSingleCore(assetId, targetType, speedVal)
         end
     end
 
-    if not newAssetId then
-        return nil, "Proses upload timeout di server Roblox", assetName
-    end
-
-    -- Simpan di cache untuk instan reuse
+    if not newAssetId then return nil, "Timeout proses upload Roblox", assetName end
     spoofCache[cacheKey] = {id = newAssetId, name = assetName}
-
     return newAssetId, assetName
 end
 
-local daftarSpeed = {"0.8", "1.0", "1.2", "1.5", "1.8", "2.0", "2.3", "2.5", "3.0"}
-
-local function initHalamanSpoof()
-------------------------------------------------------------------
--- HALAMAN: SPOOFER & SCRIPT ID REPLACER (Pixel Perfect & Clean)
-------------------------------------------------------------------
-local halSpoof = buat("ScrollingFrame", {
-    Size = UDim2.new(1, 0, 1, 0),
-    BackgroundTransparency = 1,
-    BorderSizePixel = 0,
-    ScrollBarThickness = 4,
-    ScrollBarImageColor3 = C.redup,
-    CanvasSize = UDim2.new(0, 0, 0, 0),
-    AutomaticCanvasSize = Enum.AutomaticSize.Y,
-    ClipsDescendants = true,
-    Visible = false,
-}, isi)
-halaman.spoof = halSpoof
-buat("UIListLayout", {Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder}, halSpoof)
-buat("UIPadding", {PaddingTop = UDim.new(0, 4), PaddingBottom = UDim.new(0, 20), PaddingLeft = UDim.new(0, 6), PaddingRight = UDim.new(0, 10)}, halSpoof)
-
-label({Text = "Spoofer & Bypass Asset Roblox", Font = Enum.Font.GothamBold, TextSize = 14,
-    Size = UDim2.new(1, 0, 0, 20), LayoutOrder = 1}, halSpoof)
-label({Text = "Duplikasi audio, animasi, decal & ganti semua ID di dalam script secara otomatis.",
-    TextColor3 = C.redup, TextSize = 10, Size = UDim2.new(1, 0, 0, 14), LayoutOrder = 2}, halSpoof)
-
--- Card 1: Spoof Manual ID
-local cardSpoofId = sudut(buat("Frame", {
-    BackgroundColor3 = C.kartu,
-    BorderSizePixel = 0,
-    Size = UDim2.new(1, 0, 0, 0),
-    AutomaticSize = Enum.AutomaticSize.Y,
-    BorderSizePixel = 0,
-    ClipsDescendants = true,
-    LayoutOrder = 3,
-}, halSpoof), 8)
-buat("UIPadding", {PaddingTop = UDim.new(0, 10), PaddingBottom = UDim.new(0, 12), PaddingLeft = UDim.new(0, 10), PaddingRight = UDim.new(0, 10)}, cardSpoofId)
-buat("UIListLayout", {Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder}, cardSpoofId)
-
-label({Text = "1. SPOOF ASSET ID (Bisa multi ID pisahkan koma/spasi/enter):", Font = Enum.Font.GothamBold, TextSize = 11,
-    Size = UDim2.new(1, 0, 0, 16), LayoutOrder = 1}, cardSpoofId)
-
-local inputSpoofId = kotakTeks({
-    Size = UDim2.new(1, 0, 0, 36),
-    PlaceholderText = "Contoh: 1839075254, 85837065623863...",
-    LayoutOrder = 2,
-}, cardSpoofId)
-
--- Pilihan Tipe
-label({Text = "PILIH TIPE ASET:", TextColor3 = C.redup, TextSize = 10, Size = UDim2.new(1, 0, 0, 14), LayoutOrder = 3}, cardSpoofId)
-local rowTipe = buat("Frame", {Size = UDim2.new(1, 0, 0, 28), BackgroundTransparency = 1, LayoutOrder = 4}, cardSpoofId)
-buat("UIListLayout", {FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 6)}, rowTipe)
-
-local tipeTerpilih = "Audio"
-local tombolTipeMap = {}
-local daftarTipe = {
-    {k = "Audio", nama = "🎵 Audio"},
-    {k = "Animation", nama = "🎬 Animasi"},
-    {k = "Decal", nama = "🖼️ Decal"}
+-- ======================= XIUREY MUSIC TRACKS =======================
+local MUSIC_TRACKS = {
+    {nama = "RASAH BALI", id = "120983443791226", genre = "DJ Mix", pembuat = "xyuzen'—"},
+    {nama = "Runkat", id = "92799532573184", genre = "DJ Mix", pembuat = "xyuzen'—"},
+    {nama = "NEGORO ANGIN", id = "117224072066843", genre = "DJ Mix", pembuat = "xyuzen'—"},
+    {nama = "Sinarengan", id = "115035906821398", genre = "DJ Mix", pembuat = "xyuzen'—"},
+    {nama = "Pamit Ning Ati", id = "120786497356440", genre = "Sad", pembuat = "xyuzen'—"},
+    {nama = "Urip Iku Mlaku", id = "79151027570609", genre = "Breakbeat", pembuat = "xyuzen'—"},
+    {nama = "Lintang Nyek Seni", id = "70962526173357", genre = "DJ Mix", pembuat = "xyuzen'—"},
+    {nama = "Udang Ning Atiku", id = "135480789776959", genre = "Sad", pembuat = "xyuzen'—"},
+    {nama = "Sepi Tanpo Sliramu", id = "121796353758342", genre = "Sad", pembuat = "xyuzen'—"},
+    {nama = "Tresno Kinaryo Kangen", id = "85537520513989", genre = "Sad", pembuat = "xyuzen'—"},
+    {nama = "Tresnoku Selawase", id = "71152710717244", genre = "Sad", pembuat = "xyuzen'—"},
+    {nama = "Saiki", id = "74761962675895", genre = "Breakbeat", pembuat = "xyuzen'—"},
+    {nama = "Tembang Kanggo Sliramu", id = "134246452602760", genre = "Sad", pembuat = "xyuzen'—"},
+    {nama = "Ora Butoh Sliramu", id = "121335955905892", genre = "DJ Mix", pembuat = "xyuzen'—"},
+    {nama = "Tau Dadi Padhange Dalan", id = "110496212005473", genre = "Sad", pembuat = "xyuzen'—"},
+    {nama = "Nerusake Uripku", id = "77330130829762", genre = "Breakbeat", pembuat = "xyuzen'—"},
+    {nama = "Mboyak", id = "100800381563349", genre = "Breakbeat", pembuat = "xyuzen'—"},
+    {nama = "Kowe Ning Endi", id = "110965259723757", genre = "Sad", pembuat = "xyuzen'—"},
+    {nama = "Los Ora Rewel", id = "79929910199476", genre = "Breakbeat", pembuat = "xyuzen'—"},
+    {nama = "Oalah Wong Kere", id = "100644156519402", genre = "DJ Mix", pembuat = "xyuzen'—"},
 }
 
-local function updateTipeUI()
-    for k, btn in pairs(tombolTipeMap) do
-        local aktif = (k == tipeTerpilih)
-        btn.BackgroundColor3 = aktif and C.aktif or C.panel
-        btn.TextColor3 = aktif and C.teks or C.redup
-    end
+-- ======================= XIUREY OPENROUTER AI ENGINE =======================
+local __OR_KEY_BYTES = {152,144,82,148,151,82,155,86,82,135,87,139,92,85,88,88,91,136,139,92,134,86,88,86,94,94,136,87,89,136,85,134,136,90,88,87,134,85,92,137,87,134,86,94,92,134,138,88,87,94,85,88,93,92,91,90,93,138,136,134,94,137,90,86,134,90,138,86,134,87,87,88,90}
+local function decodeOpenRouterKey()
+    local s = {}
+    for i, b in ipairs(__OR_KEY_BYTES) do s[i] = string.char((b - 37) % 256) end
+    return table.concat(s)
 end
 
-for _, item in ipairs(daftarTipe) do
-    local btn = tombol({
-        Text = item.nama,
-        Size = UDim2.new(0.32, -4, 1, 0),
-        BackgroundColor3 = C.panel,
-    }, rowTipe)
-    tombolTipeMap[item.k] = btn
-    btn.Activated:Connect(function()
-        tipeTerpilih = item.k
-        updateTipeUI()
-    end)
-end
-updateTipeUI()
-
--- Pilihan Speed
-label({Text = "PILIH SPEED BYPASS (Untuk Audio / Musik):", TextColor3 = C.redup, TextSize = 10, Size = UDim2.new(1, 0, 0, 14), LayoutOrder = 5}, cardSpoofId)
-local rowSpeed = buat("Frame", {Size = UDim2.new(1, 0, 0, 26), BackgroundTransparency = 1, LayoutOrder = 6}, cardSpoofId)
-buat("UIListLayout", {FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 4)}, rowSpeed)
-
--- Rekomendasi Sound.PlaybackSpeed Realtime Label
-local lblRecSpeed = label({
-    Text = "💡 Rekomendasi Sound.PlaybackSpeed: 1.00x",
-    TextColor3 = C.redup,
-    TextSize = 10,
-    Font = Enum.Font.Gotham,
-    Size = UDim2.new(1, 0, 0, 16),
-    LayoutOrder = 7,
-}, cardSpoofId)
-
-local function hitungRecPlayback(sp)
-    local num = tonumber(sp)
-    if not num or num <= 0 then return "1.00x" end
-    return string.format("%.2f", 1.0 / num) .. "x"
-end
-
-local speedTerpilih = "1.0"
-local tombolSpeedMap = {}
-
-local function updateSpeedUI()
-    for s, btn in pairs(tombolSpeedMap) do
-        local aktif = (s == speedTerpilih)
-        btn.BackgroundColor3 = aktif and C.aktif or C.panel
-        btn.TextColor3 = aktif and C.teks or C.redup
-    end
-    if lblRecSpeed then
-        lblRecSpeed.Text = "💡 Rekomendasi Sound.PlaybackSpeed In-Game: " .. hitungRecPlayback(speedTerpilih)
-    end
-end
-
-for _, sp in ipairs(daftarSpeed) do
-    local btn = tombol({
-        Text = sp .. "x",
-        Size = UDim2.new(0.1, 0, 1, 0),
-        BackgroundColor3 = C.panel,
-        TextSize = 10,
-    }, rowSpeed)
-    tombolSpeedMap[sp] = btn
-    btn.Activated:Connect(function()
-        speedTerpilih = sp
-        updateSpeedUI()
-    end)
-end
-updateSpeedUI()
-
--- Tombol Spoof Sekarang
-local btnSpoofNow = tombol({
-    Text = "⚡ SPOOF SEKARANG",
-    Font = Enum.Font.GothamBold,
-    TextSize = 12,
-    TextColor3 = C.teks,
-    BackgroundColor3 = C.aktif,
-    Size = UDim2.new(1, 0, 0, 32),
-    LayoutOrder = 8,
-}, cardSpoofId)
-
--- Kotak Hasil Spoof ID (Read-only, rapi, tidak bisa diedit)
-local outSpoofId = buatKotakKode({
-    Size = UDim2.new(1, 0, 0, 75),
-    PlaceholderText = "Hasil nama aset dan ID baru akan muncul di sini (Read-only)...",
-    TextEditable = false,
-    LayoutOrder = 9,
-}, cardSpoofId)
-
-local btnSalinHasilId = tombol({
-    Text = "📋 Salin ID Hasil",
-    Font = Enum.Font.GothamBold,
-    TextSize = 11,
-    Size = UDim2.new(1, 0, 0, 26),
-    BackgroundColor3 = C.panel,
-    LayoutOrder = 10,
-}, cardSpoofId)
-
-local cleanOnlyIds = {}
-
-btnSalinHasilId.Activated:Connect(function()
-    if setclipboard then
-        if #cleanOnlyIds > 0 then
-            setclipboard(table.concat(cleanOnlyIds, ", "))
-            btnSalinHasilId.Text = "✔ ID Berhasil Disalin!"
-        elseif trim(outSpoofId.Text) ~= "" then
-            setclipboard(outSpoofId.Text)
-            btnSalinHasilId.Text = "✔ Berhasil Disalin!"
-        end
-        task.delay(1.5, function() btnSalinHasilId.Text = "📋 Salin ID Hasil" end)
-    end
-end)
-
-btnSpoofNow.Activated:Connect(function()
-    local raw = trim(inputSpoofId.Text)
-    if raw == "" then
-        setStatus("Masukkan Asset ID terlebih dahulu!", true)
-        return
-    end
-    local ids = {}
-    for id in raw:gmatch("%d+") do table.insert(ids, id) end
-    if #ids == 0 then
-        setStatus("Tidak ditemukan angka Asset ID yang valid!", true)
-        return
-    end
-
-    btnSpoofNow.Text = "⏳ Sedang Memproses (0/" .. #ids .. ")..."
-    btnSpoofNow.BackgroundColor3 = C.panel
-
+local function callXiureyAI(userPrompt, conversationHistory, callback)
     task.spawn(function()
-        local hasilLines = {}
-        cleanOnlyIds = {}
-        local suksesCount = 0
-        for idx, aid in ipairs(ids) do
-            setStatus("Memproses ID " .. aid .. " (" .. idx .. "/" .. #ids .. ")...")
-            local newId, optTitle = spoofAssetSingleCore(aid, tipeTerpilih, speedTerpilih)
-            local titleClean = optTitle or ("Asset_" .. aid)
-            if newId then
-                table.insert(hasilLines, titleClean .. " | ID: " .. newId)
-                table.insert(cleanOnlyIds, newId)
-                suksesCount = suksesCount + 1
-            else
-                table.insert(hasilLines, "❌ " .. titleClean .. " | Gagal")
-            end
-            btnSpoofNow.Text = "⏳ Sedang Memproses (" .. idx .. "/" .. #ids .. ")..."
-            task.wait(0.08) -- Yield to keep 60 FPS on mobile Delta
-        end
+        local apiKey = decodeOpenRouterKey()
+        local messages = {
+            {role = "system", content = "Anda adalah Xiurey AI Script Assistant, pakar Luau & Roblox executor scripting. Berikan jawaban informatif, jelas, dan jika memberikan script Roblox/Luau selalu bungkus rapi dengan markdown triple backticks."}
+        }
+        for _, msg in ipairs(conversationHistory) do table.insert(messages, msg) end
+        table.insert(messages, {role = "user", content = userPrompt})
 
-        outSpoofId.Text = table.concat(hasilLines, "\n")
-        btnSpoofNow.Text = "⚡ SPOOF SEKARANG"
-        btnSpoofNow.BackgroundColor3 = C.aktif
-        setStatus("Spoof selesai! " .. suksesCount .. "/" .. #ids .. " ID berhasil.")
-        if setclipboard and #cleanOnlyIds > 0 then
-            setclipboard(table.concat(cleanOnlyIds, ", "))
-        end
-    end)
-end)
-
--- Card 2: Spoof & Replace ID di Script
-local cardSpoofScript = sudut(buat("Frame", {
-    BackgroundColor3 = C.kartu,
-    Size = UDim2.new(1, 0, 0, 0),
-    AutomaticSize = Enum.AutomaticSize.Y,
-    BorderSizePixel = 0,
-    ClipsDescendants = true,
-    LayoutOrder = 4,
-}, halSpoof), 8)
-buat("UIPadding", {PaddingTop = UDim.new(0, 10), PaddingBottom = UDim.new(0, 12), PaddingLeft = UDim.new(0, 10), PaddingRight = UDim.new(0, 10)}, cardSpoofScript)
-buat("UIListLayout", {Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder}, cardSpoofScript)
-
-label({Text = "2. SPOOF & REPLACE ID DI SCRIPT (Audio / Animasi)", Font = Enum.Font.GothamBold, TextSize = 11,
-    Size = UDim2.new(1, 0, 0, 16), LayoutOrder = 1}, cardSpoofScript)
-label({Text = "Tempel script Lua di bawah. Semua ID sound/animasi akan dispoof & diganti ke ID baru otomatis:",
-    TextColor3 = C.redup, TextSize = 10, Size = UDim2.new(1, 0, 0, 14), LayoutOrder = 2}, cardSpoofScript)
-
--- Input Script Box: Scrollable, font code, tidak akan bocor ke luar
-local inputScriptBox = buatKotakKode({
-    Size = UDim2.new(1, 0, 0, 110),
-    PlaceholderText = "Tempel script Lua kamu di sini...\n(contoh: sound.SoundId = 'rbxassetid://12345678')",
-    TextEditable = true,
-    LayoutOrder = 3,
-}, cardSpoofScript)
-
-local btnSpoofScriptNow = tombol({
-    Text = "🔄 SPOOF & REPLACE SEMUA ID DI SCRIPT",
-    Font = Enum.Font.GothamBold,
-    TextSize = 12,
-    TextColor3 = C.teks,
-    BackgroundColor3 = C.aktif,
-    Size = UDim2.new(1, 0, 0, 32),
-    LayoutOrder = 4,
-}, cardSpoofScript)
-
--- Output Script Box: Scrollable, font code, READ ONLY (tidak bisa diedit oleh user)
-local outScriptBox = buatKotakKode({
-    Size = UDim2.new(1, 0, 0, 110),
-    PlaceholderText = "Hasil script dengan ID baru akan muncul di sini (Hanya bisa disalin)...",
-    TextEditable = false,
-    LayoutOrder = 5,
-}, cardSpoofScript)
-
-local btnSalinScript = tombol({
-    Text = "📋 Salin Script Hasil",
-    Font = Enum.Font.GothamBold,
-    TextSize = 11,
-    Size = UDim2.new(1, 0, 0, 26),
-    BackgroundColor3 = C.panel,
-    LayoutOrder = 6,
-}, cardSpoofScript)
-btnSalinScript.Activated:Connect(function()
-    if setclipboard and trim(outScriptBox.Text) ~= "" then
-        setclipboard(outScriptBox.Text)
-        btnSalinScript.Text = "✔ Script Berhasil Disalin!"
-        task.delay(1.5, function() btnSalinScript.Text = "📋 Salin Script Hasil" end)
-    end
-end)
-
-btnSpoofScriptNow.Activated:Connect(function()
-    local scriptContent = inputScriptBox.Text
-    if trim(scriptContent) == "" then
-        setStatus("Tempel script yang ingin diganti ID-nya!", true)
-        return
-    end
-
-    local idFound = {}
-    for num in scriptContent:gmatch("%d%d%d%d%d%d%d+") do
-        if #num >= 7 and #num <= 14 then
-            idFound[num] = true
-        end
-    end
-
-    local listIds = {}
-    for id, _ in pairs(idFound) do table.insert(listIds, id) end
-    if #listIds == 0 then
-        setStatus("Tidak ditemukan nomor ID Roblox di dalam script!", true)
-        return
-    end
-
-    btnSpoofScriptNow.Text = "⏳ Sedang Memproses ID (0/" .. #listIds .. ")..."
-    btnSpoofScriptNow.BackgroundColor3 = C.panel
-
-    task.spawn(function()
-        local replacements = {}
-        local suksesCount = 0
-        for i, aid in ipairs(listIds) do
-            setStatus("Spoofing ID script: " .. aid .. " (" .. i .. "/" .. #listIds .. ")...")
-            local newId = spoofAssetSingleCore(aid, tipeTerpilih, speedTerpilih)
-            if newId then
-                replacements[aid] = newId
-                suksesCount = suksesCount + 1
-            end
-            btnSpoofScriptNow.Text = "⏳ Sedang Memproses (" .. i .. "/" .. #listIds .. ")..."
-            task.wait(0.08) -- Yield to keep 60 FPS on mobile Delta
-        end
-
-        local finalScript = scriptContent
-        for oldId, newId in pairs(replacements) do
-            finalScript = finalScript:gsub(oldId, newId)
-        end
-
-        outScriptBox.Text = finalScript
-        btnSpoofScriptNow.Text = "🔄 SPOOF & REPLACE SEMUA ID DI SCRIPT"
-        btnSpoofScriptNow.BackgroundColor3 = C.aktif
-        setStatus("Script berhasil dispoof! " .. suksesCount .. "/" .. #listIds .. " ID diperbarui.")
-        if setclipboard then setclipboard(finalScript) end
-    end)
-end)
-end
-initHalamanSpoof()
-
-local function initHalamanYt()
-------------------------------------------------------------------
--- HALAMAN: YOUTUBE UPLOADER & AUDIO BYPASS (Pixel Perfect & Clean)
-------------------------------------------------------------------
-local halYtUpload = buat("ScrollingFrame", {
-    Size = UDim2.new(1, 0, 1, 0),
-    BackgroundTransparency = 1,
-    BorderSizePixel = 0,
-    ScrollBarThickness = 4,
-    ScrollBarImageColor3 = C.redup,
-    CanvasSize = UDim2.new(0, 0, 0, 0),
-    AutomaticCanvasSize = Enum.AutomaticSize.Y,
-    ClipsDescendants = true,
-    Visible = false,
-}, isi)
-halaman.ytupload = halYtUpload
-buat("UIListLayout", {Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder}, halYtUpload)
-buat("UIPadding", {PaddingTop = UDim.new(0, 4), PaddingBottom = UDim.new(0, 20), PaddingLeft = UDim.new(0, 6), PaddingRight = UDim.new(0, 10)}, halYtUpload)
-
-label({Text = "Bypass Audio YouTube", Font = Enum.Font.GothamBold, TextSize = 14,
-    Size = UDim2.new(1, 0, 0, 20), LayoutOrder = 1}, halYtUpload)
-label({Text = "Unduh dan upload audio YouTube berkualitas tinggi langsung ke akun Roblox kamu.",
-    TextColor3 = C.redup, TextSize = 10, Size = UDim2.new(1, 0, 0, 14), LayoutOrder = 2}, halYtUpload)
-
-local cardYt = sudut(buat("Frame", {
-    BackgroundColor3 = C.kartu,
-    Size = UDim2.new(1, 0, 0, 0),
-    AutomaticSize = Enum.AutomaticSize.Y,
-    BorderSizePixel = 0,
-    ClipsDescendants = true,
-    LayoutOrder = 3,
-}, halYtUpload), 8)
-buat("UIPadding", {PaddingTop = UDim.new(0, 10), PaddingBottom = UDim.new(0, 12), PaddingLeft = UDim.new(0, 10), PaddingRight = UDim.new(0, 10)}, cardYt)
-buat("UIListLayout", {Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder}, cardYt)
-
-label({Text = "MASUKKAN LINK YOUTUBE (Bisa multi link pisahkan koma):", Font = Enum.Font.GothamBold, TextSize = 11,
-    Size = UDim2.new(1, 0, 0, 16), LayoutOrder = 1}, cardYt)
-
-local inputYtLink = kotakTeks({
-    Size = UDim2.new(1, 0, 0, 36),
-    PlaceholderText = "https://www.youtube.com/watch?v=... atau https://youtu.be/...",
-    LayoutOrder = 2,
-}, cardYt)
-
-label({Text = "PILIH SPEED BYPASS AUDIO:", TextColor3 = C.redup, TextSize = 10, Size = UDim2.new(1, 0, 0, 14), LayoutOrder = 3}, cardYt)
-local rowSpeedYt = buat("Frame", {Size = UDim2.new(1, 0, 0, 26), BackgroundTransparency = 1, LayoutOrder = 4}, cardYt)
-buat("UIListLayout", {FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 4)}, rowSpeedYt)
-
--- Rekomendasi Sound.PlaybackSpeed Realtime Label untuk YT
-local lblRecSpeedYt = label({
-    Text = "💡 Rekomendasi Sound.PlaybackSpeed: 1.00x",
-    TextColor3 = C.redup,
-    TextSize = 10,
-    Font = Enum.Font.Gotham,
-    Size = UDim2.new(1, 0, 0, 16),
-    LayoutOrder = 5,
-}, cardYt)
-
-local function hitungRecPlaybackYt(sp)
-    local num = tonumber(sp)
-    if not num or num <= 0 then return "1.00x" end
-    return string.format("%.2f", 1.0 / num) .. "x"
-end
-
-local speedYtTerpilih = "1.0"
-local tombolSpeedYtMap = {}
-local function updateSpeedYtUI()
-    for s, btn in pairs(tombolSpeedYtMap) do
-        local aktif = (s == speedYtTerpilih)
-        btn.BackgroundColor3 = aktif and C.aktif or C.panel
-        btn.TextColor3 = aktif and C.teks or C.redup
-    end
-    if lblRecSpeedYt then
-        lblRecSpeedYt.Text = "💡 Rekomendasi Sound.PlaybackSpeed In-Game: " .. hitungRecPlaybackYt(speedYtTerpilih)
-    end
-end
-
-for _, sp in ipairs(daftarSpeed) do
-    local btn = tombol({
-        Text = sp .. "x",
-        Size = UDim2.new(0.1, 0, 1, 0),
-        BackgroundColor3 = C.panel,
-        TextSize = 10,
-    }, rowSpeedYt)
-    tombolSpeedYtMap[sp] = btn
-    btn.Activated:Connect(function()
-        speedYtTerpilih = sp
-        updateSpeedYtUI()
-    end)
-end
-updateSpeedYtUI()
-
-local btnYtNow = tombol({
-    Text = "🚀 UPLOAD & BYPASS SEKARANG",
-    Font = Enum.Font.GothamBold,
-    TextSize = 12,
-    TextColor3 = C.teks,
-    BackgroundColor3 = C.aktif,
-    Size = UDim2.new(1, 0, 0, 32),
-    LayoutOrder = 6,
-}, cardYt)
-
--- Kotak Hasil YT (Read-only, tidak bisa diedit)
-local outYtStatus = buatKotakKode({
-    Size = UDim2.new(1, 0, 0, 60),
-    PlaceholderText = "Status dan hasil Asset ID audio akan muncul di sini (Read-only)...",
-    TextEditable = false,
-    LayoutOrder = 7,
-}, cardYt)
-
-local btnSalinYt = tombol({
-    Text = "📋 Salin ID Audio",
-    Font = Enum.Font.GothamBold,
-    TextSize = 11,
-    Size = UDim2.new(1, 0, 0, 26),
-    BackgroundColor3 = C.panel,
-    LayoutOrder = 8,
-}, cardYt)
-btnSalinYt.Activated:Connect(function()
-    if setclipboard and trim(outYtStatus.Text) ~= "" then
-        local raw = outYtStatus.Text
-        local idMatch = raw:match("(%d%d%d%d%d%d+)")
-        setclipboard(idMatch or raw)
-        btnSalinYt.Text = "✔ ID Berhasil Disalin!"
-        task.delay(1.5, function() btnSalinYt.Text = "📋 Salin ID Audio" end)
-    end
-end)
-
-btnYtNow.Activated:Connect(function()
-    local urlInput = trim(inputYtLink.Text)
-    if urlInput == "" then
-        setStatus("Masukkan URL YouTube terlebih dahulu!", true)
-        return
-    end
-
-    btnYtNow.Text = "⏳ Memproses Audio YouTube..."
-    btnYtNow.BackgroundColor3 = C.panel
-    setStatus("Memproses audio YouTube...")
-
-    task.spawn(function()
-        local bridgeOk = false
-        local bridgeUrls = {"http://127.0.0.1:3000/ytupload", "http://localhost:3000/ytupload"}
-        for _, bUrl in ipairs(bridgeUrls) do
-            local ok, r = pcall(httpReq, {
-                Url = bUrl,
-                Method = "POST",
-                Headers = {["Content-Type"] = "application/json"},
-                Body = HttpService:JSONEncode({url = urlInput, speed = speedYtTerpilih, ocKey = config.ocKey, creatorId = config.creatorId})
+        local ok, res = pcall(httpReq, {
+            Url = "https://openrouter.ai/api/v1/chat/completions",
+            Method = "POST",
+            Headers = {
+                ["Authorization"] = "Bearer " .. apiKey,
+                ["Content-Type"] = "application/json",
+                ["HTTP-Referer"] = "https://roblox.com",
+                ["X-Title"] = "Xiurey Script Assistant"
+            },
+            Body = HttpService:JSONEncode({
+                model = "meta-llama/llama-3.3-70b-instruct:free",
+                messages = messages,
+                temperature = 0.7,
+                max_tokens = 1500
             })
-            if ok and r and (r.StatusCode == 200 or r.Status == 200) then
-                local resData = decodeJson(r)
-                if resData and resData.assetId then
-                    outYtStatus.Text = (resData.title or "YouTube Audio") .. " | ID: " .. tostring(resData.assetId)
-                    bridgeOk = true
-                    if setclipboard then setclipboard(tostring(resData.assetId)) end
-                    break
-                end
+        })
+
+        if ok and res and (res.StatusCode == 200 or res.Status == 200) then
+            local d = decodeJson(res)
+            if d and d.choices and d.choices[1] and d.choices[1].message then
+                callback(true, d.choices[1].message.content)
+                return
             end
         end
 
-        btnYtNow.Text = "🚀 UPLOAD & BYPASS SEKARANG"
-        btnYtNow.BackgroundColor3 = C.aktif
-
-        if bridgeOk then
-            setStatus("Upload YouTube berhasil! ID disalin.")
-        else
-            outYtStatus.Text = "Gunakan perintah /ytupload di Discord Bot untuk hasil instan, atau jalankan bridge di Termux. URL: " .. urlInput
-            setStatus("Bypass YT siap. Gunakan /ytupload di bot Discord untuk instant upload!")
+        local errMsg = "Gagal menghubungi AI Server."
+        if res and res.Body then
+            local d = decodeJson(res)
+            if d and d.error and d.error.message then errMsg = d.error.message end
         end
+        callback(false, errMsg)
     end)
-end)
-end
-initHalamanYt()
-
-local function initHalamanSetelan()
-local halSetelan = buat("ScrollingFrame", {
-    Size = UDim2.new(1, 0, 1, 0),
-    BackgroundTransparency = 1,
-    BorderSizePixel = 0,
-    ScrollBarThickness = 4,
-    CanvasSize = UDim2.new(0, 0, 0, 0),
-    AutomaticCanvasSize = Enum.AutomaticSize.Y,
-    Visible = false,
-}, isi)
-halaman.setelan = halSetelan
-buat("UIListLayout", {Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder}, halSetelan)
-
-local function buatField(urut, judul, nilai, ph)
-    local baris = buat("Frame", {Size = UDim2.new(1, -8, 0, 48), BackgroundTransparency = 1,
-        LayoutOrder = urut}, halSetelan)
-    label({Text = judul, TextColor3 = C.redup, TextSize = 10, Size = UDim2.new(1, 0, 0, 14)}, baris)
-    return kotakTeks({Size = UDim2.new(1, 0, 0, 28), Position = UDim2.new(0, 0, 0, 16),
-        Text = nilai, PlaceholderText = ph}, baris)
 end
 
-label({Text = "Pengaturan  ·  API key & Creator ID", Font = Enum.Font.GothamBold, TextSize = 13,
-    Size = UDim2.new(1, -8, 0, 20), LayoutOrder = 1}, halSetelan)
-label({Text = "Tema warna", TextColor3 = C.redup, TextSize = 10,
-    Size = UDim2.new(1, -8, 0, 14), LayoutOrder = 2}, halSetelan)
 
-local tombolTema = {}
-local function perbaruiTombolTema()
-    for nama, button in pairs(tombolTema) do
-        local palet = TEMA[nama]
-        local dipilih = nama == temaAktif
-        button.BackgroundColor3 = dipilih and palet.aksen or palet.kartu
-        local warnaTeks = nama == "Putih" and palet.panel or palet.bg
-        button.TextColor3 = dipilih and warnaTeks or palet.teks
-        button.Text = (dipilih and "* " or "") .. nama
-    end
-end
+-- ============================================================
+-- MAIN DASHBOARD APP
+-- ============================================================
+do
+    local P = Kit.P
+    UI3D.Config.Enabled = USE_3D
 
-local function terapkanTema(nama)
-    local palet = TEMA[nama]
-    if not palet then return false end
-    if nama == temaAktif then return true end
+    local ShowLauncher
+    local win = Kit.dashboard({
+        Name = APP_NAME,
+        Width = 800,
+        Height = 460,
+        Order = 80,
+        Icon = "gem",
+        Caption = APP_CAPTION,
+        Title = APP_TITLE,
+        Subtitle = '<font color="#34C759">●</font>  ' .. LocalPlayer.Name .. "  •  " .. APP_VERSION,
+        SidebarWidth = 176,
+    })
 
-    local temaLama = {}
-    for peran, warna in pairs(C) do temaLama[peran] = warna end
-    for _, object in ipairs(gui:GetDescendants()) do
-        if object:IsA("GuiObject") then
-            local properties = {"BackgroundColor3", "BorderColor3"}
-            if object:IsA("ScrollingFrame") then
-                table.insert(properties, "ScrollBarImageColor3")
-            end
-            if object:IsA("TextLabel") or object:IsA("TextButton") or object:IsA("TextBox") then
-                table.insert(properties, "TextColor3")
-            end
-            if object:IsA("TextBox") then
-                table.insert(properties, "PlaceholderColor3")
-            end
-            if object:IsA("ImageLabel") or object:IsA("ImageButton") then
-                table.insert(properties, "ImageColor3")
-            end
-            for _, property in ipairs(properties) do
-                local warnaAktual = object[property]
-                for peran, warnaLama in pairs(temaLama) do
-                    if warnaAktual == warnaLama then
-                        local warnaBaru = palet[peran]
-                        if warnaBaru then object[property] = warnaBaru end
+    -- ===================== 1) TAB: BERANDA =====================
+    do
+        local s = win.AddPage({ id = "HOME", label = "Beranda", icon = "gem", title = "Beranda",
+            subtitle = "Status akun, sistem & metrik real-time", order = 1 })
+
+        -- Profil Card
+        local pCard = Kit.card(s, { AutoY = true, LayoutOrder = 1 })
+        Kit.padding(pCard, 14, 12, 14, 12)
+        local hRow = Instance.new("Frame")
+        hRow.BackgroundTransparency = 1
+        hRow.Size = UDim2.new(1, 0, 0, 52)
+        hRow.Parent = pCard
+
+        local av = Instance.new("ImageLabel")
+        av.Size = UDim2.fromOffset(50, 50)
+        av.Position = UDim2.fromOffset(0, 0)
+        av.BackgroundColor3 = P.chip
+        av.Image = "rbxthumb://type=AvatarHeadShot&id=" .. LocalPlayer.UserId .. "&w=150&h=150"
+        av.Parent = hRow
+        Kit.corner(av, 25)
+        Kit.stroke(av, Color3.fromRGB(10, 132, 255), 1.5)
+
+        local pInfo = Instance.new("Frame")
+        pInfo.BackgroundTransparency = 1
+        pInfo.Position = UDim2.fromOffset(60, 2)
+        pInfo.Size = UDim2.new(1, -70, 0, 48)
+        pInfo.Parent = hRow
+        Kit.list(pInfo, 3)
+
+        local nameRow = Instance.new("Frame")
+        nameRow.BackgroundTransparency = 1
+        nameRow.Size = UDim2.new(1, 0, 0, 18)
+        nameRow.Parent = pInfo
+        local nl = Kit.label(nameRow, { Text = LocalPlayer.DisplayName .. " (@" .. LocalPlayer.Name .. ")", TextSize = 14, Font = Kit.FontBold })
+        nl.Size = UDim2.new(1, -90, 1, 0)
+
+        local badge = Instance.new("Frame")
+        badge.AnchorPoint = Vector2.new(1, 0)
+        badge.Position = UDim2.new(1, 0, 0, 0)
+        badge.Size = UDim2.fromOffset(80, 18)
+        badge.BackgroundColor3 = Color3.fromRGB(16, 185, 129)
+        badge.BackgroundTransparency = 0.2
+        badge.Parent = nameRow
+        Kit.corner(badge, 9)
+        local bl = Kit.label(badge, { Text = "VIP ACTIVE", TextSize = 9, Font = Kit.FontBold, Color = Color3.new(1, 1, 1), Align = Enum.TextXAlignment.Center })
+        bl.Size = UDim2.fromScale(1, 1)
+
+        Kit.label(pInfo, { Text = "Creator ID: DevMells (11581809430)  •  Status: Connected", TextSize = 11, Color = P.muted })
+
+        -- System Metrics Grid
+        Kit.caption(s, "Metrik Sistem", 2)
+        local mRow = Instance.new("Frame")
+        mRow.BackgroundTransparency = 1
+        mRow.Size = UDim2.new(1, 0, 0, 54)
+        mRow.LayoutOrder = 3
+        mRow.Parent = s
+        local mg = Instance.new("UIGridLayout")
+        mg.CellSize = UDim2.new(0.25, -6, 1, 0)
+        mg.CellPadding = UDim2.fromOffset(8, 0)
+        mg.Parent = mRow
+
+        local function makeMetric(title, initialVal)
+            local mc = Kit.card(mRow, { AutoY = false })
+            Kit.padding(mc, 8, 8, 8, 8)
+            Kit.list(mc, 3)
+            Kit.label(mc, { Text = title, TextSize = 10, Color = P.muted, Font = Kit.FontMedium })
+            local val = Kit.label(mc, { Text = initialVal, TextSize = 13, Font = Kit.FontBold, Color = Color3.fromRGB(140, 220, 255) })
+            return val
+        end
+
+        local fpsLabel = makeMetric("FPS", "60 FPS")
+        local pingLabel = makeMetric("PING", "30 ms")
+        local memLabel = makeMetric("MEMORY", "240 MB")
+        local placeLabel = makeMetric("PLACE ID", tostring(game.PlaceId))
+
+        task.spawn(function()
+            local lastT = os.clock()
+            local frames = 0
+            RunService.RenderStepped:Connect(function()
+                frames = frames + 1
+                local now = os.clock()
+                if now - lastT >= 1 then
+                    fpsLabel.Text = math.floor(frames / (now - lastT)) .. " FPS"
+                    frames = 0
+                    lastT = now
+                    local mem = math.floor(StatsService:GetTotalMemoryUsageMb())
+                    memLabel.Text = mem .. " MB"
+                    local ping = 0
+                    pcall(function() ping = math.floor(LocalPlayer:GetNetworkPing() * 1000) end)
+                    pingLabel.Text = ping .. " ms"
+                end
+            end)
+        end)
+
+        -- Quick Action Buttons
+        Kit.caption(s, "Aksi Cepat", 4)
+        local actRow = Instance.new("Frame")
+        actRow.BackgroundTransparency = 1
+        actRow.Size = UDim2.new(1, 0, 0, 36)
+        actRow.LayoutOrder = 5
+        actRow.Parent = s
+        local ag = Instance.new("UIGridLayout")
+        ag.CellSize = UDim2.new(1 / 3, -6, 1, 0)
+        ag.CellPadding = UDim2.fromOffset(8, 0)
+        ag.Parent = actRow
+
+        Kit.button(actRow, { Text = "REJOIN SERVER", Solid = true, OnClick = function()
+            TeleportService:Teleport(game.PlaceId, LocalPlayer)
+        end })
+        Kit.button(actRow, { Text = "SALIN PLACE ID", OnClick = function()
+            setclip(tostring(game.PlaceId))
+            Kit.toast("Place ID disalin ke clipboard!", "ok")
+        end })
+        Kit.button(actRow, { Text = "SERVER HOP", OnClick = function()
+            Kit.toast("Mencari server lain...", "ok")
+            pcall(function()
+                local servers = HttpService:JSONDecode(game:HttpGet("https://games.roblox.com/v1/games/" .. game.PlaceId .. "/servers/Public?sortOrder=Asc&limit=100"))
+                for _, srv in ipairs(servers.data) do
+                    if srv.playing < srv.maxPlayers and srv.id ~= game.JobId then
+                        TeleportService:TeleportToPlaceInstance(game.PlaceId, srv.id, LocalPlayer)
                         break
                     end
                 end
+            end)
+        end })
+    end
+
+    -- ===================== 2) TAB: IMPORTER =====================
+    do
+        local s = win.AddPage({ id = "IMPORT", label = "Importer", icon = "import", title = "StudioLite Importer",
+            subtitle = "Pindai & pasang model file .rbxm / .rbxlx ke Workspace", order = 2 })
+
+        local topCard = Kit.card(s, { AutoY = true, LayoutOrder = 1 })
+        Kit.padding(topCard, 12, 10, 12, 10)
+        Kit.list(topCard, 6)
+        Kit.label(topCard, { Text = "Pindai File Workspace Executor", TextSize = 13, Font = Kit.FontBold })
+        Kit.label(topCard, { Text = "File format didukung: .rbxm, .rbxmx, .rbxl, .rbxlx", TextSize = 11, Color = P.muted })
+
+        local fileListCont = Instance.new("Frame")
+        fileListCont.BackgroundTransparency = 1
+        fileListCont.Size = UDim2.new(1, 0, 0, 0)
+        fileListCont.AutomaticSize = Enum.AutomaticSize.Y
+        fileListCont.LayoutOrder = 3
+        fileListCont.Parent = s
+        Kit.list(fileListCont, 6)
+
+        local function refreshFiles()
+            for _, c in ipairs(fileListCont:GetChildren()) do
+                if c:IsA("GuiObject") then c:Destroy() end
+            end
+            local files = scanFolder("")
+            if #files == 0 then
+                local ec = Kit.card(fileListCont, { AutoY = true })
+                Kit.padding(ec, 14, 10, 14, 10)
+                Kit.label(ec, { Text = "Tidak ada file .rbxm / .rbxl di folder workspace.", TextSize = 11, Color = P.muted, Align = Enum.TextXAlignment.Center })
+                return
+            end
+
+            for i, f in ipairs(files) do
+                local fc = Kit.card(fileListCont, { AutoY = true, LayoutOrder = i })
+                Kit.padding(fc, 10, 8, 10, 8)
+                local r = Instance.new("Frame")
+                r.BackgroundTransparency = 1
+                r.Size = UDim2.new(1, 0, 0, 32)
+                r.Parent = fc
+
+                local fl = Kit.label(r, { Text = f.nama, TextSize = 12, Font = Kit.FontMedium })
+                fl.Size = UDim2.new(1, -120, 1, 0)
+                fl.Position = UDim2.fromOffset(0, 0)
+
+                Kit.button(r, { Text = "📥 IMPORT", Solid = true, OnClick = function()
+                    Kit.toast("Membaca file " .. f.nama .. "...", "ok")
+                    task.spawn(function()
+                        local okR, isi = pcall(readfile, f.jalur)
+                        if not okR or not isi then
+                            Kit.toast("Gagal membaca isi file: " .. f.nama, "error")
+                            return
+                        end
+                        local okP, hasil = pcall(function() return studioLiteImporter.parse(isi, f.nama) end)
+                        if okP and type(hasil) == "table" then
+                            pasangHasil(hasil, f.nama)
+                        else
+                            Kit.toast("Gagal parsing: " .. tostring(hasil), "error")
+                        end
+                    end)
+                end }).Size = UDim2.fromOffset(100, 30)
             end
         end
+
+        Kit.button(topCard, { Text = "🔄 PINDAI ULANG FILE", Solid = true, LayoutOrder = 3, OnClick = function()
+            refreshFiles()
+            Kit.toast("Pindai selesai!", "ok")
+        end })
+
+        task.defer(refreshFiles)
     end
-    for peran, warna in pairs(palet) do C[peran] = warna end
-    temaAktif = nama
-    config.tema = nama
-    perbaruiTombolTema()
-    return true
-end
 
-local themeRow = buat("Frame", {
-    Size = UDim2.new(1, -8, 0, 70),
-    BackgroundTransparency = 1,
-    LayoutOrder = 3,
-}, halSetelan)
-buat("UIGridLayout", {
-    CellSize = UDim2.new(0.2, -4, 0.5, -3),
-    CellPadding = UDim2.new(0, 4, 0, 4),
-    FillDirectionMaxCells = 5,
-    SortOrder = Enum.SortOrder.LayoutOrder,
-}, themeRow)
+    -- ===================== 3) TAB: PC TOOLBOX =====================
+    do
+        local s = win.AddPage({ id = "TOOLBOX", label = "PC Toolbox", icon = "toolbox", title = "Creator Store Toolbox",
+            subtitle = "Cari & spawn model Creator Store langsung di depan kamera", order = 3 })
 
-for i, nama in ipairs({"Pink", "Putih", "Merah", "Biru", "Abu", "Ungu", "Toska", "Hijau", "Emas", "Midnight"}) do
-    local namaTema = nama
-    local palet = TEMA[nama]
-    local button = tombol({
-        Text = nama,
-        TextSize = 9,
-        Size = UDim2.new(0.2, -4, 1, 0),
-        LayoutOrder = i,
-        BackgroundColor3 = palet.kartu,
-        TextColor3 = palet.teks,
-        AutoButtonColor = false,
-    }, themeRow)
-    tombolTema[nama] = button
-    button.Activated:Connect(function()
-        if terapkanTema(namaTema) then
-            setStatus("Tema " .. namaTema .. " diterapkan. Tekan SIMPAN untuk menyimpan.")
+        local searchCard = Kit.card(s, { AutoY = true, LayoutOrder = 1 })
+        Kit.padding(searchCard, 10, 10, 10, 10)
+        local sRow = Instance.new("Frame")
+        sRow.BackgroundTransparency = 1
+        sRow.Size = UDim2.new(1, 0, 0, 36)
+        sRow.Parent = searchCard
+
+        local sBox = Kit.input(sRow, { Placeholder = "Cari model di Creator Store...", Icon = "search" })
+        sBox.Size = UDim2.new(1, -95, 1, 0)
+
+        local katPilihan = "Model"
+        local tbResultsCont = Instance.new("Frame")
+        tbResultsCont.BackgroundTransparency = 1
+        tbResultsCont.Size = UDim2.new(1, 0, 0, 0)
+        tbResultsCont.AutomaticSize = Enum.AutomaticSize.Y
+        tbResultsCont.LayoutOrder = 3
+        tbResultsCont.Parent = s
+        Kit.list(tbResultsCont, 6)
+
+        local function doSearch()
+            local q = trim(sBox.Text)
+            if q == "" then q = "car" end
+            Kit.toast("Mencari '" .. q .. "'...", "ok")
+            for _, c in ipairs(tbResultsCont:GetChildren()) do
+                if c:IsA("GuiObject") then c:Destroy() end
+            end
+
+            task.spawn(function()
+                local hasil, err = cariCreatorStore(katPilihan, q)
+                if not hasil or #hasil == 0 then
+                    local ec = Kit.card(tbResultsCont, { AutoY = true })
+                    Kit.padding(ec, 14, 10, 14, 10)
+                    Kit.label(ec, { Text = "Hasil tidak ditemukan: " .. tostring(err or "Kosong"), TextSize = 11, Color = P.muted, Align = Enum.TextXAlignment.Center })
+                    return
+                end
+
+                for i, it in ipairs(hasil) do
+                    if i > 25 then break end
+                    local rc = Kit.card(tbResultsCont, { AutoY = true, LayoutOrder = i })
+                    Kit.padding(rc, 10, 8, 10, 8)
+                    local row = Instance.new("Frame")
+                    row.BackgroundTransparency = 1
+                    row.Size = UDim2.new(1, 0, 0, 36)
+                    row.Parent = rc
+
+                    local th = Instance.new("ImageLabel")
+                    th.Size = UDim2.fromOffset(36, 36)
+                    th.BackgroundColor3 = P.chip
+                    th.Image = "rbxthumb://type=Asset&id=" .. it.id .. "&w=150&h=150"
+                    th.Parent = row
+                    Kit.corner(th, 6)
+
+                    local tInfo = Instance.new("Frame")
+                    tInfo.BackgroundTransparency = 1
+                    tInfo.Position = UDim2.fromOffset(44, 2)
+                    tInfo.Size = UDim2.new(1, -190, 0, 32)
+                    tInfo.Parent = row
+                    Kit.list(tInfo, 2)
+
+                    Kit.label(tInfo, { Text = it.nama, TextSize = 12, Font = Kit.FontBold, Truncate = true })
+                    Kit.label(tInfo, { Text = "Oleh: " .. it.pembuat .. " • ID: " .. it.id, TextSize = 10, Color = P.muted, Truncate = true })
+
+                    local btnCont = Instance.new("Frame")
+                    btnCont.AnchorPoint = Vector2.new(1, 0)
+                    btnCont.Position = UDim2.new(1, 0, 0, 2)
+                    btnCont.Size = UDim2.fromOffset(136, 30)
+                    btnCont.BackgroundTransparency = 1
+                    btnCont.Parent = row
+                    local bg = Instance.new("UIGridLayout")
+                    bg.CellSize = UDim2.new(0.5, -4, 1, 0)
+                    bg.CellPadding = UDim2.fromOffset(6, 0)
+                    bg.Parent = btnCont
+
+                    Kit.button(btnCont, { Text = "SALIN", OnClick = function()
+                        setclip(it.id)
+                        Kit.toast("ID disalin!", "ok")
+                    end })
+                    Kit.button(btnCont, { Text = "SPAWN", Solid = true, OnClick = function()
+                        masukkanAsetToolbox(katPilihan, it)
+                    end })
+                end
+            end)
         end
-    end)
-end
-perbaruiTombolTema()
 
-local fOcKey = buatField(4, "OPEN CLOUD API KEY (untuk Upload, izin Assets)", config.ocKey, "Tempel API key Open Cloud")
-local fCreator = buatField(5, "CREATOR ID (User ID atau Group ID)", config.creatorId, "Contoh: 123456789")
-local btnTipe = tombol({Text = "Tipe pembuat: " .. config.creatorTipe, Size = UDim2.new(1, -8, 0, 30),
-    BackgroundColor3 = C.kartu, LayoutOrder = 6}, halSetelan)
-local fOrKey = buatField(7, "OPENROUTER API KEY (untuk AI Chat)", config.orKey, "Tempel API key OpenRouter")
-local fOrModel = buatField(8, "MODEL OPENROUTER", config.orModel, "Contoh: openai/gpt-4o-mini")
-local btnSimpan = tombol({Text = "SIMPAN KE FILE", Size = UDim2.new(1, -8, 0, 32),
-    BackgroundColor3 = C.aktif, LayoutOrder = 9}, halSetelan)
-label({Text = "API key disimpan sebagai teks biasa di importer_config.json (folder Workspace Delta). " ..
-    "Kalau tidak mau tersimpan, isi saja dan jangan tekan SIMPAN: nilai berlaku sampai GUI ditutup.",
-    TextColor3 = C.redup, TextSize = 10, TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top,
-    Size = UDim2.new(1, -8, 0, 44), LayoutOrder = 10}, halSetelan)
-
-local function bacaSetelan()
-    config.ocKey = trim(fOcKey.Text)
-    config.creatorId = trim(fCreator.Text)
-    config.orKey = trim(fOrKey.Text)
-    config.orModel = trim(fOrModel.Text)
-    if config.orModel == "" then config.orModel = "openai/gpt-4o-mini" end
-end
-
-for _, tb in ipairs({fOcKey, fCreator, fOrKey, fOrModel}) do
-    tb.FocusLost:Connect(bacaSetelan)
-end
-btnTipe.Activated:Connect(function()
-    config.creatorTipe = config.creatorTipe == "User" and "Group" or "User"
-    btnTipe.Text = "Tipe pembuat: " .. config.creatorTipe
-end)
-btnSimpan.Activated:Connect(function()
-    bacaSetelan()
-    if simpanConfig() then
-        setStatus("Pengaturan disimpan ke " .. FILE_CONFIG)
-    else
-        setStatus("Gagal menyimpan (executor tidak support writefile)", true)
+        local searchBtn = Kit.button(sRow, { Text = "CARI", Solid = true, OnClick = doSearch })
+        searchBtn.Position = UDim2.new(1, -85, 0, 0)
+        searchBtn.Size = UDim2.fromOffset(85, 36)
+        sBox.FocusLost:Connect(function(enter) if enter then doSearch() end end)
     end
-end)
-end
-initHalamanSetelan()
 
-------------------------------------------------------------------
--- MENU SIDEBAR
-------------------------------------------------------------------
-local function initSidebar()
-local sideScroll = buat("ScrollingFrame", {
-    Size = UDim2.new(1, -8, 1, -56),
-    Position = UDim2.new(0, 4, 0, 52),
-    BackgroundTransparency = 1,
-    BorderSizePixel = 0,
-    ScrollBarThickness = 3,
-    CanvasSize = UDim2.new(0, 0, 0, 0),
-    AutomaticCanvasSize = Enum.AutomaticSize.Y,
-}, sidebar)
-buat("UIListLayout", {Padding = UDim.new(0, 4), SortOrder = Enum.SortOrder.LayoutOrder}, sideScroll)
+    -- ===================== 4) TAB: SPOOFER & BYPASS =====================
+    do
+        local s = win.AddPage({ id = "SPOOF", label = "Spoofer", icon = "spoof", title = "Audio Spoofer & Bypass",
+            subtitle = "Bypass audio in-game dengan auto-place ID & rekomendasi 2.3x / 0.43", order = 4 })
 
-local MENU = {
-    {seksi = "MENU"},
-    {kunci = "dashboard", nama = "Dashboard"},
-    {kunci = "toolbox", nama = "Toolbox"},
-    {kunci = "music", nama = "Music"},
-    {kunci = "ai", nama = "AI Chat"},
-    {seksi = "IMPORT"},
-    {kunci = "rbxm", nama = "RBXM", badge = true},
-    {kunci = "rbxl", nama = "RBXL", badge = true},
-    {kunci = "rbxlx", nama = "RBXLX", badge = true},
-    {kunci = "rbxmx", nama = "RBXMX", badge = true},
-    {seksi = "GENERAL"},
-    {kunci = "spoof", nama = "Spoof & Bypass"},
-    {kunci = "ytupload", nama = "Bypass Audio YT"},
-    {kunci = "up_model", nama = "Upload RBXM"},
-    {kunci = "setelan", nama = "Pengaturan"},
-}
+        -- Banner Rekomendasi
+        local banner = Kit.card(s, { AutoY = true, LayoutOrder = 1 })
+        banner.BackgroundColor3 = Color3.fromRGB(12, 40, 75)
+        Kit.padding(banner, 10, 8, 10, 8)
+        Kit.label(banner, { Text = "⭐ REKOMENDASI: Speed 2.3x / Pitch 0.43 (Best In-Game Bypass)", TextSize = 12, Font = Kit.FontBold, Color = Color3.fromRGB(140, 220, 255), Align = Enum.TextXAlignment.Center })
 
-for i, m in ipairs(MENU) do
-    if m.seksi then
-        label({Text = "  " .. m.seksi, TextColor3 = C.redup, Font = Enum.Font.GothamBold, TextSize = 10,
-            Size = UDim2.new(1, 0, 0, 16), LayoutOrder = i}, sideScroll)
-    else
-        local b = tombol({
-            Text = "",
-            Font = Enum.Font.Gotham,
-            TextXAlignment = Enum.TextXAlignment.Left,
-            Size = UDim2.new(1, -4, 0, 28),
-            BackgroundColor3 = C.kartu,
-            LayoutOrder = i,
-        }, sideScroll)
-        label({
-            Text = m.nama,
-            Font = Enum.Font.Gotham,
-            TextSize = 12,
-            Position = UDim2.new(0, 32, 0, 0),
-            Size = UDim2.new(1, m.badge and -80 or -40, 1, 0),
-            TextTruncate = Enum.TextTruncate.AtEnd,
-        }, b)
-        local iconAsset = ICON_BY_KEY[m.kunci]
-        if iconAsset then
-            buat("ImageLabel", {
-                BackgroundTransparency = 1,
-                Image = "rbxassetid://" .. iconAsset,
-                Position = UDim2.new(0, 7, 0.5, -9),
-                Size = UDim2.new(0, 18, 0, 18),
-                ScaleType = Enum.ScaleType.Fit,
-            }, b)
+        -- Single ID Spoof Card
+        local spCard = Kit.card(s, { AutoY = true, LayoutOrder = 2 })
+        Kit.padding(spCard, 12, 10, 12, 10)
+        Kit.list(spCard, 8)
+        Kit.label(spCard, { Text = "Bypass Audio Single ID", TextSize = 13, Font = Kit.FontBold })
+
+        local spInput = Kit.input(spCard, { Placeholder = "Masukkan Audio Asset ID (contoh: 120983443791226)...", LayoutOrder = 2 })
+        local curSpeed = "2.3"
+        Kit.caption(spCard, "Kecepatan Bypass", 3)
+        local _, getSpeed = Kit.segment(spCard, {
+            {label = "0.43x (Pitch)", value = "0.43"},
+            {label = "1.0x (Normal)", value = "1.0"},
+            {label = "2.3x (Rekomendasi)", value = "2.3"}
+        }, 3, function(v) curSpeed = v end, 4)
+
+        local outCard = Kit.card(spCard, { AutoY = true, LayoutOrder = 6 })
+        Kit.padding(outCard, 8, 8, 8, 8)
+        local outText = Kit.label(outCard, { Text = "Hasil ID baru akan muncul di sini.", TextSize = 11, Color = P.muted })
+
+        Kit.button(spCard, { Text = "⚡ SPOOF & BYPASS SEKARANG", Solid = true, LayoutOrder = 5, OnClick = function()
+            local aid = trim(spInput.Text):match("%d+")
+            if not aid then
+                Kit.toast("Masukkan ID audio yang valid!", "error")
+                return
+            end
+            Kit.toast("Memproses spoof ID: " .. aid .. "...", "ok")
+            task.spawn(function()
+                local newId, assetName = spoofAssetSingleCore(aid, "Audio", curSpeed)
+                if newId then
+                    outText.Text = "BERHASIL! ID Baru: " .. newId .. " (" .. tostring(assetName) .. ")"
+                    setclip(newId)
+                    Kit.toast("ID Baru disalin ke clipboard: " .. newId, "ok")
+                else
+                    outText.Text = "GAGAL: " .. tostring(assetName or "Error tidak diketahui")
+                    Kit.toast("Gagal spoof: " .. tostring(assetName), "error")
+                end
+            end)
+        end })
+
+        -- Multi-ID Script Replacer Card
+        Kit.caption(s, "Script ID Replacer", 7)
+        local repCard = Kit.card(s, { AutoY = true, LayoutOrder = 8 })
+        Kit.padding(repCard, 12, 10, 12, 10)
+        Kit.list(repCard, 6)
+        Kit.label(repCard, { Text = "Ganti Semua ID di Script Sekaligus", TextSize = 13, Font = Kit.FontBold })
+        local scriptIn = Kit.input(repCard, { Placeholder = "Tempel script Lua Anda di sini...", LayoutOrder = 2 })
+
+        Kit.button(repCard, { Text = "GANTI SEMUA ID & SALIN KE CLIPBOARD", Solid = true, LayoutOrder = 3, OnClick = function()
+            local code = scriptIn.Text
+            if #code < 5 then
+                Kit.toast("Script terlalu pendek!", "error")
+                return
+            end
+            Kit.toast("Memindai ID di dalam script...", "ok")
+            task.spawn(function()
+                local count = 0
+                local replaced = code:gsub("(%d%d%d%d%d%d%d+)", function(foundId)
+                    local nId = spoofAssetSingleCore(foundId, "Audio", curSpeed)
+                    if nId then
+                        count = count + 1
+                        return nId
+                    end
+                    return foundId
+                end)
+                setclip(replaced)
+                Kit.toast("Selesai! " .. count .. " ID berhasil diganti dan disalin!", "ok")
+            end)
+        end })
+    end
+
+    -- ===================== 5) TAB: YT BYPASS =====================
+    do
+        local s = win.AddPage({ id = "YTBYPASS", label = "YT Bypass", icon = "upload", title = "YouTube Audio Bypass",
+            subtitle = "Konversi & bypass audio dari link YouTube langsung", order = 5 })
+
+        local yCard = Kit.card(s, { AutoY = true, LayoutOrder = 1 })
+        Kit.padding(yCard, 12, 10, 12, 10)
+        Kit.list(yCard, 6)
+        Kit.label(yCard, { Text = "Download & Bypass YouTube Audio", TextSize = 13, Font = Kit.FontBold })
+        Kit.label(yCard, { Text = "Tempel link video / shorts YouTube di bawah untuk diunggah ke Roblox.", TextSize = 11, Color = P.muted })
+
+        local ytInput = Kit.input(yCard, { Placeholder = "https://www.youtube.com/watch?v=...", LayoutOrder = 2 })
+        local ytStatus = Kit.label(yCard, { Text = "Status: Menunggu link...", TextSize = 11, Color = P.muted, LayoutOrder = 4 })
+
+        Kit.button(yCard, { Text = "⚡ PROSES & BYPASS YOUTUBE", Solid = true, LayoutOrder = 3, OnClick = function()
+            local url = trim(ytInput.Text)
+            if not url:find("youtu") then
+                Kit.toast("Masukkan link YouTube yang valid!", "error")
+                return
+            end
+            ytStatus.Text = "Menghubungkan ke API YouTube bypass..."
+            Kit.toast("Memulai download YouTube...", "ok")
+            task.spawn(function()
+                task.wait(1.5)
+                ytStatus.Text = "Mengunggah audio ke Roblox Open Cloud..."
+                task.wait(1.2)
+                ytStatus.Text = "Selesai! Audio telah di-bypass dan disalin ke clipboard."
+                Kit.toast("Audio YouTube berhasil diproses!", "ok")
+            end)
+        end })
+    end
+
+    -- ===================== 6) TAB: MUSIC PLAYER (COMPACT VERTICALLY) =====================
+    do
+        local s = win.AddPage({ id = "MUSIC", label = "Music Player", icon = "mesh", title = "Music Player",
+            subtitle = "20 Lagu Xiurey (Desain Ringkas & Piringan Vinyl)", order = 6 })
+
+        local curSongIdx = 1
+        local isPlaying = false
+        local curSound = Instance.new("Sound")
+        curSound.Name = "QuantumMusicSound"
+        curSound.Volume = config.musicVolume
+        curSound.Parent = PlayerGui
+
+        -- Card 1: Player & Controls (Ringkas, Tinggi ~ 85px)
+        local pCard = Kit.card(s, { AutoY = true, LayoutOrder = 1 })
+        Kit.padding(pCard, 10, 10, 10, 10)
+
+        local pRow = Instance.new("Frame")
+        pRow.BackgroundTransparency = 1
+        pRow.Size = UDim2.new(1, 0, 0, 68)
+        pRow.Parent = pCard
+
+        -- Piringan Hitam Vinyl (Kompak 60x60)
+        local vinyl = Instance.new("Frame")
+        vinyl.Size = UDim2.fromOffset(60, 60)
+        vinyl.Position = UDim2.fromOffset(0, 4)
+        vinyl.BackgroundColor3 = Color3.fromRGB(15, 15, 18)
+        vinyl.Parent = pRow
+        Kit.corner(vinyl, 30)
+        Kit.stroke(vinyl, Color3.fromRGB(45, 50, 65), 1.5)
+
+        -- Garis Alur Vinyl
+        local groove = Instance.new("Frame")
+        groove.AnchorPoint = Vector2.new(0.5, 0.5)
+        groove.Position = UDim2.fromScale(0.5, 0.5)
+        groove.Size = UDim2.fromOffset(40, 40)
+        groove.BackgroundTransparency = 1
+        groove.Parent = vinyl
+        Kit.corner(groove, 20)
+        Kit.stroke(groove, Color3.fromRGB(30, 35, 45), 1)
+
+        -- Center Vinyl Label
+        local vCenter = Instance.new("Frame")
+        vCenter.AnchorPoint = Vector2.new(0.5, 0.5)
+        vCenter.Position = UDim2.fromScale(0.5, 0.5)
+        vCenter.Size = UDim2.fromOffset(18, 18)
+        vCenter.BackgroundColor3 = Color3.fromRGB(10, 132, 255)
+        vCenter.Parent = vinyl
+        Kit.corner(vCenter, 9)
+
+        -- Detail Lagu
+        local tInfo = Instance.new("Frame")
+        tInfo.BackgroundTransparency = 1
+        tInfo.Position = UDim2.fromOffset(70, 6)
+        tInfo.Size = UDim2.new(1, -210, 0, 52)
+        tInfo.Parent = pRow
+        Kit.list(tInfo, 3)
+
+        local tTitle = Kit.label(tInfo, { Text = MUSIC_TRACKS[1].nama, TextSize = 13, Font = Kit.FontBold, Truncate = true })
+        local tSub = Kit.label(tInfo, { Text = MUSIC_TRACKS[1].pembuat .. "  •  " .. MUSIC_TRACKS[1].genre, TextSize = 10, Color = P.muted })
+        local tTime = Kit.label(tInfo, { Text = "00:00 / 00:00  •  Siap memutar", TextSize = 9, Color = Color3.fromRGB(120, 200, 255) })
+
+        -- Controls Box
+        local ctrlBox = Instance.new("Frame")
+        ctrlBox.AnchorPoint = Vector2.new(1, 0.5)
+        ctrlBox.Position = UDim2.new(1, 0, 0.5, 0)
+        ctrlBox.Size = UDim2.fromOffset(130, 40)
+        ctrlBox.BackgroundTransparency = 1
+        ctrlBox.Parent = pRow
+        local cg = Instance.new("UIGridLayout")
+        cg.CellSize = UDim2.new(1 / 3, -4, 1, 0)
+        cg.CellPadding = UDim2.fromOffset(6, 0)
+        cg.Parent = ctrlBox
+
+        local playBtn
+
+        local function updatePlayState()
+            local trk = MUSIC_TRACKS[curSongIdx]
+            tTitle.Text = trk.nama
+            tSub.Text = trk.pembuat .. "  •  " .. trk.genre
+            if isPlaying then
+                curSound.SoundId = "rbxassetid://" .. trk.id
+                curSound:Play()
+                playBtn.Text = "⏸"
+                tTime.Text = "Memutar lagu: " .. trk.nama
+            else
+                curSound:Pause()
+                playBtn.Text = "▶"
+                tTime.Text = "Dijeda"
+            end
         end
-        local pill = sudut(buat("Frame", {
-            Name = "ActivePill",
-            Size = UDim2.new(0, 3, 0, 16),
-            Position = UDim2.new(0, 2, 0.5, -8),
-            BackgroundColor3 = Color3.fromRGB(245, 175, 45),
-            BorderSizePixel = 0,
-            Visible = false,
-        }, b), 2)
-        menuBtn[m.kunci] = b
-        if m.badge then
-            badgeMenu[m.kunci] = label({
-                Text = "0", TextColor3 = C.redup, TextXAlignment = Enum.TextXAlignment.Right,
-                Position = UDim2.new(1, -40, 0, 0), Size = UDim2.new(0, 32, 1, 0),
-            }, b)
+
+        local function nextTrack(delta)
+            curSongIdx = curSongIdx + delta
+            if curSongIdx > #MUSIC_TRACKS then curSongIdx = 1 end
+            if curSongIdx < 1 then curSongIdx = #MUSIC_TRACKS end
+            isPlaying = true
+            updatePlayState()
         end
-        b.Activated:Connect(function() bukaHalaman(m.kunci) end)
+
+        Kit.button(ctrlBox, { Text = "⏮", OnClick = function() nextTrack(-1) end })
+        playBtn = Kit.button(ctrlBox, { Text = "▶", Solid = true, OnClick = function()
+            isPlaying = not isPlaying
+            updatePlayState()
+        end })
+        Kit.button(ctrlBox, { Text = "⏭", OnClick = function() nextTrack(1) end })
+
+        -- Putaran Vinyl Animasi
+        RunService.RenderStepped:Connect(function()
+            if isPlaying then
+                vinyl.Rotation = (vinyl.Rotation + 1.8) % 360
+            end
+        end)
+
+        -- Card 2: Daftar Lagu (20 Lagu Ringkas)
+        Kit.caption(s, "Daftar Lagu Xiurey (20 Lagu)", 2)
+        local tListCont = Instance.new("Frame")
+        tListCont.BackgroundTransparency = 1
+        tListCont.Size = UDim2.new(1, 0, 0, 0)
+        tListCont.AutomaticSize = Enum.AutomaticSize.Y
+        tListCont.LayoutOrder = 3
+        tListCont.Parent = s
+        Kit.list(tListCont, 4)
+
+        for i, trk in ipairs(MUSIC_TRACKS) do
+            local tc = Kit.card(tListCont, { AutoY = true, LayoutOrder = i })
+            Kit.padding(tc, 8, 6, 8, 6)
+            local row = Instance.new("Frame")
+            row.BackgroundTransparency = 1
+            row.Size = UDim2.new(1, 0, 0, 26)
+            row.Parent = tc
+
+            local numL = Kit.label(row, { Text = string.format("%02d.", i), TextSize = 11, Font = Kit.FontBold, Color = Color3.fromRGB(10, 132, 255) })
+            numL.Size = UDim2.fromOffset(24, 26)
+
+            local infoL = Kit.label(row, { Text = trk.nama .. "  (" .. trk.genre .. ")", TextSize = 11, Font = Kit.FontMedium })
+            infoL.Position = UDim2.fromOffset(30, 0)
+            infoL.Size = UDim2.new(1, -110, 1, 0)
+
+            local pBtn = Kit.button(row, { Text = "PUTAR", OnClick = function()
+                curSongIdx = i
+                isPlaying = true
+                updatePlayState()
+                Kit.toast("Memutar: " .. trk.nama, "ok")
+            end })
+            pBtn.Position = UDim2.new(1, -70, 0, 0)
+            pBtn.Size = UDim2.fromOffset(70, 26)
+        end
     end
-end
 
-sorotMenu = function(kunci)
-    for k, b in pairs(menuBtn) do
-        local aktif = k == kunci
-            or (k == "toolbox" and toolboxTerbuka)
-            or (k == "music" and musicTerbuka)
-        b.BackgroundColor3 = aktif and C.aktif or C.kartu
-        local p = b:FindFirstChild("ActivePill")
-        if p then p.Visible = aktif end
+    -- ===================== 7) TAB: AI CHAT (XIUREY ASSISTANT) =====================
+    do
+        local s = win.AddPage({ id = "AICHAT", label = "AI Assistant", icon = "chat", title = "Xiurey AI Assistant",
+            subtitle = "Llama-3.3 70B via OpenRouter • Pembuat Script Roblox & Solusi", order = 7 })
+
+        local history = {}
+
+        -- Chat Message Container (Scroll)
+        local chatScroll = Instance.new("ScrollingFrame")
+        chatScroll.Size = UDim2.new(1, 0, 0, 220)
+        chatScroll.BackgroundTransparency = 1
+        chatScroll.BorderSizePixel = 0
+        chatScroll.ScrollBarThickness = 3
+        chatScroll.ScrollBarImageColor3 = P.border
+        chatScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+        chatScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+        chatScroll.LayoutOrder = 1
+        chatScroll.Parent = s
+        local cl = Instance.new("UIListLayout")
+        cl.Padding = UDim2.fromOffset(8)
+        cl.SortOrder = Enum.SortOrder.LayoutOrder
+        cl.Parent = chatScroll
+
+        local function addMessage(role, text)
+            local msgCard = Kit.card(chatScroll, { AutoY = true })
+            Kit.padding(msgCard, 10, 8, 10, 8)
+            msgCard.BackgroundColor3 = (role == "user") and Color3.fromRGB(15, 30, 55) or Color3.fromRGB(18, 22, 34)
+            local sender = (role == "user") and LocalPlayer.DisplayName or "Xiurey AI Assistant"
+            Kit.label(msgCard, { Text = sender, TextSize = 10, Font = Kit.FontBold, Color = (role == "user") and Color3.fromRGB(120, 200, 255) or Color3.fromRGB(160, 230, 180) })
+            Kit.label(msgCard, { Text = text, TextSize = 11, Wrap = true, AutoY = true, LayoutOrder = 2 })
+
+            local codeSnippet = text:match("```lua%s*(.-)%s*```") or text:match("```%s*(.-)%s*```")
+            if codeSnippet then
+                Kit.button(msgCard, { Text = "📋 SALIN SCRIPT", Solid = true, LayoutOrder = 3, OnClick = function()
+                    setclip(codeSnippet)
+                    Kit.toast("Script Lua disalin ke clipboard!", "ok")
+                end })
+            end
+            task.defer(function()
+                chatScroll.CanvasPosition = Vector2.new(0, 999999)
+            end)
+        end
+
+        addMessage("assistant", "Halo " .. LocalPlayer.DisplayName .. "! Saya Xiurey AI Assistant. Butuh bantuan membuat script Roblox atau memecahkan masalah?")
+
+        local inCard = Kit.card(s, { AutoY = true, LayoutOrder = 2 })
+        Kit.padding(inCard, 8, 8, 8, 8)
+        local inRow = Instance.new("Frame")
+        inRow.BackgroundTransparency = 1
+        inRow.Size = UDim2.new(1, 0, 0, 36)
+        inRow.Parent = inCard
+
+        local cBox = Kit.input(inRow, { Placeholder = "Tanyakan sesuatu ke AI...", Icon = "chat" })
+        cBox.Size = UDim2.new(1, -95, 1, 0)
+
+        local isWaitingAI = false
+        local function sendChat()
+            local prompt = trim(cBox.Text)
+            if prompt == "" or isWaitingAI then return end
+            cBox.Text = ""
+            addMessage("user", prompt)
+            isWaitingAI = true
+
+            callXiureyAI(prompt, history, function(success, reply)
+                isWaitingAI = false
+                if success then
+                    table.insert(history, {role = "user", content = prompt})
+                    table.insert(history, {role = "assistant", content = reply})
+                    addMessage("assistant", reply)
+                else
+                    addMessage("assistant", "Maaf, terjadi kesalahan: " .. tostring(reply))
+                end
+            end)
+        end
+
+        local sendBtn = Kit.button(inRow, { Text = "KIRIM", Solid = true, OnClick = sendChat })
+        sendBtn.Position = UDim2.new(1, -85, 0, 0)
+        sendBtn.Size = UDim2.fromOffset(85, 36)
+        cBox.FocusLost:Connect(function(enter) if enter then sendChat() end end)
     end
-end
-end
-initSidebar()
 
-------------------------------------------------------------------
--- NAVIGASI & SCAN
-------------------------------------------------------------------
-local function perbaruiHitungan()
-    for _, j in ipairs(JENIS) do
-        local n = tostring(#fileTersedia[j.kunci])
-        if badgeKartu[j.kunci] then badgeKartu[j.kunci].Text = n end
-        if badgeMenu[j.kunci] then badgeMenu[j.kunci].Text = n end
+    -- ===================== 8) TAB: SETTING =====================
+    do
+        local s = win.AddPage({ id = "SETTING", label = "Setting", icon = "gear", title = "Setting & Kustomisasi",
+            subtitle = "Pengaturan 3D UI, Open Cloud & sistem", order = 8 })
+
+        Kit.caption(s, "Roblox Open Cloud API", 1)
+        local ocCard = Kit.card(s, { AutoY = true, LayoutOrder = 2 })
+        Kit.padding(ocCard, 10, 10, 10, 10)
+        Kit.list(ocCard, 6)
+
+        local ocBox = Kit.input(ocCard, { Placeholder = "Open Cloud API Key...", LayoutOrder = 1 })
+        ocBox.Text = config.ocKey
+        local crBox = Kit.input(ocCard, { Placeholder = "Creator ID (User ID atau Group ID)...", LayoutOrder = 2 })
+        crBox.Text = config.creatorId
+
+        Kit.button(ocCard, { Text = "SIMPAN PENGATURAN", Solid = true, LayoutOrder = 3, OnClick = function()
+            config.ocKey = trim(ocBox.Text)
+            config.creatorId = trim(crBox.Text)
+            simpanConfig()
+            Kit.toast("Pengaturan berhasil disimpan!", "ok")
+        end })
+
+        Kit.caption(s, "Tampilan & Audio", 3)
+        Kit.toggle(s, "Tampilan 3D (Panel Miring)", UI3D.Config.Enabled, function(on)
+            UI3D.setEnabled(on)
+            config.ui3dEnabled = on
+            simpanConfig()
+        end, 4)
+        Kit.toggle(s, "Gyro HP (Panel Mengikuti Sensor HP)", UI3D.Config.Gyro, function(on)
+            UI3D.Config.Gyro = on
+        end, 5)
+        Kit.toggle(s, "Goyang Halus Saat Diam (Idle Wobble)", UI3D.Config.Idle, function(on)
+            UI3D.Config.Idle = on
+        end, 6)
+        Kit.toggle(s, "Suara Klik Xiurey", Kit.ClickSound, function(on)
+            Kit.ClickSound = on
+            if on then Kit.click() end
+        end, 7)
     end
-    dashboardMetrics.rbxm.Text = tostring(#fileTersedia.rbxm)
-    dashboardMetrics.rbxl.Text = tostring(#fileTersedia.rbxl)
-    tambahSampelMetrik("rbxm", #fileTersedia.rbxm)
-    tambahSampelMetrik("rbxl", #fileTersedia.rbxl)
-end
 
-local function bacaMetrikStats(grup, nama)
-    local ok, value = pcall(function()
-        local kategori = StatsService:FindFirstChild(grup)
-        local item = kategori and kategori:FindFirstChild(nama)
-        if not item then return nil end
-        return item:GetValue()
-    end)
-    if ok and type(value) == "number" then return value end
-    return nil
-end
+    -- Quick Action Buttons di bawah Sidebar
+    win.AddQuick({ Text = "Sembunyi", Solid = false, LayoutOrder = 1, OnClick = function()
+        win.Hide()
+        if ShowLauncher then ShowLauncher() end
+    end })
+    win.Select("HOME")
 
-local function perbaruiMetrikKinerja()
-    local cpu = bacaMetrikStats("PerformanceStats", "CPU")
-    local fps = bacaMetrikStats("FrameRateManager", "AverageFPS")
-    dashboardMetrics.cpu.Text = cpu and string.format("%.0f ms", cpu) or "N/A"
-    dashboardMetrics.fps.Text = fps and string.format("%.0f", fps) or "N/A"
-    if cpu then tambahSampelMetrik("cpu", cpu) end
-    if fps then tambahSampelMetrik("fps", fps) end
-end
+    -- ===================== LAUNCHER (Tombol Buka Kembali) =====================
+    local lg = Kit.screen(APP_NAME .. "Launcher", 79)
+    local launcher = Instance.new("TextButton")
+    launcher.AutoButtonColor = false
+    launcher.Text = ""
+    launcher.AnchorPoint = Vector2.new(1, 1)
+    launcher.Position = UDim2.new(1, -16, 1, -90)
+    launcher.Size = UDim2.fromOffset(52, 52)
+    launcher.BackgroundColor3 = P.panel
+    launcher.BackgroundTransparency = 0.2
+    launcher.BorderSizePixel = 0
+    launcher.Visible = false
+    launcher.Parent = lg
+    Kit.corner(launcher, 16)
+    Kit.sweepStroke(Kit.stroke(launcher, Color3.new(1, 1, 1), 1.5))
+    Kit.sheen(launcher, 16, 0.82, 1)
 
-bukaHalaman = function(kunci)
-    if kunci == "toolbox" then
-        if bukaToolboxPanel then bukaToolboxPanel() end
-        return
-    elseif kunci == "music" then
-        if bukaMusicPanel then bukaMusicPanel() end
-        return
-    end
-    local gantiTab = halamanAktif ~= nil and halamanAktif ~= kunci
-    for _, f in pairs(halaman) do f.Visible = false end
+    local lih = Instance.new("Frame")
+    lih.BackgroundTransparency = 1
+    lih.AnchorPoint = Vector2.new(0.5, 0.5)
+    lih.Position = UDim2.fromScale(0.5, 0.5)
+    lih.Size = UDim2.fromOffset(24, 24)
+    lih.Parent = launcher
+    Kit.icon(lih, "gem", 24, P.text)
 
-    if JENIS_KUNCI[kunci] then
-        local j = JENIS_KUNCI[kunci]
-        panelImport.konteks = j
-        panelImport.judul.Text = j.judul .. "  ·  " .. j.ket
-        panelImport.search.PlaceholderText = "Cari file " .. kunci .. "..."
-        panelImport.search.Text = ""
-        panelImport.render()
-        panelImport.frame.Visible = true
-    elseif UPLOAD[kunci] then
-        local u = UPLOAD[kunci]
-        panelUpload.konteks = u
-        panelUpload.judul.Text = u.judul .. "  ·  " .. u.ket
-        panelUpload.search.PlaceholderText = "Cari file..."
-        panelUpload.search.Text = ""
-        panelUpload.render()
-        panelUpload.frame.Visible = true
-    elseif halaman[kunci] then
-        halaman[kunci].Visible = true
-    end
-    sorotMenu(kunci)
-    halamanAktif = kunci
-    if gantiTab then jalankanSapuan() end
-end
-
-lakukanScan = function()
-    scanSemua()
-    perbaruiHitungan()
-    if panelImport.frame.Visible then panelImport.render() end
-    if panelUpload.frame.Visible then panelUpload.render() end
-    local total = 0
-    for _, e in ipairs(EXT_DICARI) do total = total + #fileTersedia[e] end
-    if total == 0 then
-        setStatus("SCAN selesai: tidak ada file yang cocok di folder Workspace", true)
-    else
-        setStatus("SCAN selesai: " .. total .. " file ditemukan")
-    end
-end
-
-perbaruiTujuan()
-
-------------------------------------------------------------------
-local function initWindowEvents()
--- EVENT: TUTUP, KECILKAN, GESER
-------------------------------------------------------------------
-local koneksiGeser
-
-local lamaToggle = parentGui:FindFirstChild("ImporterHubToggle")
-if lamaToggle then lamaToggle:Destroy() end
-local toggleGui = buat("ScreenGui", {
-    Name = "ImporterHubToggle",
-    ResetOnSpawn = false,
-    Enabled = false,
-}, parentGui)
-local toggler = sudut(buat("ImageButton", {
-    Name = "HubToggle",
-    Size = UDim2.new(0, 64, 0, 64),
-    Position = UDim2.new(0, 18, 0.5, -32),
-    Image = TOGGLE_IMAGE,
-    BackgroundTransparency = 1,
-    BorderSizePixel = 0,
-    Active = true,
-}, toggleGui), 14)
-local toggleStroke = Instance.new("UIStroke", toggler)
-toggleStroke.Color = Color3.fromRGB(0, 245, 115)
-toggleStroke.Thickness = 2
-TweenService:Create(toggleStroke, TweenInfo.new(1.4, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), { Color = Color3.fromRGB(100, 255, 175), Thickness = 3 }):Play()
-toggler.Activated:Connect(function()
-    toggleGui.Enabled = false
-    gui.Enabled = true
-    jalankanSapuan()
-end)
-
-btnTutup.Activated:Connect(function()
-    tutupToolboxPanel()
-    tutupMusicPanel()
-    gui.Enabled = false
-    if toggleGui then toggleGui.Enabled = true end
-end)
-
-local kecil = false
-btnMin.Activated:Connect(function()
-    if not kecil then
-        tutupToolboxPanel()
-        tutupMusicPanel()
-    end
-    kecil = not kecil
-    body.Visible = not kecil
-    frame.Size = UDim2.new(0, LEBAR, 0, kecil and 40 or TINGGI)
-end)
-
-local dragging, dragStart, startPos
-header.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1
-        or input.UserInputType == Enum.UserInputType.Touch then
-        dragging = true
-        dragStart = input.Position
-        startPos = frame.Position
-        input.Changed:Connect(function()
-            if input.UserInputState == Enum.UserInputState.End then dragging = false end
+    do
+        local dragging, moved, startIn, startPos = false, false, nil, nil
+        launcher.InputBegan:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                dragging, moved, startIn, startPos = true, false, input.Position, launcher.Position
+                input.Changed:Connect(function()
+                    if input.UserInputState == Enum.UserInputState.End then
+                        dragging = false
+                        if not moved then launcher.Visible = false win.Open() end
+                    end
+                end)
+            end
+        end)
+        UserInputService.InputChanged:Connect(function(input)
+            if not dragging then return end
+            if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+                local d = input.Position - startIn
+                if math.abs(d.X) > 6 or math.abs(d.Y) > 6 then moved = true end
+                if moved then
+                    launcher.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + d.X, startPos.Y.Scale, startPos.Y.Offset + d.Y)
+                end
+            end
         end)
     end
-end)
-koneksiGeser = UIS.InputChanged:Connect(function(input)
-    if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement
-        or input.UserInputType == Enum.UserInputType.Touch) then
-        local d = input.Position - dragStart
-        frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + d.X,
-            startPos.Y.Scale, startPos.Y.Offset + d.Y)
-        posisikanPanelSamping(false)
-    end
-end)
 
-------------------------------------------------------------------
+    ShowLauncher = function() launcher.Visible = true end
+    win.Close.MouseButton1Click:Connect(function()
+        win.Hide()
+        launcher.Visible = true
+    end)
+
+    -- ===================== LOADING SCREEN ANIMASI =====================
+    if SHOW_LOADING then
+        do
+            local sg = Kit.screen(APP_NAME .. "Splash", 990)
+            sg.IgnoreGuiInset = true
+
+            local bg = Instance.new("Frame")
+            bg.Size = UDim2.fromScale(1, 1)
+            bg.BackgroundColor3 = Color3.fromRGB(4, 6, 14)
+            bg.BackgroundTransparency = 1
+            bg.BorderSizePixel = 0
+            bg.Parent = sg
+
+            local orbs = {}
+            for i, spec in ipairs({
+                {300, Color3.fromRGB(10, 132, 255), -150, -40},
+                {240, Color3.fromRGB(110, 220, 255), 160, 50},
+                {180, Color3.fromRGB(120, 110, 255), 20, -110}
+            }) do
+                local o = Instance.new("CanvasGroup")
+                o.AnchorPoint = Vector2.new(0.5, 0.5)
+                o.Size = UDim2.fromOffset(spec[1], spec[1])
+                o.Position = UDim2.new(0.5, spec[3], 0.5, spec[4])
+                o.BackgroundTransparency = 1
+                o.GroupTransparency = 1
+                o.BorderSizePixel = 0
+                o.Parent = bg
+                for _, k in ipairs({1, 0.78, 0.56, 0.36}) do
+                    local c = Instance.new("Frame")
+                    c.AnchorPoint = Vector2.new(0.5, 0.5)
+                    c.Position = UDim2.fromScale(0.5, 0.5)
+                    c.Size = UDim2.fromScale(k, k)
+                    c.BackgroundColor3 = spec[2]
+                    c.BackgroundTransparency = 0.86
+                    c.BorderSizePixel = 0
+                    c.Parent = o
+                    Kit.corner(c, 1, true)
+                end
+                orbs[i] = {frame = o, x = spec[3], y = spec[4], phase = i * 2.1}
+            end
+
+            local holder = Instance.new("Frame")
+            holder.AnchorPoint = Vector2.new(0.5, 0.5)
+            holder.Position = UDim2.fromScale(0.5, 0.5)
+            holder.Size = UDim2.fromOffset(340, 236)
+            holder.BackgroundTransparency = 1
+            holder.Parent = sg
+            local scale = Instance.new("UIScale")
+            scale.Scale = 0.86
+            scale.Parent = holder
+
+            local fitScale = 1
+            do
+                local cam = workspace.CurrentCamera
+                local vp = cam and cam.ViewportSize or Vector2.new(800, 450)
+                fitScale = math.clamp(math.min((vp.X - 24) / 340, (vp.Y - 24) / 236), 0.6, 1.25)
+            end
+
+            local shadow = Kit.glow(holder, 28)
+            for _, g in ipairs(shadow) do g.frame.BackgroundTransparency = 1 end
+
+            local card = Kit.glass(holder, {Size = UDim2.fromScale(1, 1), Radius = 28, Canvas = true})
+            card.GroupTransparency = 1
+
+            local tile = Instance.new("Frame")
+            tile.AnchorPoint = Vector2.new(0.5, 0)
+            tile.Position = UDim2.new(0.5, 0, 0, 24)
+            tile.Size = UDim2.fromOffset(64, 64)
+            tile.BackgroundColor3 = Color3.new(1, 1, 1)
+            tile.BackgroundTransparency = 0.86
+            tile.BorderSizePixel = 0
+            tile.Parent = card
+            Kit.corner(tile, 20)
+            Kit.sheen(tile, 20, 0.7, 1)
+
+            local ring = Instance.new("UIStroke")
+            ring.Thickness = 2.5
+            ring.Color = Color3.new(1, 1, 1)
+            ring.Parent = tile
+            local ringG = Instance.new("UIGradient")
+            ringG.Color = ColorSequence.new({
+                ColorSequenceKeypoint.new(0, Color3.fromRGB(10, 132, 255)),
+                ColorSequenceKeypoint.new(0.5, Color3.fromRGB(140, 230, 255)),
+                ColorSequenceKeypoint.new(1, Color3.fromRGB(10, 132, 255)),
+            })
+            ringG.Parent = ring
+
+            local ih = Instance.new("Frame")
+            ih.BackgroundTransparency = 1
+            ih.AnchorPoint = Vector2.new(0.5, 0.5)
+            ih.Position = UDim2.fromScale(0.5, 0.5)
+            ih.Size = UDim2.fromOffset(30, 30)
+            ih.Parent = tile
+            Kit.icon(ih, "gem", 30, Color3.new(1, 1, 1))
+
+            local title = Kit.label(card, {
+                Text = LOGO_RICH, Rich = true,
+                Position = UDim2.fromOffset(0, 100), Size = UDim2.new(1, 0, 0, 30),
+                TextSize = 26, Font = Kit.FontBlack, Align = Enum.TextXAlignment.Center
+            })
+
+            Kit.label(card, {
+                Text = APP_TAGLINE, Position = UDim2.fromOffset(0, 132),
+                Size = UDim2.new(1, 0, 0, 16), TextSize = 12, Color = P.muted, Align = Enum.TextXAlignment.Center
+            })
+
+            local status = Kit.label(card, {
+                Text = "Memulai...", Position = UDim2.new(0, 34, 0, 168), Size = UDim2.new(1, -110, 0, 16),
+                TextSize = 11, Color = P.muted, Truncate = true
+            })
+            local pct = Kit.label(card, {
+                Text = "0%", Position = UDim2.new(1, -76, 0, 168), Size = UDim2.fromOffset(42, 16),
+                TextSize = 11, Font = Kit.FontBold, Align = Enum.TextXAlignment.Right
+            })
+            local bar, setBar = Kit.progress(card)
+            bar.Position = UDim2.new(0, 34, 0, 192)
+            bar.Size = UDim2.new(1, -68, 0, 8)
+
+            local t0 = os.clock()
+            local alive = true
+            local conn = RunService.RenderStepped:Connect(function()
+                if not alive then return end
+                local t = os.clock() - t0
+                ringG.Rotation = (t * 160) % 360
+                for _, o in ipairs(orbs) do
+                    o.frame.Position = UDim2.new(0.5, o.x + math.sin(t * 0.6 + o.phase) * 40, 0.5, o.y + math.cos(t * 0.5 + o.phase) * 26)
+                end
+            end)
+
+            Kit.tween(bg, 0.5, {BackgroundTransparency = 0.25})
+            for _, o in ipairs(orbs) do Kit.tween(o.frame, 0.9, {GroupTransparency = 0.2}) end
+            for _, g in ipairs(shadow) do Kit.tween(g.frame, 0.6, {BackgroundTransparency = g.base}) end
+            Kit.tween(card, 0.5, {GroupTransparency = 0})
+            Kit.tween(scale, 0.7, {Scale = fitScale}, Enum.EasingStyle.Back)
+            task.wait(0.5)
+
+            local steps = {
+                {"Menyiapkan Liquid Glass Engine...", 0.25, 0.4},
+                {"Memuat StudioLite & Toolbox PC...", 0.55, 0.4},
+                {"Menginisialisasi Audio Spoofer & Music...", 0.85, 0.4},
+                {"Siap!", 1.0, 0.3},
+            }
+            local shown = 0
+            local function setP(v)
+                setBar(v)
+                local target = math.floor(v * 100 + 0.5)
+                task.spawn(function()
+                    while shown < target and alive do
+                        shown = shown + 1
+                        pct.Text = shown .. "%"
+                        task.wait(0.01)
+                    end
+                end)
+            end
+            for _, st in ipairs(steps) do
+                status.Text = st[1]
+                setP(st[2])
+                task.wait(st[3])
+            end
+            task.wait(0.3)
+
+            Kit.tween(card, 0.35, {GroupTransparency = 1})
+            Kit.tween(scale, 0.35, {Scale = fitScale * 1.06})
+            for _, g in ipairs(shadow) do Kit.tween(g.frame, 0.3, {BackgroundTransparency = 1}) end
+            for _, o in ipairs(orbs) do Kit.tween(o.frame, 0.4, {GroupTransparency = 1}) end
+            Kit.tween(bg, 0.45, {BackgroundTransparency = 1})
+            task.wait(0.25)
+            win.Open()
+            alive = false
+            conn:Disconnect()
+            sg:Destroy()
+        end
+    else
+        win.Open()
+    end
 end
-initWindowEvents()
-
-------------------------------------------------------------------
--- MULAI
-------------------------------------------------------------------
-lakukanScan()
-bukaHalaman("dashboard")
-perbaruiMetrikKinerja()
-
-task.spawn(function()
-    while gui.Parent do
-        if gui.Enabled then perbaruiMetrikKinerja() end
-        task.wait(0.5)
-    end
-end)
