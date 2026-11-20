@@ -6336,7 +6336,7 @@ do
         chatScroll.BackgroundTransparency = 1
         chatScroll.BorderSizePixel = 0
         chatScroll.ScrollBarThickness = 3
-        chatScroll.ScrollBarImageColor3 = P.border
+        chatScroll.ScrollBarImageColor3 = Color3.fromRGB(96, 96, 108)
         chatScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
         chatScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
         chatScroll.LayoutOrder = 1
