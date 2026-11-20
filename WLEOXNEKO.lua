@@ -5866,6 +5866,7 @@ task.spawn(function()
 end)
 
 ------------------------------------------------------------------
+local function initHalamanAI()
 -- HALAMAN: AI CHAT (OpenRouter)
 ------------------------------------------------------------------
 local halAI = buat("Frame", {Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency = 1, Visible = false}, isi)
@@ -6032,6 +6033,10 @@ tambahPesan("sistem", "Halo! Tanya apa saja soal Roblox/Luau. Isi API key OpenRo
 ------------------------------------------------------------------
 -- HALAMAN: PENGATURAN
 ------------------------------------------------------------------
+------------------------------------------------------------------
+end
+initHalamanAI()
+
 ------------------------------------------------------------------
 -- ENGINE SPOOFER & BYPASS IN-GAME (100% Mirror Bot DC Engine)
 ------------------------------------------------------------------
@@ -6288,8 +6293,7 @@ end
 
 local daftarSpeed = {"0.8", "1.0", "1.2", "1.5", "1.8", "2.0", "2.3", "2.5", "3.0"}
 
-do -- BEGIN: Spoof section scope
-
+local function initHalamanSpoof()
 ------------------------------------------------------------------
 -- HALAMAN: SPOOFER & SCRIPT ID REPLACER
 ------------------------------------------------------------------
@@ -6613,11 +6617,10 @@ btnSpoofScriptNow.Activated:Connect(function()
         if setclipboard then setclipboard(finalScript) end
     end)
 end)
+end
+initHalamanSpoof()
 
-end -- END: Spoof section scope
-
-do -- BEGIN: YT Upload section scope
-
+local function initHalamanYt()
 ------------------------------------------------------------------
 -- HALAMAN: YOUTUBE UPLOADER & AUDIO BYPASS
 ------------------------------------------------------------------
@@ -6786,11 +6789,10 @@ btnYtNow.Activated:Connect(function()
         end
     end)
 end)
+end
+initHalamanYt()
 
-end -- END: YT Upload section scope
-
-do -- BEGIN: Settings section scope
-
+local function initHalamanSetelan()
 local halSetelan = buat("ScrollingFrame", {
     Size = UDim2.new(1, 0, 1, 0),
     BackgroundTransparency = 1,
@@ -6938,15 +6940,13 @@ btnSimpan.Activated:Connect(function()
         setStatus("Gagal menyimpan (executor tidak support writefile)", true)
     end
 end)
-
-
-end -- END: Settings section scope
+end
+initHalamanSetelan()
 
 ------------------------------------------------------------------
 -- MENU SIDEBAR
 ------------------------------------------------------------------
-do -- BEGIN: Sidebar section scope
-
+local function initSidebar()
 local sideScroll = buat("ScrollingFrame", {
     Size = UDim2.new(1, -8, 1, -48),
     Position = UDim2.new(0, 4, 0, 44),
@@ -7026,9 +7026,8 @@ sorotMenu = function(kunci)
         b.BackgroundColor3 = aktif and C.aktif or C.kartu
     end
 end
-
-
-end -- END: Sidebar section scope
+end
+initSidebar()
 
 ------------------------------------------------------------------
 -- NAVIGASI & SCAN
@@ -7117,6 +7116,7 @@ end
 perbaruiTujuan()
 
 ------------------------------------------------------------------
+local function initWindowEvents()
 -- EVENT: TUTUP, KECILKAN, GESER
 ------------------------------------------------------------------
 local koneksiGeser
@@ -7182,6 +7182,10 @@ koneksiGeser = UIS.InputChanged:Connect(function(input)
         posisikanPanelSamping(false)
     end
 end)
+
+------------------------------------------------------------------
+end
+initWindowEvents()
 
 ------------------------------------------------------------------
 -- MULAI
