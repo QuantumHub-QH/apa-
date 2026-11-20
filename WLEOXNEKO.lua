@@ -177,8 +177,8 @@ local function hitung(inst, t)
     for _, d in ipairs(inst:GetDescendants()) do cek(d) end
 end
 
-local JARAK_MIN_SPAWN_KAMERA = 24
-local JARAK_AMAN_SPAWN_KAMERA = 12
+local JARAK_MIN_SPAWN_KAMERA = 5
+local JARAK_AMAN_SPAWN_KAMERA = 3
 local function taruhGrupDiDepan(objects)
     local movable = {}
     local function collectSpatialRoots(obj)
@@ -257,7 +257,7 @@ local function taruhGrupDiDepan(objects)
     local radius = math.abs(direction.X) * halfSize.X
         + math.abs(direction.Y) * halfSize.Y
         + math.abs(direction.Z) * halfSize.Z
-    local distance = math.clamp(radius + JARAK_AMAN_SPAWN_KAMERA, 5, 10)
+    local distance = math.max(JARAK_MIN_SPAWN_KAMERA, radius + JARAK_AMAN_SPAWN_KAMERA)
     local targetCenter = camera.CFrame.Position + direction * distance
     local offset = CFrame.new(targetCenter - center)
     local moved = 0
@@ -294,9 +294,6 @@ end
 ------------------------------------------------------------------
 local C = {}
 local IJO_SEREM = Color3.fromRGB(0, 245, 115)
-local IJO_GELAP = Color3.fromRGB(15, 38, 22)
-local IJO_TERANG = Color3.fromRGB(130, 255, 180)
-
 
 local TEMA = {
     Abu = {
@@ -331,7 +328,7 @@ local TEMA = {
         bg = Color3.fromRGB(17, 25, 39), panel = Color3.fromRGB(24, 36, 54),
         kartu = Color3.fromRGB(33, 48, 70), aktif = Color3.fromRGB(42, 87, 139),
         teks = Color3.fromRGB(237, 245, 255), redup = Color3.fromRGB(151, 174, 204),
-        aksen = Color3.fromRGB(0, 245, 115), hijau = Color3.fromRGB(58, 181, 121),
+        aksen = Color3.fromRGB(83, 157, 222), hijau = Color3.fromRGB(58, 181, 121),
         merah = Color3.fromRGB(197, 64, 76),
     },
     Ungu = {
@@ -436,13 +433,10 @@ local function kotakTeks(props, parent)
 end
 
 local function pilihParent()
-    if gethui then
-        local ok, h = pcall(gethui)
-        if ok and h then return h end
-    end
-    local ok = pcall(function() return game:GetService("CoreGui"):GetChildren() end)
-    if ok then return game:GetService("CoreGui") end
-    return lp:WaitForChild("PlayerGui")
+    if gethui then return gethui() end
+    local ok, cg = pcall(function() return game:GetService("CoreGui") end)
+    if ok and cg then return cg end
+    return game.Players.LocalPlayer:WaitForChild("PlayerGui")
 end
 
 local parentGui = pilihParent()
@@ -471,34 +465,21 @@ local function fetchTextOnline(url)
     return nil
 end
 
-local function cekWhitelistRoblox()
-    local myId = tostring(lp.UserId)
-    if myId == "11581809430" or lp.Name == "DevMells" then
-        return true, {tier = "OWNER", status = "VIP"}
-    end
-    local urls = {
-        "https://raw.githubusercontent.com/amelxly-blip/spoofers/main/whitelist.json",
-        "https://raw.githubusercontent.com/QuantumHub-QH/apa-/main/whitelist.json"
-    }
-    for _, u in ipairs(urls) do
-        local body = fetchTextOnline(u .. "?cb=" .. tostring(os.time()))
-        if body and #body > 5 then
-            local okJ, d = pcall(function() return HttpService:JSONDecode(body) end)
-            if okJ and type(d) == "table" then
-                if type(d.users) == "table" then
-                    for _, uEntry in ipairs(d.users) do
-                        if type(uEntry) == "table" and tostring(uEntry.robloxId) == myId then
-                            return true, uEntry
-                        end
-                    end
-                    if d.users[myId] then
-                        return true, d.users[myId]
-                    end
-                end
-            end
+local function cekWhitelistRoblox(wl)
+    local uid = tostring(game.Players.LocalPlayer.UserId)
+    local uname = tostring(game.Players.LocalPlayer.Name):lower()
+    if uid == "11581809430" or uname == "devmells" then return true end
+    if not wl then return false end
+    if type(wl) == "table" then
+        for _, v in ipairs(wl) do
+            if tostring(v) == uid or tostring(v):lower() == uname then return true end
+        end
+        for k, v in pairs(wl) do
+            if tostring(k) == uid or tostring(k):lower() == uname then return true end
+            if tostring(v) == uid or tostring(v):lower() == uname then return true end
         end
     end
-    return false, nil
+    return false
 end
 
 local aksesDiizinkan, infoAkses = cekWhitelistRoblox()
@@ -671,6 +652,9 @@ local frame = sudut(buat("Frame", {
     BorderSizePixel = 0,
     Active = true,
 }, gui), 12)
+local frameStroke = Instance.new("UIStroke", frame)
+frameStroke.Color = Color3.fromRGB(0, 245, 115)
+frameStroke.Thickness = 1.5
 
 -- Header
 local TOGGLE_IMAGE = "rbxassetid://116910178994061"
@@ -726,7 +710,7 @@ end
 
 -- Sidebar & area isi
 local sidebar = sudut(buat("Frame", {
-    Size = UDim2.new(0, 140, 1, -44),
+    Size = UDim2.new(0, 152, 1, -44),
     Position = UDim2.new(0, 8, 0, 0),
     BackgroundColor3 = C.panel,
     BorderSizePixel = 0,
@@ -739,8 +723,8 @@ label({Text = "@" .. lp.Name, TextColor3 = C.redup, TextSize = 10,
     TextTruncate = Enum.TextTruncate.AtEnd}, sidebar)
 
 local isi = buat("Frame", {
-    Size = UDim2.new(1, -164, 1, -44),
-    Position = UDim2.new(0, 156, 0, 0),
+    Size = UDim2.new(1, -172, 1, -44),
+    Position = UDim2.new(0, 166, 0, 0),
     BackgroundTransparency = 1,
 }, body)
 
@@ -839,6 +823,12 @@ local function pasangHasil(hasil, namaSumber)
     end
 
     local spawnError
+    for _, inst in ipairs(ditaruh) do
+        if inst:IsA("BasePart") then pcall(function() inst.Anchored = true end) end
+        for _, desc in ipairs(inst:GetDescendants()) do
+            if desc:IsA("BasePart") then pcall(function() desc.Anchored = true end) end
+        end
+    end
     if #objekWorkspace > 0 then
         local positioned, positionMessage = taruhGrupDiDepan(objekWorkspace)
         if not positioned then spawnError = positionMessage end
@@ -993,6 +983,7 @@ local function Buffer(str, allowOverflows)
     function Stream:toEnd() self.Offset = self.Length end
     return Stream
 end
+do -- [M1S] main wrap 1 start
 local function transformInt(x) return (x % 2 == 0) and (x / 2) or (-(x + 1) / 2) end
 local function rbxF32(x) x = _rrotate(x, 1); return string.unpack(">f", string.pack(">I4", x)) end
 local basicTypes = {}
@@ -4210,6 +4201,8 @@ local function canonicalWorkspacePath(path)
     end
     return p
 end
+end -- [M1E]
+do -- [M2S] main wrap 2 start
 local function scanDeep(folder, depth, results, seenFolders, seenFiles)
     if depth > 4 then return end
     local folderKey = canonicalWorkspacePath(folder)
@@ -4673,9 +4666,14 @@ local function buatDaftarScroll(induk, posisi, ukuran, duaKolom)
         Position = posisi,
         BackgroundColor3 = C.panel,
         BorderSizePixel = 0,
-        ScrollBarThickness = 4,
+        ScrollBarThickness = 6,
+        ScrollBarImageColor3 = Color3.fromRGB(0, 245, 115),
+        ScrollingEnabled = true,
+        ScrollingDirection = Enum.ScrollingDirection.Y,
         CanvasSize = UDim2.new(0, 0, 0, 0),
         AutomaticCanvasSize = Enum.AutomaticSize.Y,
+        Active = true,
+        Selectable = true,
     }, induk), 8)
     if duaKolom then
         buat("UIGridLayout", {
@@ -4749,6 +4747,121 @@ buat("UIListLayout", {
     Padding = UDim.new(0, 8),
     SortOrder = Enum.SortOrder.LayoutOrder,
 }, halDash)
+
+-- === ACCOUNT CARD (DASHBOARD) ===
+do
+    local cardBg = buat("Frame", {
+        Name = "AccountCard",
+        Size = UDim2.new(1, -8, 0, 140),
+        BackgroundColor3 = C.kartu,
+        BorderSizePixel = 0,
+        LayoutOrder = 0,
+    }, halDash)
+    sudut(cardBg, 10)
+    local cardStroke = Instance.new("UIStroke")
+    cardStroke.Color = Color3.fromRGB(0, 245, 115)
+    cardStroke.Thickness = 1.2
+    cardStroke.Parent = cardBg
+
+    -- Avatar Headshot
+    local av = buat("ImageLabel", {
+        Size = UDim2.new(0, 52, 0, 52),
+        Position = UDim2.new(0, 10, 0, 10),
+        BackgroundColor3 = C.bg,
+        BorderSizePixel = 0,
+        Image = "https://www.roblox.com/headshot-thumbnail/image?userId=" .. tostring(LocalPlayer.UserId) .. "&width=150&height=150&format=png",
+        ScaleType = Enum.ScaleType.Crop,
+    }, cardBg)
+    sudut(av, 26)
+
+    -- DisplayName & Username
+    label({
+        Text = LocalPlayer.DisplayName,
+        Font = Enum.Font.GothamBold,
+        TextSize = 13,
+        TextColor3 = C.teks,
+        Position = UDim2.new(0, 70, 0, 10),
+        Size = UDim2.new(1, -150, 0, 16),
+        TextXAlignment = Enum.TextXAlignment.Left,
+    }, cardBg)
+
+    label({
+        Text = "@" .. LocalPlayer.Name,
+        Font = Enum.Font.Gotham,
+        TextSize = 10,
+        TextColor3 = C.redup,
+        Position = UDim2.new(0, 70, 0, 28),
+        Size = UDim2.new(1, -150, 0, 14),
+        TextXAlignment = Enum.TextXAlignment.Left,
+    }, cardBg)
+
+    local isVip = (LocalPlayer.UserId == 11581809430 or LocalPlayer.Name:lower() == "devmells")
+    if isVip then
+        local vipBadge = buat("TextLabel", {
+            Text = " VIP ",
+            Font = Enum.Font.GothamBold,
+            TextSize = 9,
+            TextColor3 = Color3.fromRGB(0, 0, 0),
+            BackgroundColor3 = Color3.fromRGB(0, 245, 115),
+            Position = UDim2.new(0, 70, 0, 44),
+            Size = UDim2.new(0, 36, 0, 14),
+            BorderSizePixel = 0,
+        }, cardBg)
+        sudut(vipBadge, 3)
+    end
+
+    -- User / Group toggle button
+    local btnType = tombol({
+        Text = "Tipe: " .. tostring(config.creatorTipe or "User"),
+        Font = Enum.Font.GothamBold,
+        TextSize = 10,
+        Size = UDim2.new(0, 74, 0, 24),
+        Position = UDim2.new(1, -84, 0, 10),
+        BackgroundColor3 = C.bg,
+    }, cardBg)
+    sudut(btnType, 6)
+
+    btnType.Activated:Connect(function()
+        config.creatorTipe = (config.creatorTipe == "User" and "Group" or "User")
+        btnType.Text = "Tipe: " .. config.creatorTipe
+    end)
+
+    -- API Key input box
+    local boxKey = kotakTeks({
+        Text = config.ocKey or "",
+        PlaceholderText = "Open Cloud API Key...",
+        Position = UDim2.new(0, 10, 0, 68),
+        Size = UDim2.new(1, -20, 0, 28),
+    }, cardBg)
+
+    -- Creator ID input box
+    local boxId = kotakTeks({
+        Text = config.creatorId or "",
+        PlaceholderText = "Creator ID (User ID atau Group ID)...",
+        Position = UDim2.new(0, 10, 0, 102),
+        Size = UDim2.new(1, -100, 0, 28),
+    }, cardBg)
+
+    -- KONEK button
+    local btnKonek = tombol({
+        Text = "💾 KONEK",
+        Font = Enum.Font.GothamBold,
+        TextSize = 10,
+        TextColor3 = Color3.fromRGB(0, 0, 0),
+        BackgroundColor3 = Color3.fromRGB(0, 245, 115),
+        Position = UDim2.new(1, -84, 0, 102),
+        Size = UDim2.new(0, 74, 0, 28),
+    }, cardBg)
+    sudut(btnKonek, 6)
+
+    btnKonek.Activated:Connect(function()
+        config.ocKey = trim(boxKey.Text)
+        config.creatorId = trim(boxId.Text)
+        if simpanConfig then simpanConfig() end
+        setStatus("Akun Open Cloud terhubung & tersimpan!")
+    end)
+end
+
 
 local ICON_BY_KEY = {
     dashboard = "134003209888315",
@@ -4891,140 +5004,6 @@ buatMetrikDashboard("rbxl", "TOTAL RBXL")
 buatMetrikDashboard("cpu", "CPU / FRAME")
 buatMetrikDashboard("fps", "FPS")
 
-
--- =====================================================================
--- KARTU SETELAN AKUN & KONEKSI API (DI BERANDA PALING DEPAN)
--- =====================================================================
-local cardAkun = sudut(buat("Frame", {
-    Size = UDim2.new(1, -4, 0, 114),
-    BackgroundColor3 = C.panel,
-    BorderSizePixel = 0,
-    LayoutOrder = 2,
-}, halDash), 10)
-buat("UIStroke", {Color = IJO_SEREM, Thickness = 1.5, Transparency = 0.25}, cardAkun)
-
-local imgAvatar = sudut(buat("ImageLabel", {
-    Size = UDim2.new(0, 68, 0, 68),
-    Position = UDim2.new(0, 10, 0, 12),
-    BackgroundColor3 = C.bg,
-    BorderSizePixel = 0,
-    Image = "rbxthumb://type=AvatarHeadShot&id=" .. tostring(lp.UserId) .. "&w=150&h=150",
-    ScaleType = Enum.ScaleType.Crop,
-}, cardAkun), 34)
-buat("UIStroke", {Color = IJO_SEREM, Thickness = 1.4}, imgAvatar)
-
-label({
-    Text = tostring(lp.DisplayName) .. " (@" .. tostring(lp.Name) .. ")",
-    Font = Enum.Font.GothamBold,
-    TextSize = 13,
-    TextColor3 = C.teks,
-    Position = UDim2.new(0, 86, 0, 8),
-    Size = UDim2.new(1, -190, 0, 18),
-    TextTruncate = Enum.TextTruncate.AtEnd,
-}, cardAkun)
-
-local badgeVip = sudut(buat("Frame", {
-    Size = UDim2.new(0, 84, 0, 18),
-    Position = UDim2.new(1, -92, 0, 8),
-    BackgroundColor3 = IJO_SEREM,
-    BorderSizePixel = 0,
-}, cardAkun), 4)
-label({
-    Text = "👑 USER VIP",
-    TextColor3 = Color3.fromRGB(10, 15, 12),
-    Font = Enum.Font.GothamBold,
-    TextSize = 9,
-    Size = UDim2.new(1, 0, 1, 0),
-    TextXAlignment = Enum.TextXAlignment.Center,
-}, badgeVip)
-
--- Pilihan Tipe: User atau Group
-local rowTipe = buat("Frame", {
-    Size = UDim2.new(1, -94, 0, 22),
-    Position = UDim2.new(0, 86, 0, 28),
-    BackgroundTransparency = 1,
-}, cardAkun)
-buat("UIListLayout", {FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 6)}, rowTipe)
-
-label({Text = "Tipe ID:", TextColor3 = C.redup, TextSize = 10, Size = UDim2.new(0, 48, 1, 0)}, rowTipe)
-local btnTipeUser = tombol({
-    Text = "User",
-    Size = UDim2.new(0, 56, 1, 0),
-    BackgroundColor3 = (config.creatorTipe == "User") and IJO_SEREM or C.kartu,
-    TextColor3 = (config.creatorTipe == "User") and Color3.fromRGB(10, 15, 12) or C.teks,
-    TextSize = 10,
-    Font = Enum.Font.GothamBold,
-}, rowTipe)
-local btnTipeGroup = tombol({
-    Text = "Group",
-    Size = UDim2.new(0, 56, 1, 0),
-    BackgroundColor3 = (config.creatorTipe == "Group") and IJO_SEREM or C.kartu,
-    TextColor3 = (config.creatorTipe == "Group") and Color3.fromRGB(10, 15, 12) or C.teks,
-    TextSize = 10,
-    Font = Enum.Font.GothamBold,
-}, rowTipe)
-
-btnTipeUser.Activated:Connect(function()
-    config.creatorTipe = "User"
-    btnTipeUser.BackgroundColor3 = IJO_SEREM
-    btnTipeUser.TextColor3 = Color3.fromRGB(10, 15, 12)
-    btnTipeGroup.BackgroundColor3 = C.kartu
-    btnTipeGroup.TextColor3 = C.teks
-end)
-
-btnTipeGroup.Activated:Connect(function()
-    config.creatorTipe = "Group"
-    btnTipeGroup.BackgroundColor3 = IJO_SEREM
-    btnTipeGroup.TextColor3 = Color3.fromRGB(10, 15, 12)
-    btnTipeUser.BackgroundColor3 = C.kartu
-    btnTipeUser.TextColor3 = C.teks
-end)
-
-local inKeyOc = kotakTeks({
-    Size = UDim2.new(0.44, -46, 0, 26),
-    Position = UDim2.new(0, 86, 0, 52),
-    Text = config.ocKey or "",
-    PlaceholderText = "Open Cloud API Key...",
-}, cardAkun)
-
-local inIdOc = kotakTeks({
-    Size = UDim2.new(0.32, -4, 0, 26),
-    Position = UDim2.new(0.44, 46, 0, 52),
-    Text = config.creatorId ~= "" and config.creatorId or tostring(lp.UserId),
-    PlaceholderText = "Creator/User/Group ID",
-}, cardAkun)
-
-local btnSimpanAkun = tombol({
-    Text = "💾 KONEK",
-    Font = Enum.Font.GothamBold,
-    TextSize = 10,
-    Size = UDim2.new(0.24, -8, 0, 26),
-    Position = UDim2.new(0.76, 46, 0, 52),
-    BackgroundColor3 = IJO_SEREM,
-    TextColor3 = Color3.fromRGB(10, 15, 12),
-}, cardAkun)
-
-local statusKonek = label({
-    Text = "🟢 Status: API Key & Creator ID Siap Dipakai untuk Spoof & Uploader",
-    TextColor3 = IJO_TERANG,
-    TextSize = 10,
-    Position = UDim2.new(0, 86, 0, 84),
-    Size = UDim2.new(1, -94, 0, 20),
-}, cardAkun)
-
-btnSimpanAkun.Activated:Connect(function()
-    config.ocKey = trim(inKeyOc.Text)
-    config.creatorId = trim(inIdOc.Text)
-    simpanConfig()
-    btnSimpanAkun.Text = "✔ TERSIMPAN"
-    statusKonek.Text = "🟢 Status: Setelan Akun & API Key Berhasil Disimpan!"
-    task.delay(1.5, function()
-        if btnSimpanAkun and btnSimpanAkun.Parent then
-            btnSimpanAkun.Text = "💾 KONEK"
-        end
-    end)
-end)
-
 label({
     Text = "Import dan fitur",
     Font = Enum.Font.GothamBold,
@@ -5129,8 +5108,8 @@ panelUpload.extra.Activated:Connect(function() bukaHalaman("setelan") end)
 ------------------------------------------------------------------
 -- PANEL SAMPING: TOOLBOX
 ------------------------------------------------------------------
-local TOOLBOX_WIDTH, TOOLBOX_HEIGHT, TOOLBOX_GAP = 340, 480, 12
-local MUSIC_WIDTH, MUSIC_HEIGHT = 340, 520
+local TOOLBOX_WIDTH, TOOLBOX_HEIGHT, TOOLBOX_GAP = 420, 410, 12
+local MUSIC_WIDTH, MUSIC_HEIGHT = 340, 410
 local toolboxTerbuka, musicTerbuka = false, false
 local halMusic
 local halToolbox = sudut(buat("Frame", {
@@ -5212,9 +5191,8 @@ local function posisikanPanelSamping(halus, posisiFrame)
 end
 
 local function aturLayoutPanelSamping(halus)
-    -- Main GUI ukurannya tetap utuh dan TIDAK mengecil!
-    frame.Size = UDim2.new(0, LEBAR, 0, TINGGI)
-    posisikanPanelSamping(halus, frame.Position)
+    -- GUI utama tetap ukuran penuh, tidak mengecil
+    posisikanPanelSamping(halus)
 end
 
 bukaToolboxPanel = function()
@@ -5785,12 +5763,7 @@ local musicSearch = kotakTeks({
     Text = "",
     PlaceholderText = "Cari judul, genre, atau ID...",
 }, halMusic)
-local musicList = buatDaftarScroll(
-    halMusic,
-    UDim2.new(0, 12, 0, 306),
-    UDim2.new(1, -24, 1, -344),
-    false
-)
+local musicList = buatDaftarScroll(halMusic, UDim2.new(0, 12, 0, 260), UDim2.new(1, -24, 1, -290), false)
 local musicCount = label({
     Text = "",
     TextColor3 = C.redup,
@@ -6056,30 +6029,6 @@ local function tambahPesan(peran, teks)
     }, aiList), 8)
     buat("UIPadding", {PaddingTop = UDim.new(0, 6), PaddingBottom = UDim.new(0, 6),
         PaddingLeft = UDim.new(0, 8), PaddingRight = UDim.new(0, 8)}, lbl)
-    if peran == "ai" and teks ~= "..." then
-        local btnSalin = sudut(buat("TextButton", {
-            Name = "BtnSalinScript",
-            Size = UDim2.new(0, 150, 0, 24),
-            Position = UDim2.new(1, -156, 1, -26),
-            BackgroundColor3 = IJO_SEREM,
-            TextColor3 = Color3.fromRGB(10, 15, 12),
-            Font = Enum.Font.GothamBold,
-            TextSize = 10,
-            Text = "📋 Salin Script",
-            ZIndex = 5,
-        }, lbl), 6)
-        btnSalin.Activated:Connect(function()
-            if setclipboard then
-                pcall(setclipboard, teks)
-                btnSalin.Text = "✔ Berhasil Disalin!"
-                task.delay(1.5, function()
-                    if btnSalin and btnSalin.Parent then
-                        btnSalin.Text = "📋 Salin Script"
-                    end
-                end)
-            end
-        end)
-    end
     task.defer(function()
         task.wait()
         aiList.CanvasPosition = Vector2.new(0, 99999)
@@ -6383,11 +6332,11 @@ end
 updateTipeUI()
 
 -- Pilihan Speed
-label({Text = "PILIH SPEED BYPASS • Rekomendasi: 2.3x (Pitch 0.43)", TextColor3 = IJO_SEREM, Font = Enum.Font.GothamBold, TextSize = 11, Size = UDim2.new(1, 0, 0, 16), LayoutOrder = 5}, cardSpoofId)
+label({Text = "PILIH SPEED BYPASS (Untuk Audio / Musik):", TextColor3 = C.redup, TextSize = 10, Size = UDim2.new(1, 0, 0, 14), LayoutOrder = 5}, cardSpoofId)
 local rowSpeed = buat("Frame", {Size = UDim2.new(1, 0, 0, 26), BackgroundTransparency = 1, LayoutOrder = 6}, cardSpoofId)
 local layoutSpeed = buat("UIListLayout", {FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 4)}, rowSpeed)
 
-local speedTerpilih = "1.0"
+local speedTerpilih = "2.3"
 local tombolSpeedMap = {}
 local daftarSpeed = {"0.43", "0.8", "1.0", "1.2", "1.5", "1.8", "2.0", "2.3", "2.5", "3.0"}
 
@@ -6951,7 +6900,7 @@ for i, m in ipairs(MENU) do
             buat("ImageLabel", {
                 BackgroundTransparency = 1,
                 Image = "rbxassetid://" .. iconAsset,
-                Position = UDim2.new(0, 7, 0.5, -9),
+                Position = UDim2.new(0, 7, 0.5, -10),
                 Size = UDim2.new(0, 20, 0, 20),
                 ScaleType = Enum.ScaleType.Fit,
             }, b)
@@ -7079,39 +7028,40 @@ local toggler = sudut(buat("ImageButton", {
     Size = UDim2.new(0, 60, 0, 60),
     Position = UDim2.new(0, 18, 0.5, -30),
     Image = TOGGLE_IMAGE,
-    BackgroundColor3 = Color3.fromRGB(15, 20, 18),
-    BackgroundTransparency = 0.2,
+    BackgroundTransparency = 1,
     BorderSizePixel = 0,
     Active = true,
 }, toggleGui), 14)
-buat("UIStroke", {Color = IJO_SEREM, Thickness = 1.6}, toggler)
+local toggleStroke = Instance.new("UIStroke", toggler)
+toggleStroke.Color = Color3.fromRGB(0, 245, 115)
+toggleStroke.Thickness = 2
 
-local tDrag, tMoved, tStart, tPos = false, false, nil, nil
-toggler.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        tDrag = true
-        tMoved = false
-        tStart = input.Position
-        tPos = toggler.Position
-        input.Changed:Connect(function()
-            if input.UserInputState == Enum.UserInputState.End then
-                tDrag = false
-                if not tMoved then
-                    toggleGui.Enabled = false
-                    gui.Enabled = true
-                    jalankanSapuan()
-                end
-            end
-        end)
+local dragToggle, dragToggleStart, startTogglePos, tapToggleTime = false, nil, nil, 0
+toggler.InputBegan:Connect(function(inp)
+    if inp.UserInputType == Enum.UserInputType.Touch or inp.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragToggle = true
+        dragToggleStart = inp.Position
+        startTogglePos = toggler.Position
+        tapToggleTime = tick()
     end
 end)
-UIS.InputChanged:Connect(function(input)
-    if tDrag and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-        local delta = input.Position - tStart
-        if math.abs(delta.X) > 4 or math.abs(delta.Y) > 4 then
-            tMoved = true
-            toggler.Position = UDim2.new(tPos.X.Scale, tPos.X.Offset + delta.X, tPos.Y.Scale, tPos.Y.Offset + delta.Y)
+UserInputService.InputChanged:Connect(function(inp)
+    if dragToggle and (inp.UserInputType == Enum.UserInputType.Touch or inp.UserInputType == Enum.UserInputType.MouseMovement) then
+        local d = inp.Position - dragToggleStart
+        toggler.Position = UDim2.new(
+            startTogglePos.X.Scale, startTogglePos.X.Offset + d.X,
+            startTogglePos.Y.Scale, startTogglePos.Y.Offset + d.Y
+        )
+    end
+end)
+UserInputService.InputEnded:Connect(function(inp)
+    if inp.UserInputType == Enum.UserInputType.Touch or inp.UserInputType == Enum.UserInputType.MouseButton1 then
+        if dragToggle and (tick() - tapToggleTime) < 0.25 then
+            toggleGui.Enabled = false
+            gui.Enabled = true
+            jalankanSapuan()
         end
+        dragToggle = false
     end
 end)
 
@@ -7168,3 +7118,5 @@ task.spawn(function()
         task.wait(0.5)
     end
 end)
+
+end -- [M2E] main wrap 2 end
