@@ -2535,8 +2535,9 @@ do
 
     backBtn = Instance.new("TextButton")
     backBtn.Name = "BackBtn"
-    backBtn.Size = UDim2.fromOffset(64, 26)
-    backBtn.Position = UDim2.fromOffset(42, 8)
+    backBtn.AnchorPoint = Vector2.new(1, 0)
+    backBtn.Size = UDim2.fromOffset(66, 28)
+    backBtn.Position = UDim2.new(1, -36, 0, 5)
     backBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
     backBtn.BackgroundTransparency = 0.85
     backBtn.Text = "< BACK"
@@ -2896,7 +2897,7 @@ do
     end
 
     -- ================= DASHBOARD (sebelum panel utama) =================
-    local dash = Instance.new("CanvasGroup")
+    local dash = Instance.new("Frame")
     dash.Name = "Dashboard"
     dash.Position = UDim2.fromOffset(12, 56)
     dash.Size = UDim2.new(1, -24, 1, -68)
@@ -2929,25 +2930,44 @@ do
     btxt.Size = UDim2.new(1, -28, 1, 0)
     btxt.ZIndex = 23
 
-    local t1 = text(hero, "IMPORTER", 28, Enum.Font.GothamBold, C.text)
-    t1.Position = UDim2.fromOffset(14, 46)
-    t1.Size = UDim2.new(1, -28, 0, 32)
+    local t1 = text(hero, "IMPORTER", 26, Enum.Font.GothamBold, C.text)
+    t1.Position = UDim2.fromOffset(14, 44)
+    t1.Size = UDim2.new(1, -28, 0, 28)
     t1.ZIndex = 22
-    local t2 = text(hero, "DASHBOARD", 28, Enum.Font.GothamBold, C.accent)
-    t2.Position = UDim2.fromOffset(14, 76)
-    t2.Size = UDim2.new(1, -28, 0, 32)
+    local t2 = text(hero, "DASHBOARD", 26, Enum.Font.GothamBold, C.accent)
+    t2.Position = UDim2.fromOffset(14, 70)
+    t2.Size = UDim2.new(1, -28, 0, 28)
     t2.ZIndex = 22
 
     local desc = text(hero, "Pilih file RBXM, RBXMX, RBXL & RBXLX langsung masuk ke game. Toolbox PC siap pakai, hasil spawn auto anchored.", 11, Enum.Font.GothamMedium, C.soft)
-    desc.Position = UDim2.fromOffset(14, 116)
-    desc.Size = UDim2.new(1, -28, 0, 56)
+    desc.Position = UDim2.fromOffset(14, 106)
+    desc.Size = UDim2.new(1, -28, 0, 50)
     desc.TextWrapped = true
     desc.TextYAlignment = Enum.TextYAlignment.Top
     desc.ZIndex = 22
 
+    -- dua pill info: TOTAL & DIIMPOR
+    local function infoPill(x, labelText, color)
+        local p = glassPanel(hero, 0.86, 11)
+        p.Position = UDim2.fromOffset(x, 164)
+        p.Size = UDim2.fromOffset(118, 40)
+        p.ZIndex = 22
+        local l = text(p, labelText, 9, Enum.Font.GothamBold, C.muted)
+        l.Position = UDim2.fromOffset(10, 5)
+        l.Size = UDim2.new(1, -20, 0, 12)
+        l.ZIndex = 23
+        local v = text(p, "0", 16, Enum.Font.GothamBold, color)
+        v.Position = UDim2.fromOffset(10, 17)
+        v.Size = UDim2.new(1, -20, 0, 20)
+        v.ZIndex = 23
+        return v
+    end
+    local pillTotal = infoPill(14, "TOTAL FILE", C.accent)
+    local pillImp = infoPill(140, "DIIMPOR", C.ok)
+
     local openBtn = Instance.new("TextButton")
-    openBtn.Position = UDim2.fromOffset(14, 186)
-    openBtn.Size = UDim2.fromOffset(150, 36)
+    openBtn.Position = UDim2.fromOffset(14, 222)
+    openBtn.Size = UDim2.fromOffset(150, 38)
     openBtn.BackgroundColor3 = C.accent
     openBtn.BackgroundTransparency = 0.15
     openBtn.BorderSizePixel = 0
@@ -2964,45 +2984,45 @@ do
     openBtn.MouseButton1Click:Connect(function() DASH.hooks.openTab("HOME") end)
 
     local dScan = glassButton(hero, 0.84)
-    dScan.Position = UDim2.fromOffset(172, 186)
-    dScan.Size = UDim2.fromOffset(86, 36)
+    dScan.Position = UDim2.fromOffset(172, 222)
+    dScan.Size = UDim2.fromOffset(86, 38)
     dScan.Text = "SCAN ULANG"
     dScan.TextSize = 10
     dScan.Font = Enum.Font.GothamBold
     dScan.TextColor3 = C.text
     dScan.MouseButton1Click:Connect(function() DASH.hooks.scan() end)
 
-    local dashFoot = text(hero, "TOTAL 0 • DIIMPOR 0", 10, Enum.Font.GothamMedium, C.muted)
-    dashFoot.Position = UDim2.fromOffset(14, 240)
-    dashFoot.Size = UDim2.new(1, -28, 0, 22)
-    dashFoot.ZIndex = 22
-
-    -- kartu kanan atas: statistik file
+    -- kartu kanan atas: statistik file (hanya tampilan, tidak bisa diklik)
     local stats = glassPanel(dash, 0.9, 16)
     stats.Position = UDim2.new(0, 282, 0, 0)
     stats.Size = UDim2.new(1, -282, 0, 150)
     stats.ZIndex = 21
     local sl = text(stats, "FILE TERDETEKSI", 10, Enum.Font.GothamBold, C.muted)
     sl.Position = UDim2.fromOffset(14, 8)
-    sl.Size = UDim2.new(1, -28, 0, 16)
+    sl.Size = UDim2.new(0.6, -14, 0, 16)
     sl.ZIndex = 22
+    local statTotal = text(stats, "0 file", 10, Enum.Font.GothamMedium, C.soft, Enum.TextXAlignment.Right)
+    statTotal.Position = UDim2.new(0.5, 0, 0, 8)
+    statTotal.Size = UDim2.new(0.5, -14, 0, 16)
+    statTotal.ZIndex = 22
 
     for _, spec in ipairs({
         { "RBXM", C.accent, 10, 28 }, { "RBXMX", C.accent, 118, 28 },
         { "RBXL", C.accent2, 10, 86 }, { "RBXLX", C.accent2, 118, 86 },
     }) do
         local name, col, x, y = spec[1], spec[2], spec[3], spec[4]
-        local tile = glassButton(stats, 0.84)
+        local tile = glassPanel(stats, 0.86, 12)
         tile.Position = UDim2.fromOffset(x, y)
         tile.Size = UDim2.fromOffset(106, 52)
+        tile.ZIndex = 22
         local nl = text(tile, name, 10, Enum.Font.GothamBold, C.muted)
         nl.Position = UDim2.fromOffset(10, 6)
         nl.Size = UDim2.new(1, -44, 0, 14)
-        nl.ZIndex = 24
+        nl.ZIndex = 23
         local cl = text(tile, "0", 20, Enum.Font.GothamBold, col)
         cl.Position = UDim2.fromOffset(10, 20)
         cl.Size = UDim2.new(1, -44, 0, 26)
-        cl.ZIndex = 24
+        cl.ZIndex = 23
         local ic = Instance.new("ImageLabel")
         ic.AnchorPoint = Vector2.new(1, 0.5)
         ic.Position = UDim2.new(1, -8, 0.5, 0)
@@ -3010,48 +3030,131 @@ do
         ic.BackgroundTransparency = 1
         ic.Image = ICONS[name]
         ic.ScaleType = Enum.ScaleType.Fit
-        ic.ZIndex = 24
+        ic.ZIndex = 23
         ic.Parent = tile
         DASH.stat[name] = cl
-        tile.MouseButton1Click:Connect(function() DASH.hooks.openTab(name) end)
     end
 
-    -- kartu kanan bawah: akses cepat
+    -- kartu kanan bawah: status device live
     local quick = glassPanel(dash, 0.9, 16)
     quick.Position = UDim2.new(0, 282, 0, 160)
     quick.Size = UDim2.new(1, -282, 1, -160)
     quick.ZIndex = 21
-    local ql = text(quick, "AKSES CEPAT", 10, Enum.Font.GothamBold, C.muted)
+    local ql = text(quick, "STATUS DEVICE", 10, Enum.Font.GothamBold, C.muted)
     ql.Position = UDim2.fromOffset(14, 6)
-    ql.Size = UDim2.new(1, -28, 0, 16)
+    ql.Size = UDim2.new(0.6, -14, 0, 16)
     ql.ZIndex = 22
+    local liveTag = text(quick, "LIVE", 9, Enum.Font.GothamBold, C.ok, Enum.TextXAlignment.Right)
+    liveTag.Position = UDim2.new(0.5, 0, 0, 6)
+    liveTag.Size = UDim2.new(0.5, -14, 0, 16)
+    liveTag.ZIndex = 22
 
-    local tbBtn = glassButton(quick, 0.6)
-    tbBtn.BackgroundColor3 = C.accent2
-    tbBtn.Position = UDim2.fromOffset(10, 24)
-    tbBtn.Size = UDim2.new(1, -20, 0, 42)
-    local tbIc = Instance.new("ImageLabel")
-    tbIc.Position = UDim2.fromOffset(10, 9)
-    tbIc.Size = UDim2.fromOffset(24, 24)
-    tbIc.BackgroundTransparency = 1
-    tbIc.Image = ICONS.TOOLBOX
-    tbIc.ScaleType = Enum.ScaleType.Fit
-    tbIc.ZIndex = 24
-    tbIc.Parent = tbBtn
-    local tbLbl = text(tbBtn, "TOOLBOX PC", 12, Enum.Font.GothamBold, C.text)
-    tbLbl.Position = UDim2.fromOffset(44, 0)
-    tbLbl.Size = UDim2.new(1, -52, 1, 0)
-    tbLbl.ZIndex = 24
-    tbBtn.MouseButton1Click:Connect(function() DASH.hooks.openTab("TOOLBOX") end)
+    local function devTile(x, labelText, unitText)
+        local t = glassPanel(quick, 0.86, 12)
+        t.Position = UDim2.fromOffset(x, 26)
+        t.Size = UDim2.fromOffset(68, 80)
+        t.ZIndex = 22
 
-    local homeBtn = glassButton(quick, 0.84)
-    homeBtn.Position = UDim2.fromOffset(10, 72)
-    homeBtn.Size = UDim2.new(1, -20, 0, 32)
-    homeBtn.Text = "HOME • SEMUA MENU"
-    homeBtn.TextSize = 10
-    homeBtn.Font = Enum.Font.GothamBold
-    homeBtn.TextColor3 = C.text
-    homeBtn.MouseButton1Click:Connect(function() DASH.hooks.openTab("HOME") end)
+        local l = text(t, labelText, 9, Enum.Font.GothamBold, C.muted)
+        l.Position = UDim2.fromOffset(8, 7)
+        l.Size = UDim2.new(1, -12, 0, 12)
+        l.TextScaled = true
+        l.ZIndex = 23
+        local lc = Instance.new("UITextSizeConstraint")
+        lc.MaxTextSize = 9; lc.MinTextSize = 6; lc.Parent = l
+
+        local v = text(t, "--", 20, Enum.Font.GothamBold, C.ok)
+        v.Position = UDim2.fromOffset(8, 21)
+        v.Size = UDim2.new(1, -12, 0, 26)
+        v.TextScaled = true
+        v.ZIndex = 23
+        local vc = Instance.new("UITextSizeConstraint")
+        vc.MaxTextSize = 20; vc.MinTextSize = 11; vc.Parent = v
+
+        local u = text(t, unitText, 9, Enum.Font.GothamMedium, C.muted)
+        u.Position = UDim2.fromOffset(8, 48)
+        u.Size = UDim2.new(1, -12, 0, 12)
+        u.ZIndex = 23
+
+        local track = Instance.new("Frame")
+        track.Position = UDim2.fromOffset(8, 67)
+        track.Size = UDim2.new(1, -16, 0, 4)
+        track.BackgroundColor3 = WHITE
+        track.BackgroundTransparency = 0.8
+        track.BorderSizePixel = 0
+        track.ZIndex = 23
+        track.Parent = t
+        corner(track, 2)
+        local fillBar = Instance.new("Frame")
+        fillBar.Size = UDim2.new(0, 0, 1, 0)
+        fillBar.BackgroundColor3 = C.ok
+        fillBar.BorderSizePixel = 0
+        fillBar.ZIndex = 24
+        fillBar.Parent = track
+        corner(fillBar, 2)
+        return { val = v, unit = u, fill = fillBar }
+    end
+    local devFps = devTile(10, "FPS", "frame/detik")
+    local devPing = devTile(83, "SINYAL", "ms ping")
+    local devSpeed = devTile(156, "KECEPATAN", "KB/s")
+
+    local Stats = game:GetService("Stats")
+    local function setDev(ref, valueText, color, ratio)
+        ref.val.Text = valueText
+        ref.val.TextColor3 = color
+        ref.fill.BackgroundColor3 = color
+        TweenService:Create(ref.fill, TweenInfo.new(0.3), { Size = UDim2.new(math.clamp(ratio, 0, 1), 0, 1, 0) }):Play()
+    end
+    local function readPing()
+        local ok, v = pcall(function() return Stats.Network.ServerStatsItem["Data Ping"]:GetValue() end)
+        if ok and type(v) == "number" and v > 0 then return v end
+        local ok2, p = pcall(function() return LocalPlayer:GetNetworkPing() * 1000 end)
+        if ok2 and type(p) == "number" and p > 0 then return p end
+        return nil
+    end
+    local function readSpeed()
+        local ok, v = pcall(function() return Stats.DataReceiveKbps end)
+        if ok and type(v) == "number" then return v end
+        return nil
+    end
+
+    local frames = 0
+    RunService.RenderStepped:Connect(function() frames += 1 end)
+    task.spawn(function()
+        local last = os.clock()
+        while gui.Parent do
+            task.wait(0.5)
+            local now = os.clock()
+            local fps = frames / math.max(now - last, 0.001)
+            frames = 0
+            last = now
+            if main.Visible and DASH.mode == "dash" then
+                local fc = (fps >= 50 and C.ok) or (fps >= 30 and C.warn) or C.bad
+                setDev(devFps, tostring(math.floor(fps + 0.5)), fc, fps / 60)
+
+                local ping = readPing()
+                if ping then
+                    local pc = (ping < 100 and C.ok) or (ping < 200 and C.warn) or C.bad
+                    setDev(devPing, tostring(math.floor(ping + 0.5)), pc, 1 - ping / 300)
+                else
+                    setDev(devPing, "--", C.muted, 0)
+                end
+
+                local sp = readSpeed()
+                if sp then
+                    if sp >= 1024 then
+                        setDev(devSpeed, ("%.1f"):format(sp / 1024), C.accent, sp / 4096)
+                        devSpeed.unit.Text = "MB/s"
+                    else
+                        setDev(devSpeed, tostring(math.floor(sp + 0.5)), C.accent, sp / 512)
+                        devSpeed.unit.Text = "KB/s"
+                    end
+                else
+                    setDev(devSpeed, "--", C.muted, 0)
+                end
+            end
+        end
+    end)
 
     -- ================= HOME (di dalam panel, kategori MENU) =================
     local home = Instance.new("Frame")
@@ -3148,7 +3251,9 @@ do
             local sub = DASH.tiles[name]
             if sub then sub.Text = (counts[name] or 0) .. " file" end
         end
-        dashFoot.Text = ("TOTAL %d • DIIMPOR %d"):format(total, imported)
+        pillTotal.Text = tostring(total)
+        pillImp.Text = tostring(imported)
+        statTotal.Text = total .. " file"
     end
 end
 
@@ -3792,12 +3897,6 @@ scanBtn.MouseButton1Click:Connect(scanNow)
 -- ---------- dashboard <-> panel ----------
 local function setHeaderMode(panel)
     backBtn.Visible = panel
-    local x = panel and 112 or 44
-    local w = panel and -176 or -120
-    hdrTitle.Position = UDim2.fromOffset(x, 2)
-    hdrTitle.Size = UDim2.new(1, w, 0, 20)
-    hdrSub.Position = UDim2.fromOffset(x, 22)
-    hdrSub.Size = UDim2.new(1, w, 0, 14)
 end
 
 local function showDashboard()
@@ -3809,10 +3908,8 @@ local function showDashboard()
     DASH.refresh()
     local d = DASH.dash
     d.Visible = true
-    d.GroupTransparency = 1
     d.Position = UDim2.fromOffset(12, 66)
     TweenService:Create(d, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-        GroupTransparency = 0,
         Position = UDim2.fromOffset(12, 56),
     }):Play()
 end
