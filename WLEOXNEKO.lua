@@ -71,6 +71,23 @@ local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 
+local function pilihParent()
+  if gethui then
+    local ok, h = pcall(gethui)
+    if ok and h then return h end
+  end
+  if syn and syn.protect_gui then
+    local g = Instance.new("Folder")
+    syn.protect_gui(g)
+    g.Parent = game:GetService("CoreGui")
+    return g
+  end
+  local ok = pcall(function() return game:GetService("CoreGui"):GetChildren() end)
+  if ok then return game:GetService("CoreGui") end
+  return PlayerGui
+end
+
+local CoreDest = pilihParent()
 ------------------------------------------------------------------
 -- SISTEM KEAMANAN & WHITELIST AKSES MELLS
 ------------------------------------------------------------------
@@ -132,16 +149,7 @@ if not wlOk then
     end)
     return
 end
-local CoreDest = PlayerGui
 
-pcall(function()
-  local probe = Instance.new("Folder")
-  probe.Name = "__XYUREI_CORE_PROBE"
-  probe.Parent = CoreGui
-  probe:Destroy()
-
-  CoreDest = CoreGui
-end)
 
 local function __hx(bytes)
   local out = table.create and table.create(#bytes) or {}
@@ -176,13 +184,13 @@ _G.XYUREI_RAW_SOURCES = _G.XYUREI_RAW_SOURCES or {}
 _G.XYUREI_RAW_SOURCE_BY_REF = _G.XYUREI_RAW_SOURCE_BY_REF or {}
 
 if type(string.unpack) ~= "function" then
-  warn("[XYUREI OFFC] string.unpack tidak tersedia.")
+  warn("[TOOLS ENGINE] string.unpack tidak tersedia.")
 end
 
 local BINARY_BIT32_OK = type(bit32) == "table"
 
 if not BINARY_BIT32_OK then
-  warn("[XYUREI OFFC] bit32 tidak tersedia.")
+  warn("[TOOLS ENGINE] bit32 tidak tersedia.")
 end
 
 local _rrotate = BINARY_BIT32_OK and bit32.rrotate or nil
@@ -1377,7 +1385,7 @@ local function parseRBXLBinary(data)
         end
       end
     else
-      warn(("[XYUREI OFFC] skip property: %s (0x%02X)"):format(pname, typeID or 0))
+      warn(("[TOOLS ENGINE] skip property: %s (0x%02X)"):format(pname, typeID or 0))
     end
   end
 
@@ -1520,7 +1528,7 @@ local function injectStudioLiteUI(scr, sourceMap)
 
   if #UI_TEXT > 150000 then
     UI_TEXT = [[
--- [XYUREI Warning] Source terlalu panjang.
+-- [Engine Warning] Source terlalu panjang.
 
 ]] .. string.sub(UI_TEXT, 1, 150000) .. "\n\n... [TERPOTONG]"
   end
@@ -2210,7 +2218,7 @@ local function importRootName(fileName)
     base = "RBXL"
   end
 
-  return base .. " IMPORTER BY XYUREI OFFC"
+  return base .. " IMPORTER"
 end
 
 local function reportImportProgress(value, message)
@@ -5000,8 +5008,8 @@ local function __buildMusicPage(env)
   local brandTxt = label(labelBlack, {
     Size = UDim2.fromScale(1, 1),
     Text = [[
-XYUREI
-OFFC]],
+VIP
+MUSIC]],
     TextColor3 = C.cyan,
     Font = Enum.Font.GothamBlack,
     TextSize = 8,
@@ -5338,7 +5346,7 @@ OFFC]],
     nextTrack()
   end)
 
-  playBtn.MouseButton1Click:Connect(function()
+  playBtn.Activated:Connect(function()
     if sound.IsPlaying then
       sound:Pause()
     elseif current and sound.IsLoaded and sound.TimeLength > 0 then
@@ -5352,7 +5360,7 @@ OFFC]],
     end
   end)
 
-  stopBtn.MouseButton1Click:Connect(function()
+  stopBtn.Activated:Connect(function()
     ignoreEndUntil = os.clock() + 0.6
 
     sound:Stop()
@@ -5361,9 +5369,9 @@ OFFC]],
     setStatus("MUSIK DIHENTIKAN", C.sub)
   end)
 
-  nextBtn.MouseButton1Click:Connect(nextTrack)
+  nextBtn.Activated:Connect(nextTrack)
 
-  loopBtn.MouseButton1Click:Connect(function()
+  loopBtn.Activated:Connect(function()
     loopOn = not loopOn
     sound.Looped = loopOn
     loopBtn.BackgroundColor3 = loopOn and C.purple or C.card2
@@ -5472,7 +5480,7 @@ OFFC]],
 
     round(btn, 8)
     stroke(btn, C.white, 1, 0.7)
-    btn.MouseButton1Click:Connect(function() playEntry(e) end)
+    btn.Activated:Connect(function() playEntry(e) end)
 
     if e.Custom then
       local del = mk("TextButton", {
@@ -5490,7 +5498,7 @@ OFFC]],
       round(del, 8)
       stroke(del, C.danger, 1, 0.65)
 
-      del.MouseButton1Click:Connect(function()
+      del.Activated:Connect(function()
         local idx = table.find(PLAYLIST, e)
 
         if not idx then
@@ -5625,7 +5633,7 @@ Tambah lagu pakai ID di atas]],
     end)
   end
 
-  addBtn.MouseButton1Click:Connect(addSong)
+  addBtn.Activated:Connect(addSong)
 
   idBox.FocusLost:Connect(function(enter)
     if enter then
@@ -5878,7 +5886,7 @@ local function __buildChatPage(env)
   local function welcome()
     addBubble(
       "ai",
-      "Halo! Aku asisten AI XYUREI OFFC. Tanya apa aja, misalnya script Roblox, Lua, atau hal lain."
+      "Halo! Aku asisten AI Tools Engine MCP. Tanya apa aja, misalnya script Roblox, Lua, atau hal lain."
     )
 
     if not getKey() then
@@ -5919,7 +5927,7 @@ local function __buildChatPage(env)
       Headers = {
         ["Content-Type"] = "application/json",
         Authorization = "Bearer " .. key,
-        ["X-Title"] = "XYUREI OFFC",
+        ["X-Title"] = "Tools Engine",
       },
       Body = HS:JSONEncode({ model = getModel(), messages = msgs }),
     })
@@ -6018,7 +6026,7 @@ local function __buildChatPage(env)
     end)
   end
 
-  sendBtn.MouseButton1Click:Connect(send)
+  sendBtn.Activated:Connect(send)
 
   box.FocusLost:Connect(function(enter)
     if enter then
@@ -6026,7 +6034,7 @@ local function __buildChatPage(env)
     end
   end)
 
-  clearBtn.MouseButton1Click:Connect(function()
+  clearBtn.Activated:Connect(function()
     if busy then
       return
     end
@@ -6043,7 +6051,7 @@ local function __buildChatPage(env)
     welcome()
   end)
 
-  copyBtn.MouseButton1Click:Connect(function()
+  copyBtn.Activated:Connect(function()
     if lastReply and type(setclipboard) == "function" then
       pcall(setclipboard, lastReply)
       copyBtn.Text = "TERSALIN"
@@ -6631,7 +6639,7 @@ lalu tekan SCAN]]
 
   sound.Ended:Connect(function() previewBtn.Text = "▶ PREVIEW" end)
 
-  previewBtn.MouseButton1Click:Connect(function()
+  previewBtn.Activated:Connect(function()
     if not selected then
       return
     end
@@ -6720,7 +6728,7 @@ lalu tekan SCAN]]
     applyFx()
   end
 
-  resetBtn.MouseButton1Click:Connect(resetFx)
+  resetBtn.Activated:Connect(resetFx)
 
   local backSet = button(
     viewSet, "‹", UDim2.fromOffset(34, 34), UDim2.fromOffset(0, 0), C.card2, 20
@@ -6823,7 +6831,7 @@ lalu tekan SCAN]]
 
   local testing = false
 
-  testBtn.MouseButton1Click:Connect(function()
+  testBtn.Activated:Connect(function()
     if testing then
       return
     end
@@ -6918,7 +6926,7 @@ lalu tekan SCAN]]
 
   local mping = false
 
-  mpBtn.MouseButton1Click:Connect(function()
+  mpBtn.Activated:Connect(function()
     if mping then
       return
     end
@@ -7041,7 +7049,7 @@ lalu tekan SCAN]]
 
   local validating = false
 
-  valBtn.MouseButton1Click:Connect(function()
+  valBtn.Activated:Connect(function()
     if validating then
       return
     end
@@ -7172,7 +7180,7 @@ lalu tekan SCAN]]
     end)
   end)
 
-  saveBtn.MouseButton1Click:Connect(function()
+  saveBtn.Activated:Connect(function()
     if not validated then
       setSetMsg("Validasi dulu sebelum menyimpan.", C.warn)
       return
@@ -7194,12 +7202,12 @@ lalu tekan SCAN]]
     setStatus("API UPLOAD TERSIMPAN", C.ok)
   end)
 
-  gearBtn.MouseButton1Click:Connect(function()
+  gearBtn.Activated:Connect(function()
     loadSettingsView()
     showView("settings")
   end)
 
-  backSet.MouseButton1Click:Connect(function()
+  backSet.Activated:Connect(function()
     showView(prevView == "edit" and selected and "edit" or "list")
   end)
 
@@ -7317,7 +7325,7 @@ lalu tekan SCAN]]
 
   local uploading = false
 
-  uploadBtn.MouseButton1Click:Connect(function()
+  uploadBtn.Activated:Connect(function()
     if uploading or not selected then
       return
     end
@@ -7383,13 +7391,13 @@ lalu tekan SCAN]]
       local displayName = file.name:gsub("%.[^%.]+$", ""):sub(1, 50)
 
       if displayName == "" then
-        displayName = "XYUREI Audio"
+        displayName = "Tools Engine Audio"
       end
 
       local reqJson = HS:JSONEncode({
         assetType = "Audio",
         displayName = displayName,
-        description = "Uploaded via XYUREI OFFC",
+        description = "Uploaded via Tools Engine",
         creationContext = { creator = { userId = tostring(cfg.uid) } },
       })
 
@@ -7678,7 +7686,7 @@ lalu tekan SCAN]]
     end)
   end)
 
-  copyIdBtn.MouseButton1Click:Connect(function()
+  copyIdBtn.Activated:Connect(function()
     if not lastId then
       return
     end
@@ -7687,7 +7695,7 @@ lalu tekan SCAN]]
     task.delay(1.5, function() copyIdBtn.Text = "SALIN ID" end)
   end)
 
-  copySetBtn.MouseButton1Click:Connect(function()
+  copySetBtn.Activated:Connect(function()
     if not lastId then
       return
     end
@@ -7715,7 +7723,7 @@ lalu tekan SCAN]]
     showView("edit")
   end
 
-  backEdit.MouseButton1Click:Connect(function()
+  backEdit.Activated:Connect(function()
     stopPreview()
     showView("list")
   end)
@@ -7866,7 +7874,7 @@ lalu tekan SCAN]]
       TextXAlignment = Enum.TextXAlignment.Center,
     })
 
-    card.MouseButton1Click:Connect(function() openEditor(file) end)
+    card.Activated:Connect(function() openEditor(file) end)
     cards[#cards + 1] = { card = card, file = file }
   end
 
@@ -7924,7 +7932,7 @@ lalu tekan SCAN]]
     end)
   end
 
-  scanBtn.MouseButton1Click:Connect(scanAudio)
+  scanBtn.Activated:Connect(scanAudio)
   searchBox:GetPropertyChangedSignal("Text"):Connect(applyFilter)
   gui.Destroying:Connect(function() pcall(function() sound:Stop() end) end)
   task.defer(scanAudio)
@@ -7932,11 +7940,7 @@ lalu tekan SCAN]]
 end
 
 do
-  
-------------------------------------------------------------------
--- HALAMAN: SPOOF & BYPASS HUB (Ultra-Fast 60FPS Engine + Auto Place ID)
-------------------------------------------------------------------
-local function __buildSpoofPage(env)
+  local function __buildSpoofPage(env)
   local mk, round, stroke, gradient, label, glass, C = env.mk, env.round, env.stroke, env.gradient, env.label, env.glass, env.C
   local content, gui, setStatus, notify, httpReq = env.content, env.gui, env.setStatus, env.notify, env.httpReq
   local HS = game:GetService("HttpService")
@@ -7998,15 +8002,15 @@ local function __buildSpoofPage(env)
 
   local function buatMultipart(reqJson, namaFile, mime, dataFile)
     local batas = "----WebKitFormBoundary" .. tostring(math.random(10000000, 99999999))
-    local body = "--" .. batas .. "\r\n"
-        .. 'Content-Disposition: form-data; name="request"\r\n'
-        .. "Content-Type: application/json\r\n\r\n"
-        .. reqJson .. "\r\n"
-        .. "--" .. batas .. "\r\n"
-        .. 'Content-Disposition: form-data; name="fileContent"; filename="' .. namaFile .. '"\r\n'
-        .. "Content-Type: " .. mime .. "\r\n\r\n"
-        .. dataFile .. "\r\n"
-        .. "--" .. batas .. "--\r\n"
+    local body = "--" .. batas .. "\\r\\n"
+        .. 'Content-Disposition: form-data; name="request"\\r\\n'
+        .. "Content-Type: application/json\\r\\n\\r\\n"
+        .. reqJson .. "\\r\\n"
+        .. "--" .. batas .. "\\r\\n"
+        .. 'Content-Disposition: form-data; name="fileContent"; filename="' .. namaFile .. '"\\r\\n'
+        .. "Content-Type: " .. mime .. "\\r\\n\\r\\n"
+        .. dataFile .. "\\r\\n"
+        .. "--" .. batas .. "--\\r\\n"
     return body, batas
   end
 
@@ -8161,7 +8165,7 @@ local function __buildSpoofPage(env)
     if okV1 and rV1 and (rV1.StatusCode == 200 or rV1.Status == 200)
       and type(rV1.Body) == "string" and #rV1.Body > 80 then
       local b = rV1.Body
-      if not b:find('^{\"errors\"') and not b:find('^{\"message\"') and not b:find('^<') then
+      if not b:find('^{\\"errors\\"') and not b:find('^{\\"message\\"') and not b:find('^<') then
         return b
       end
     end
@@ -8171,7 +8175,7 @@ local function __buildSpoofPage(env)
       local okG, bodyG = pcall(function()
         return game:HttpGet("https://assetdelivery.roblox.com/v1/asset/?id=" .. aid)
       end)
-      if okG and type(bodyG) == "string" and #bodyG > 80 and not bodyG:find('^{\"errors\"') then
+      if okG and type(bodyG) == "string" and #bodyG > 80 and not bodyG:find('^{\\"errors\\"') then
         return bodyG
       end
     end
@@ -8502,10 +8506,10 @@ local function __buildSpoofPage(env)
         task.wait(0.08)
       end
 
-      outSpoofId.Text = table.concat(lines, "\n")
+      outSpoofId.Text = table.concat(lines, "\\n")
       btnSpoofId.Text = "⚡ SPOOF ID SEKARANG"
       setStatus("Spoofing selesai!", C.ok)
-      if #cleanIds > 0 then copy(table.concat(cleanIds, "\n")) end
+      if #cleanIds > 0 then copy(table.concat(cleanIds, "\\n")) end
     end)
   end)
 
@@ -8684,7 +8688,6 @@ local function __buildSpoofPage(env)
 
   return page
 end
-
 
 local function __buildUploadPage(env)
     local mk, round, stroke, gradient, label, glass, C = env.mk, env.round, env.stroke, env.gradient, env.label, env.glass, env.C
@@ -9363,7 +9366,7 @@ Sedang dalam perbaikan, coba lagi nanti.]],
 
     local validating = false
 
-    valBtn.MouseButton1Click:Connect(function()
+    valBtn.Activated:Connect(function()
       if validating then
         return
       end
@@ -9495,7 +9498,7 @@ Sedang dalam perbaikan, coba lagi nanti.]],
       end)
     end)
 
-    saveBtn.MouseButton1Click:Connect(function()
+    saveBtn.Activated:Connect(function()
       if not validated then
         setSetMsg("Validasi dulu sebelum menyimpan.", C.warn)
         return
@@ -9517,18 +9520,18 @@ Sedang dalam perbaikan, coba lagi nanti.]],
       setStatus("API UPLOAD TERSIMPAN", C.ok)
     end)
 
-    gearBtn.MouseButton1Click:Connect(function()
+    gearBtn.Activated:Connect(function()
       loadSettingsView()
       showView("settings")
     end)
 
-    backSet.MouseButton1Click:Connect(function()
+    backSet.Activated:Connect(function()
       showView(prevView == "edit" and selected and "edit" or "list")
     end)
 
     local uploading = false
 
-    uploadBtn.MouseButton1Click:Connect(function()
+    uploadBtn.Activated:Connect(function()
       if K.maintenance then
         setMsg("Upload " .. K.noun .. " sedang MAINTENANCE.", C.warn)
         return
@@ -9597,7 +9600,7 @@ Sedang dalam perbaikan, coba lagi nanti.]],
         local reqJson = HS:JSONEncode({
           assetType = K.assetType,
           displayName = displayName,
-          description = "Uploaded via XYUREI OFFC",
+          description = "Uploaded via Tools Engine",
           creationContext = { creator = { userId = tostring(cfg.uid) } },
         })
 
@@ -9896,7 +9899,7 @@ Sedang dalam perbaikan, coba lagi nanti.]],
       end)
     end)
 
-    copyIdBtn.MouseButton1Click:Connect(function()
+    copyIdBtn.Activated:Connect(function()
       if not lastId then
         return
       end
@@ -9905,7 +9908,7 @@ Sedang dalam perbaikan, coba lagi nanti.]],
       task.delay(1.5, function() copyIdBtn.Text = "SALIN ID" end)
     end)
 
-    copySetBtn.MouseButton1Click:Connect(function()
+    copySetBtn.Activated:Connect(function()
       if not lastId then
         return
       end
@@ -9931,7 +9934,7 @@ Sedang dalam perbaikan, coba lagi nanti.]],
       showView("edit")
     end
 
-    backEdit.MouseButton1Click:Connect(function() showView("list") end)
+    backEdit.Activated:Connect(function() showView("list") end)
     local cards = {}
 
     local function fileExt(name)
@@ -10078,7 +10081,7 @@ Sedang dalam perbaikan, coba lagi nanti.]],
         TextXAlignment = Enum.TextXAlignment.Center,
       })
 
-      card.MouseButton1Click:Connect(function() openEditor(file) end)
+      card.Activated:Connect(function() openEditor(file) end)
       cards[#cards + 1] = { card = card, file = file }
     end
 
@@ -10133,7 +10136,7 @@ Sedang dalam perbaikan, coba lagi nanti.]],
       end)
     end
 
-    scanBtn.MouseButton1Click:Connect(scanFiles)
+    scanBtn.Activated:Connect(scanFiles)
     searchBox:GetPropertyChangedSignal("Text"):Connect(applyFilter)
     task.defer(scanFiles)
     return page
@@ -10147,7 +10150,7 @@ Sedang dalam perbaikan, coba lagi nanti.]],
       folder = "xyurei_image",
       color = Color3.fromRGB(220, 222, 230),
       assetType = "Decal",
-      defaultName = "XYUREI Image",
+      defaultName = "Engine Image",
       canPreview = true,
       previewHint = "",
       mime = {
@@ -10180,7 +10183,7 @@ img.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui"):FindFirstChildOf
       folder = "xyurei_model",
       color = Color3.fromRGB(235, 236, 242),
       assetType = "Model",
-      defaultName = "XYUREI Model",
+      defaultName = "Engine Model",
       canPreview = false,
       previewHint = [[
 MODEL
@@ -10213,7 +10216,7 @@ end]]
       folder = "xyurei_anim",
       color = Color3.fromRGB(200, 202, 212),
       assetType = "Animation",
-      defaultName = "XYUREI Animation",
+      defaultName = "Engine Animation",
       canPreview = false,
       maintenance = true,
       previewHint = [[
@@ -12489,7 +12492,7 @@ lalu tekan SCAN.]],
         round(b, 7)
         mk("UIPadding", { PaddingLeft = UDim.new(0, 8), PaddingRight = UDim.new(0, 8) }, b)
 
-        b.MouseButton1Click:Connect(function()
+        b.Activated:Connect(function()
           srcBox.Text = p
           doLoad()
         end)
@@ -12731,7 +12734,7 @@ lalu tekan SCAN.]],
       end)
     end
 
-    loadBtn.MouseButton1Click:Connect(doLoad)
+    loadBtn.Activated:Connect(doLoad)
 
     srcBox.FocusLost:Connect(function(enter)
       if enter then
@@ -12739,10 +12742,10 @@ lalu tekan SCAN.]],
       end
     end)
 
-    scanBtn.MouseButton1Click:Connect(scan)
-    toModelBtn.MouseButton1Click:Connect(doConvert)
+    scanBtn.Activated:Connect(scan)
+    toModelBtn.Activated:Connect(doConvert)
 
-    clearBtn.MouseButton1Click:Connect(function()
+    clearBtn.Activated:Connect(function()
       if state.busy then
         state.cancel = true
       end
@@ -12752,14 +12755,14 @@ lalu tekan SCAN.]],
       setMsg("Hasil dihapus.", C.sub)
     end)
 
-    stopBtn.MouseButton1Click:Connect(function()
+    stopBtn.Activated:Connect(function()
       if state.busy then
         state.cancel = true
         setMsg("Menghentikan ...", C.warn)
       end
     end)
 
-    bgBtn.MouseButton1Click:Connect(function()
+    bgBtn.Activated:Connect(function()
       state.removeBG = not state.removeBG
       bgBtn.Text = "HAPUS BG: " .. (state.removeBG and "ON" or "OFF")
     end)
@@ -12938,7 +12941,7 @@ lalu tekan SCAN.]],
         b.BackgroundColor3 = state and SEL or OFF
       end
 
-      b.MouseButton1Click:Connect(function()
+      b.Activated:Connect(function()
         state = not state
         paint()
       end)
@@ -12991,8 +12994,8 @@ lalu tekan SCAN.]],
       tabM.BackgroundColor3 = which == "M" and SEL or OFF
     end
 
-    tabC.MouseButton1Click:Connect(function() showTab("C") end)
-    tabM.MouseButton1Click:Connect(function() showTab("M") end)
+    tabC.Activated:Connect(function() showTab("C") end)
+    tabM.Activated:Connect(function() showTab("M") end)
     showTab("C")
     local undoStack = {}
 
@@ -13050,7 +13053,7 @@ lalu tekan SCAN.]],
         levelChips[nm] = levelChips[nm] or {}
         table.insert(levelChips[nm], c)
 
-        c.MouseButton1Click:Connect(function()
+        c.Activated:Connect(function()
           clickLevel = nm
           refreshLevels()
         end)
@@ -13252,7 +13255,7 @@ lalu tekan SCAN.]],
       local pick = btn(row, "PILIH", UDim2.new(0, 54, 1, 0), UDim2.new(1, -54, 0, 0), SEL, 9)
       pick.ZIndex = 41
 
-      main.MouseButton1Click:Connect(function()
+      main.Activated:Connect(function()
         if canEnter(o) then
           cur = o
           fillList()
@@ -13261,7 +13264,7 @@ lalu tekan SCAN.]],
         end
       end)
 
-      pick.MouseButton1Click:Connect(function() choose(o) end)
+      pick.Activated:Connect(function() choose(o) end)
     end
 
     fillList = function()
@@ -13336,16 +13339,16 @@ lalu tekan SCAN.]],
       fillList()
     end
 
-    upBtn.MouseButton1Click:Connect(function()
+    upBtn.Activated:Connect(function()
       if cur ~= game and cur.Parent then
         cur = cur.Parent
         fillList()
       end
     end)
 
-    closeBtn.MouseButton1Click:Connect(function() overlay.Visible = false end)
+    closeBtn.Activated:Connect(function() overlay.Visible = false end)
 
-    hereBtn.MouseButton1Click:Connect(function()
+    hereBtn.Activated:Connect(function()
       if cur == game or cur == workspace or cur == RS then
         say("Masuk dulu ke sebuah folder/model, lalu tekan tombol ini.", C.warn)
       else
@@ -13371,9 +13374,9 @@ lalu tekan SCAN.]],
         c, "KLIK PART", UDim2.new(0.5, -12, 0, 26), UDim2.new(0.5, 4, 0, 48), OFF, 10
       )
 
-      pb.MouseButton1Click:Connect(function() openBrowser("color", "PILIH TARGET WARNA") end)
+      pb.Activated:Connect(function() openBrowser("color", "PILIH TARGET WARNA") end)
 
-      kb.MouseButton1Click:Connect(function()
+      kb.Activated:Connect(function()
         startClick(function(p) setColorTarget(resolveLevel(p)) end)
       end)
 
@@ -13453,7 +13456,7 @@ lalu tekan SCAN.]],
         t.FocusLost:Connect(upd)
       end
 
-      pick.MouseButton1Click:Connect(function()
+      pick.Activated:Connect(function()
         startClick(function(p)
           setBoxes(fR, fG, fB, p.Color)
           upd()
@@ -13511,7 +13514,7 @@ lalu tekan SCAN.]],
         t.FocusLost:Connect(upd)
       end
 
-      pick.MouseButton1Click:Connect(function()
+      pick.Activated:Connect(function()
         startClick(function(p)
           setBoxes(rR, rG, rB, p.Color)
           upd()
@@ -13544,7 +13547,7 @@ lalu tekan SCAN.]],
 
           matChips[#matChips + 1] = { b = b, m = mat }
 
-          b.MouseButton1Click:Connect(function()
+          b.Activated:Connect(function()
             selectedMat = mat
 
             for _, d in ipairs(matChips) do
@@ -13575,7 +13578,7 @@ lalu tekan SCAN.]],
     local btnMat = bigBtn(sc, "UBAH MATERIAL", 36, C.purple)
     local btnUndo1 = bigBtn(sc, "UNDO TERAKHIR", 28, OFF)
 
-    btnColor.MouseButton1Click:Connect(function()
+    btnColor.Activated:Connect(function()
       if not colorTarget or not colorTarget.Parent then
         say("Pilih target dulu (PILIH / KLIK PART).", C.danger)
         return
@@ -13619,7 +13622,7 @@ lalu tekan SCAN.]],
       end
     end)
 
-    btnMat.MouseButton1Click:Connect(function()
+    btnMat.Activated:Connect(function()
       if not colorTarget or not colorTarget.Parent then
         say("Pilih target dulu (PILIH / KLIK PART).", C.danger)
         return
@@ -13648,7 +13651,7 @@ lalu tekan SCAN.]],
       say(("Material diubah ke %s di %d part."):format(selectedMat.Name, #parts), C.ok)
     end)
 
-    btnUndo1.MouseButton1Click:Connect(doUndo)
+    btnUndo1.Activated:Connect(doUndo)
     local targets, targetSet = {}, {}
     local source
     local tInfo, sInfo
@@ -13776,11 +13779,11 @@ lalu tekan SCAN.]],
         c, "KOSONGKAN", UDim2.new(0.33, -8, 0, 26), UDim2.new(0.67, 0, 0, 62), OFF, 9
       )
 
-      pb.MouseButton1Click:Connect(function()
+      pb.Activated:Connect(function()
         openBrowser("targets", "TAMBAH TARGET (folder = semua isinya)")
       end)
 
-      kb.MouseButton1Click:Connect(function()
+      kb.Activated:Connect(function()
         startClick(function(p)
           local n = addTarget(resolveLevel(p))
 
@@ -13791,7 +13794,7 @@ lalu tekan SCAN.]],
         end)
       end)
 
-      cb.MouseButton1Click:Connect(function()
+      cb.Activated:Connect(function()
         targets, targetSet = {}, {}
         refreshTargets()
         say("Daftar target dikosongkan.", C.sub)
@@ -13821,9 +13824,9 @@ lalu tekan SCAN.]],
         c, "KLIK PART", UDim2.new(0.5, -12, 0, 26), UDim2.new(0.5, 4, 0, 50), OFF, 10
       )
 
-      pb.MouseButton1Click:Connect(function() openBrowser("source", "PILIH MODEL PENGGANTI") end)
+      pb.Activated:Connect(function() openBrowser("source", "PILIH MODEL PENGGANTI") end)
 
-      kb.MouseButton1Click:Connect(function()
+      kb.Activated:Connect(function()
         startClick(
           function(p) setSource(resolveLevel(p)) end, "Tap part dari model pengganti..."
         )
@@ -13860,7 +13863,7 @@ lalu tekan SCAN.]],
       return o.Size
     end
 
-    btnRep.MouseButton1Click:Connect(function()
+    btnRep.Activated:Connect(function()
       refreshTargets()
 
       if not source or not source.Parent then
@@ -13977,20 +13980,21 @@ lalu tekan SCAN.]],
         or ""), fail > 0 and C.warn or C.ok)
     end)
 
-    btnUndo2.MouseButton1Click:Connect(doUndo)
+    btnUndo2.Activated:Connect(doUndo)
     return page
   end
 end
 
 local function __buildXyureiGui()
-  local old = CoreDest:FindFirstChild(__s("GUI_NAME"))
-
-  if old then
-    old:Destroy()
-  end
+  local old1 = CoreDest:FindFirstChild("ImporterHub")
+  if old1 then pcall(function() old1:Destroy() end) end
+  local old2 = CoreDest:FindFirstChild("ImporterHubToggle")
+  if old2 then pcall(function() old2:Destroy() end) end
+  local old3 = CoreDest:FindFirstChild("EZY_RBXL_CORE")
+  if old3 then pcall(function() old3:Destroy() end) end
 
   local gui = Instance.new("ScreenGui")
-  gui.Name = __s("GUI_NAME")
+  gui.Name = "ImporterHub"
   gui.ResetOnSpawn = false
   gui.IgnoreGuiInset = true
   gui.DisplayOrder = 999
@@ -14098,7 +14102,7 @@ local function __buildXyureiGui()
     btn.BackgroundTransparency = 1
 
     local bg = mk("Frame", {
-      Name = "GBg",
+      Name = "GBg", Active = false,
       Size = UDim2.fromScale(1, 1),
       BackgroundColor3 = C.white,
       BorderSizePixel = 0,
@@ -14113,7 +14117,7 @@ local function __buildXyureiGui()
     }, 0)
 
     return label(btn, {
-      Name = "GTxt",
+      Name = "GTxt", Active = false,
       Size = UDim2.fromScale(1, 1),
       Text = text,
       TextSize = textSize or 12,
@@ -14151,11 +14155,11 @@ local function __buildXyureiGui()
   end
 
   local launcher = mk("TextButton", {
-    Name = __s("LAUNCHER"),
-    Size = UDim2.fromOffset(40, 40),
-    Position = UDim2.new(0, 10, 0.5, -20),
+    Name = "ImporterHubToggle",
+    Size = UDim2.fromOffset(46, 46),
+    Position = UDim2.new(0, 10, 0.5, -23),
     BackgroundColor3 = C.card,
-    BackgroundTransparency = 0.45,
+    BackgroundTransparency = 0.3,
     BorderSizePixel = 0,
     AutoButtonColor = false,
     Text = "",
@@ -14175,7 +14179,7 @@ local function __buildXyureiGui()
     Size = UDim2.fromOffset(22, 22),
     Position = UDim2.new(0.5, -11, 0.5, -11),
     BackgroundTransparency = 1,
-    Image = "rbxassetid://10709791437",
+    Image = "rbxassetid://116910178994061",
     ImageColor3 = C.white,
     ScaleType = Enum.ScaleType.Fit,
     ZIndex = 7,
@@ -14437,10 +14441,20 @@ local function __buildXyureiGui()
     ), { BackgroundTransparency = 0.25 }):Play()
   end
 
+  local headerIcon = mk("ImageLabel", {
+    Name = "HeaderIcon",
+    Size = UDim2.fromOffset(28, 28),
+    Position = UDim2.fromOffset(14, 9),
+    BackgroundTransparency = 1,
+    Image = "rbxassetid://116910178994061",
+    ScaleType = Enum.ScaleType.Fit,
+    ZIndex = 14,
+  }, header)
+
   local backBtn = mk("TextButton", {
     Name = "Back",
     Size = UDim2.fromOffset(28, 28),
-    Position = UDim2.fromOffset(12, 9),
+    Position = UDim2.fromOffset(14, 9),
     BackgroundColor3 = C.card,
     BackgroundTransparency = 0.38,
     Text = "‹",
@@ -14457,19 +14471,19 @@ local function __buildXyureiGui()
 
   local pageTitle = label(header, {
     Name = "PageTitle",
-    Size = UDim2.new(1, -120, 0, 20),
-    Position = UDim2.fromOffset(18, 5),
-    Text = "XYUREI OFFC",
-    Font = Enum.Font.GothamBlack,
-    TextSize = 15,
+    Size = UDim2.new(1, -140, 0, 20),
+    Position = UDim2.fromOffset(48, 5),
+    Text = "TOOLS ENGINE MCP STUDIOLITE",
+    Font = Enum.Font.GothamBold,
+    TextSize = 14,
     TextTruncate = Enum.TextTruncate.AtEnd,
   })
 
   local brandSub = label(header, {
     Name = "BrandSub",
-    Size = UDim2.new(1, -120, 0, 12),
-    Position = UDim2.fromOffset(18, 26),
-    Text = "RBXL · RBXLX · RBXM · RBXMX IMPORTER",
+    Size = UDim2.new(1, -140, 0, 12),
+    Position = UDim2.fromOffset(48, 26),
+    Text = "IMPORT · TOOLBOX · AI · UPLOAD",
     TextColor3 = C.cyan,
     TextSize = 8,
     TextTruncate = Enum.TextTruncate.AtEnd,
@@ -14578,15 +14592,14 @@ local function __buildXyureiGui()
 
   label(landing, {
     Name = "Headline",
-    Size = UDim2.new(0.54, 0, 0, 88),
+    Size = UDim2.new(0.68, 0, 0, 88),
     Position = UDim2.fromOffset(2, 30),
     RichText = true,
     Text = [[
-Import map in
-<font color="rgb(120,150,255)">seconds</font>,
-not hours]],
+ENGINE TOOLS
+<font color="rgb(120,150,255)">DESKTOP</font> FOR MOBILE]],
     Font = Enum.Font.GothamBlack,
-    TextSize = 27,
+    TextSize = 24,
     LineHeight = 0.95,
     TextYAlignment = Enum.TextYAlignment.Top,
   })
@@ -14608,7 +14621,7 @@ not hours]],
     Size = UDim2.fromOffset(122, 32),
     Position = UDim2.fromOffset(2, 162),
     BackgroundColor3 = C.white,
-    Text = "Mulai Import",
+    Text = "OPEN PANEL",
     TextColor3 = C.white,
     Font = Enum.Font.GothamBlack,
     TextSize = 12,
@@ -14623,7 +14636,7 @@ not hours]],
     1.3, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true
   ), { Transparency = 0.9 }):Play()
 
-  gradBtn(exploreBtn, "Mulai Import", 12, 9)
+  gradBtn(exploreBtn, "OPEN PANEL", 12, 9)
 
   local landingScan = mk("TextButton", {
     Name = "LandingScan",
@@ -14631,7 +14644,7 @@ not hours]],
     Position = UDim2.fromOffset(132, 162),
     BackgroundColor3 = C.card,
     BackgroundTransparency = 0.25,
-    Text = "Scan Ulang",
+    Text = "SCAN FILE",
     TextColor3 = C.white,
     Font = Enum.Font.GothamMedium,
     TextSize = 11,
@@ -14732,7 +14745,7 @@ not hours]],
     label(pw, {
       Size = UDim2.new(1, -60, 0, 10),
       Position = UDim2.fromOffset(46, 7),
-      Text = "xyurei scan",
+      Text = "engine scan",
       TextColor3 = C.faint,
       TextSize = 8,
       Font = Enum.Font.GothamMedium,
@@ -14750,7 +14763,7 @@ not hours]],
 
     label(ic, {
       Size = UDim2.fromScale(1, 1),
-      Text = "X",
+      Text = "⚡",
       TextSize = 10,
       TextXAlignment = Enum.TextXAlignment.Center,
       ZIndex = 16,
@@ -15021,7 +15034,7 @@ not hours]],
     label(side, {
       Size = UDim2.new(1, -40, 0, 20),
       Position = UDim2.fromOffset(36, 8),
-      Text = "Xyurei",
+      Text = "ENGINE",
       TextSize = 13,
       Font = Enum.Font.GothamBlack,
     })
@@ -15973,7 +15986,7 @@ TEKAN SCAN]]),
   end
 
   local titles = {
-    landing = "XYUREI OFFC",
+    landing = "TOOLS ENGINE MCP STUDIOLITE",
     dash = "Dashboard",
     TB = "Toolbox",
     SPOOF = "Spoof & Bypass Hub",
@@ -15998,15 +16011,13 @@ TEKAN SCAN]]),
       end
     end
 
-    pageTitle.Text = titles[key] or "XYUREI OFFC"
+    pageTitle.Text = titles[key] or "TOOLS ENGINE MCP STUDIOLITE"
     backBtn.Visible = key ~= "landing"
-    local tx = key == "landing" and 18 or 48
+    headerIcon.Visible = key == "landing"
+    local tx = 48
     pageTitle.Position = UDim2.fromOffset(tx, 5)
-
     brandSub.Position = UDim2.fromOffset(tx, 26)
-
-    brandSub.Text = key == "landing" and "RBXL · RBXLX · RBXM · RBXMX IMPORTER"
-      or "XYUREI OFFC · IMPORTER"
+    brandSub.Text = key == "landing" and "IMPORT · TOOLBOX · AI · UPLOAD" or "TOOLS ENGINE MCP STUDIOLITE"
 
     if WS.pageFx then
       WS.pageFx(key)
@@ -16608,8 +16619,8 @@ TEKAN SCAN]]),
       end
     end)
 
-    closeB.MouseButton1Click:Connect(function() WS.close(key) end)
-    dockB.MouseButton1Click:Connect(function() WS.layout(true) end)
+    closeB.Activated:Connect(function() WS.close(key) end)
+    dockB.Activated:Connect(function() WS.layout(true) end)
 
     for _, b in ipairs({
       { closeB, Color3.fromRGB(36, 36, 44), Color3.fromRGB(70, 70, 82) },
@@ -17011,12 +17022,12 @@ TEKAN SCAN]]),
   end)
 
   local spoofWin = WS.make(
-    "SPOOF", "Spoofer & Bypass", "ULTRA-FAST 60FPS · AUTO PLACE ID", Color3.fromRGB(245, 175, 45), nil,
+    "SPOOF", "Spoof & Bypass", "ULTRA-FAST 60FPS · AUTO PLACE ID", Color3.fromRGB(245, 175, 45), nil,
     WS.sideW + 60, DEF_H, "R"
   )
 
   local musicWin = WS.make(
-    "MUSIC", "Music Player", "XYUREI OFFC · PUTAR LAGU", Color3.fromRGB(210, 212, 222), nil,
+    "MUSIC", "Music Player", "MUSIC PLAYER · PUTAR LAGU", Color3.fromRGB(210, 212, 222), nil,
     WS.sideW, DEF_H, "L"
   )
 
@@ -17174,7 +17185,7 @@ TEKAN SCAN]]),
     local importedRoot = nil
     local isModel = ext == "RBXM" or ext == "RBXMX"
 
-    importBtn.MouseButton1Click:Connect(function()
+    importBtn.Activated:Connect(function()
       if importBtn.Text == "IMPORTING" or importBtn.Text == "ACTIVATING" then
         return
       end
@@ -17366,10 +17377,10 @@ TEKAN SCAN]]),
 
   for _, pg in pairs(pageOf) do
     pg.search:GetPropertyChangedSignal("Text"):Connect(filterCards)
-    pg.scan.MouseButton1Click:Connect(scanNow)
+    pg.scan.Activated:Connect(scanNow)
   end
 
-  landingScan.MouseButton1Click:Connect(scanNow)
+  landingScan.Activated:Connect(scanNow)
 
   local TB_CATS = {
     { key = "Model", id = 10 }, { key = "Mesh", id = 4 }, { key = "Decal", id = 13 },
@@ -17776,7 +17787,7 @@ LALU TEKAN CARI]],
     round(actBtn, 8)
     stroke(actBtn, C.white, 1, 0.7)
 
-    copyBtn.MouseButton1Click:Connect(function()
+    copyBtn.Activated:Connect(function()
       if tbCopy(entry.id) then
         copyBtn.Text = "OK ✓"
         setStatus("ID " .. entry.id .. " disalin", C.ok)
@@ -17808,13 +17819,13 @@ LALU TEKAN CARI]],
       round(playBtn, 8)
       stroke(playBtn, C.ok, 1, 0.6)
 
-      playBtn.MouseButton1Click:Connect(function()
+      playBtn.Activated:Connect(function()
         local playing = tbTogglePreview(entry.id)
         playBtn.Text = playing and "■" or "▶"
       end)
     end
 
-    actBtn.MouseButton1Click:Connect(function()
+    actBtn.Activated:Connect(function()
       if actBtn.Text ~= "IMPORT" then
         return
       end
@@ -17989,7 +18000,7 @@ PENCARIAN GAGAL
         round(tbMoreBtn, 10)
         stroke(tbMoreBtn, C.cyan, 1, 0.6)
 
-        tbMoreBtn.MouseButton1Click:Connect(function()
+        tbMoreBtn.Activated:Connect(function()
           tbPageNum = tbPageNum + 1
           tbSearch(true)
         end)
@@ -18000,14 +18011,14 @@ PENCARIAN GAGAL
   end
 
   for _, cat in ipairs(TB_CATS) do
-    chips[cat.key].MouseButton1Click:Connect(function()
+    chips[cat.key].Activated:Connect(function()
       tbCat = cat
       refreshChips()
       tbSearch(false)
     end)
   end
 
-  tbGo.MouseButton1Click:Connect(function() tbSearch(false) end)
+  tbGo.Activated:Connect(function() tbSearch(false) end)
 
   tbBox.FocusLost:Connect(function(enter)
     if enter then
@@ -18143,13 +18154,13 @@ PENCARIAN GAGAL
     end
   end
 
-  exploreBtn.MouseButton1Click:Connect(function() showPage("dash") end)
+  exploreBtn.Activated:Connect(function() showPage("dash") end)
 
   for key, nb in pairs(navButtons) do
     if key == "landing" then
-      nb.MouseButton1Click:Connect(function() showPage("landing") end)
+      nb.Activated:Connect(function() showPage("landing") end)
     elseif key ~= "dash" then
-      nb.MouseButton1Click:Connect(function()
+      nb.Activated:Connect(function()
         if WS.list[key] then
           WS.toggle(key)
         else
@@ -18159,13 +18170,13 @@ PENCARIAN GAGAL
     end
   end
 
-  dashMusicBtn.MouseButton1Click:Connect(function() WS.toggle("MUSIC") end)
-  dashScanBtn.MouseButton1Click:Connect(scanNow)
+  dashMusicBtn.Activated:Connect(function() WS.toggle("MUSIC") end)
+  dashScanBtn.Activated:Connect(scanNow)
 
   for key, b in pairs(dashButtons) do
     local pop = b:FindFirstChildOfClass("UIScale")
 
-    b.MouseButton1Click:Connect(function()
+    b.Activated:Connect(function()
       if WS.list[key] then
         WS.toggle(key)
       else
@@ -18206,7 +18217,7 @@ PENCARIAN GAGAL
     end)
   end
 
-  backBtn.MouseButton1Click:Connect(function()
+  backBtn.Activated:Connect(function()
     if currentPage == "dash" then
       showPage("landing")
     else
@@ -18352,8 +18363,8 @@ PENCARIAN GAGAL
     end)
   end
 
-  minBtn.MouseButton1Click:Connect(function() setMainVisible(false) end)
-  closeBtn.MouseButton1Click:Connect(function() gui:Destroy() end)
+  minBtn.Activated:Connect(function() setMainVisible(false) end)
+  closeBtn.Activated:Connect(function() gui:Destroy() end)
 
   local function hoverable(btn, baseCol, hoverCol)
     btn.MouseEnter:Connect(function()
@@ -18396,7 +18407,7 @@ PENCARIAN GAGAL
 
     if o:IsA("GuiButton") then
       hooked[o] = true
-      o.MouseButton1Click:Connect(playClick)
+      o.Activated:Connect(playClick)
     elseif o:IsA("TextBox") then
       hooked[o] = true
       o.Focused:Connect(playClick)
@@ -18418,7 +18429,7 @@ PENCARIAN GAGAL
     end
   end)
 
-  print("[XYUREI OFFC] futuristic blue UI v2 (xyuoffc) loaded")
+  print("[TOOLS ENGINE] StudioLite Engine v2 loaded")
 end
 
 __buildXyureiGui()
