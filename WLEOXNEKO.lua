@@ -6590,6 +6590,8 @@ end)
 
 end -- END: YT Upload section scope
 
+do -- BEGIN: Settings section scope
+
 local halSetelan = buat("ScrollingFrame", {
     Size = UDim2.new(1, 0, 1, 0),
     BackgroundTransparency = 1,
@@ -6738,9 +6740,14 @@ btnSimpan.Activated:Connect(function()
     end
 end)
 
+
+end -- END: Settings section scope
+
 ------------------------------------------------------------------
 -- MENU SIDEBAR
 ------------------------------------------------------------------
+do -- BEGIN: Sidebar section scope
+
 local sideScroll = buat("ScrollingFrame", {
     Size = UDim2.new(1, -8, 1, -48),
     Position = UDim2.new(0, 4, 0, 44),
@@ -6820,6 +6827,9 @@ sorotMenu = function(kunci)
         b.BackgroundColor3 = aktif and C.aktif or C.kartu
     end
 end
+
+
+end -- END: Sidebar section scope
 
 ------------------------------------------------------------------
 -- NAVIGASI & SCAN
