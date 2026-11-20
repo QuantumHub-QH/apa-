@@ -1,4 +1,4 @@
-print("[QUANTUM HUB] LIQUID GLASS V3.0 ONLINE - BUILD: 1795171658077")
+print("[QUANTUM HUB] LIQUID GLASS V3.0 ONLINE - BUILD: 1795171852262")
 --[[
 ================================================================================
   QUANTUM HUB — LIQUID GLASS EDITION v3.0
@@ -6343,7 +6343,7 @@ do
         chatScroll.LayoutOrder = 1
         chatScroll.Parent = s
         local cl = Instance.new("UIListLayout")
-        cl.Padding = UDim2.fromOffset(8)
+        cl.Padding = UDim.new(0, 8)
         cl.SortOrder = Enum.SortOrder.LayoutOrder
         cl.Parent = chatScroll
 
