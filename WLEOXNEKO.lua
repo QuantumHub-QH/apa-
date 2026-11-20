@@ -330,6 +330,41 @@ local TEMA = {
         aksen = Color3.fromRGB(83, 157, 222), hijau = Color3.fromRGB(58, 181, 121),
         merah = Color3.fromRGB(197, 64, 76),
     },
+    Ungu = {
+        bg = Color3.fromRGB(22, 18, 34), panel = Color3.fromRGB(32, 26, 47),
+        kartu = Color3.fromRGB(43, 34, 62), aktif = Color3.fromRGB(78, 47, 114),
+        teks = Color3.fromRGB(246, 241, 255), redup = Color3.fromRGB(178, 164, 203),
+        aksen = Color3.fromRGB(173, 125, 255), hijau = Color3.fromRGB(58, 181, 121),
+        merah = Color3.fromRGB(197, 64, 76),
+    },
+    Toska = {
+        bg = Color3.fromRGB(15, 30, 34), panel = Color3.fromRGB(23, 42, 47),
+        kartu = Color3.fromRGB(31, 55, 61), aktif = Color3.fromRGB(35, 91, 94),
+        teks = Color3.fromRGB(236, 252, 251), redup = Color3.fromRGB(145, 188, 189),
+        aksen = Color3.fromRGB(66, 203, 186), hijau = Color3.fromRGB(58, 181, 121),
+        merah = Color3.fromRGB(197, 64, 76),
+    },
+    Hijau = {
+        bg = Color3.fromRGB(17, 29, 22), panel = Color3.fromRGB(25, 41, 31),
+        kartu = Color3.fromRGB(34, 54, 41), aktif = Color3.fromRGB(38, 83, 57),
+        teks = Color3.fromRGB(239, 251, 242), redup = Color3.fromRGB(157, 190, 166),
+        aksen = Color3.fromRGB(91, 203, 132), hijau = Color3.fromRGB(58, 181, 121),
+        merah = Color3.fromRGB(197, 64, 76),
+    },
+    Emas = {
+        bg = Color3.fromRGB(34, 27, 18), panel = Color3.fromRGB(46, 37, 24),
+        kartu = Color3.fromRGB(62, 49, 30), aktif = Color3.fromRGB(111, 79, 35),
+        teks = Color3.fromRGB(255, 247, 230), redup = Color3.fromRGB(197, 177, 139),
+        aksen = Color3.fromRGB(235, 181, 83), hijau = Color3.fromRGB(58, 181, 121),
+        merah = Color3.fromRGB(197, 64, 76),
+    },
+    Midnight = {
+        bg = Color3.fromRGB(14, 19, 34), panel = Color3.fromRGB(21, 29, 49),
+        kartu = Color3.fromRGB(30, 40, 65), aktif = Color3.fromRGB(43, 61, 104),
+        teks = Color3.fromRGB(240, 244, 255), redup = Color3.fromRGB(150, 165, 201),
+        aksen = Color3.fromRGB(126, 160, 255), hijau = Color3.fromRGB(58, 181, 121),
+        merah = Color3.fromRGB(197, 64, 76),
+    },
 }
 
 local temaAktif = TEMA[config.tema] and config.tema or "Abu"
@@ -4506,7 +4541,7 @@ buat("UIListLayout", {
 local ICON_BY_KEY = {
     dashboard = "134003209888315",
     toolbox = "121323758319527",
-    music = "102337382069600",
+    music = "96724400016066",
     rbxm = "106962661743892",
     rbxmx = "106962661743892",
     rbxl = "122982660526589",
@@ -4744,7 +4779,7 @@ panelUpload.extra.Activated:Connect(function() bukaHalaman("setelan") end)
 -- PANEL SAMPING: TOOLBOX
 ------------------------------------------------------------------
 local TOOLBOX_WIDTH, TOOLBOX_HEIGHT, TOOLBOX_GAP = 340, 480, 12
-local MUSIC_WIDTH, MUSIC_HEIGHT = 340, 480
+local MUSIC_WIDTH, MUSIC_HEIGHT = 340, 520
 local toolboxTerbuka, musicTerbuka = false, false
 local halMusic
 local halToolbox = sudut(buat("Frame", {
@@ -4797,34 +4832,56 @@ buat("Frame", {
     BorderSizePixel = 0,
 }, halToolbox)
 
-local function posisikanPanelSamping()
-    if musicTerbuka and halMusic then
-        halMusic.Position = UDim2.new(
-            frame.Position.X.Scale, frame.Position.X.Offset - MUSIC_WIDTH - TOOLBOX_GAP,
-            frame.Position.Y.Scale, frame.Position.Y.Offset + (TINGGI - MUSIC_HEIGHT) / 2
-        )
-    end
-    if toolboxTerbuka then
-        halToolbox.Position = UDim2.new(
-            frame.Position.X.Scale, frame.Position.X.Offset + LEBAR + TOOLBOX_GAP,
-            frame.Position.Y.Scale, frame.Position.Y.Offset + (TINGGI - TOOLBOX_HEIGHT) / 2
-        )
+local function ubahPosisiPanel(panel, posisi, halus)
+    if halus and panel.Visible then
+        TweenService:Create(
+            panel,
+            TweenInfo.new(0.24, Enum.EasingStyle.Quart, Enum.EasingDirection.Out),
+            {Position = posisi}
+        ):Play()
+    else
+        panel.Position = posisi
     end
 end
 
-local function aturLayoutPanelSamping()
+local function posisikanPanelSamping(halus, posisiFrame)
+    local posisiUtama = posisiFrame or frame.Position
+    if musicTerbuka and halMusic then
+        ubahPosisiPanel(halMusic, UDim2.new(
+            posisiUtama.X.Scale, posisiUtama.X.Offset - MUSIC_WIDTH - TOOLBOX_GAP,
+            posisiUtama.Y.Scale, posisiUtama.Y.Offset + (TINGGI - MUSIC_HEIGHT) / 2
+        ), halus)
+    end
+    if toolboxTerbuka then
+        ubahPosisiPanel(halToolbox, UDim2.new(
+            posisiUtama.X.Scale, posisiUtama.X.Offset + LEBAR + TOOLBOX_GAP,
+            posisiUtama.Y.Scale, posisiUtama.Y.Offset + (TINGGI - TOOLBOX_HEIGHT) / 2
+        ), halus)
+    end
+end
+
+local function aturLayoutPanelSamping(halus)
     local ruangKiri = musicTerbuka and (MUSIC_WIDTH + TOOLBOX_GAP) or 0
     local ruangKanan = toolboxTerbuka and (TOOLBOX_WIDTH + TOOLBOX_GAP) or 0
     local lebarGrup = ruangKiri + LEBAR + ruangKanan
-    frame.Position = UDim2.new(0.5, -lebarGrup / 2 + ruangKiri, 0.5, -TINGGI / 2)
-    posisikanPanelSamping()
+    local posisiFrame = UDim2.new(0.5, -lebarGrup / 2 + ruangKiri, 0.5, -TINGGI / 2)
+    if halus then
+        TweenService:Create(
+            frame,
+            TweenInfo.new(0.24, Enum.EasingStyle.Quart, Enum.EasingDirection.Out),
+            {Position = posisiFrame}
+        ):Play()
+    else
+        frame.Position = posisiFrame
+    end
+    posisikanPanelSamping(halus, posisiFrame)
 end
 
 bukaToolboxPanel = function()
     if toolboxTerbuka then return end
     toolboxTerbuka = true
     halToolbox.Visible = true
-    aturLayoutPanelSamping()
+    aturLayoutPanelSamping(true)
     if sorotMenu then sorotMenu("toolbox") end
     jalankanSapuan()
 end
@@ -4833,7 +4890,7 @@ tutupToolboxPanel = function()
     if not toolboxTerbuka then return end
     toolboxTerbuka = false
     halToolbox.Visible = false
-    aturLayoutPanelSamping()
+    aturLayoutPanelSamping(true)
     if sorotMenu then sorotMenu(halamanAktif) end
 end
 tbClose.Activated:Connect(tutupToolboxPanel)
@@ -5112,6 +5169,8 @@ local MUSIC_TRACKS = {
     {nama = "Aku Suka Jedag Jedug Full Bass", id = "100787734732008", genre = "Breakbeat", pembuat = "DistrokidOfficial"},
     {nama = "CELAWZE I BIARKAN KU PERGI BREAKBEAT", id = "81426876012759", genre = "Breakbeat", pembuat = "DistrokidOfficial"},
     {nama = "Breakbeat Mansion", id = "1838727070", genre = "Breakbeat", pembuat = "APMOfficial"},
+    {nama = "Latin Breakbeat - Instrumental", id = "9039703049", genre = "Breakbeat", pembuat = "APMOfficial"},
+    {nama = "JAY | Blackhole Breakbeat", id = "117574079633196", genre = "Breakbeat", pembuat = "DistrokidOfficial"},
     {nama = "Electronic EDM Rhythm", id = "85837065623863", genre = "EDM", pembuat = "DistrokidOfficial"},
     {nama = "Funky Disco Beats", id = "9038367768", genre = "EDM", pembuat = "APMOfficial"},
     {nama = "Deep House Techno Pulse", id = "80225919436233", genre = "EDM", pembuat = "DistrokidOfficial"},
@@ -5122,6 +5181,32 @@ local MUSIC_TRACKS = {
     {nama = "Skyline Bounce", id = "132588706181756", genre = "EDM", pembuat = "DistrokidOfficial"},
     {nama = "Run the Night", id = "129158012324844", genre = "EDM", pembuat = "DistrokidOfficial"},
     {nama = "Digital Flames", id = "101278896981200", genre = "EDM", pembuat = "DistrokidOfficial"},
+    {nama = "Life Here Now Forever (a) (30)", id = "9045594726", genre = "EDM", pembuat = "APMOfficial"},
+    {nama = "How Hyped How Hot (a) (30)", id = "1838051027", genre = "EDM", pembuat = "APMOfficial"},
+    {nama = "Floating Through Deeper Thoughts (15 sec)", id = "9038366905", genre = "EDM", pembuat = "APMOfficial"},
+    {nama = "Life Here Now Forever (b) (30)", id = "9045595952", genre = "EDM", pembuat = "APMOfficial"},
+    {nama = "DJ IRONVEIN - Anthem House Remix", id = "137443947685209", genre = "DJ Mix", pembuat = "DistrokidOfficial"},
+    {nama = "Feel Only Love (Dance)", id = "104177688386014", genre = "DJ Mix", pembuat = "DistrokidOfficial"},
+    {nama = "digidi digidi hey stay in my rom dj remix", id = "108919662663242", genre = "DJ Mix", pembuat = "DistrokidOfficial"},
+    {nama = "Let Love Happen X Tchu Tcha Tcha (Dance)", id = "103765309710247", genre = "DJ Mix", pembuat = "DistrokidOfficial"},
+    {nama = "Good Love (Dance)", id = "93966344127430", genre = "DJ Mix", pembuat = "DistrokidOfficial"},
+    {nama = "Remix by DJ Superviel", id = "81599443446781", genre = "DJ Mix", pembuat = "DistrokidOfficial"},
+    {nama = "Cumbia DJ Mix", id = "70489315110582", genre = "DJ Mix", pembuat = "DistrokidOfficial"},
+    {nama = "Party House Mix | DJ Linuxxx", id = "80314545116582", genre = "DJ Mix", pembuat = "DistrokidOfficial"},
+    {nama = "Rock the Phunky Beats", id = "70707928734875", genre = "DJ Mix", pembuat = "DistrokidOfficial"},
+    {nama = "Happy DJ (Rhythm Mix)", id = "1839075254", genre = "DJ Mix", pembuat = "APMOfficial"},
+    {nama = "DJ / Pop Track Concept (Dance-Pop Mix)", id = "82028519579865", genre = "DJ Mix", pembuat = "DistrokidOfficial"},
+    {nama = "We Raise Up Again", id = "73521953281663", genre = "DJ Mix", pembuat = "DistrokidOfficial"},
+    {nama = "You Got to Have Faith", id = "82571224785601", genre = "DJ Mix", pembuat = "DistrokidOfficial"},
+    {nama = "Keep Going", id = "106628268112826", genre = "DJ Mix", pembuat = "DistrokidOfficial"},
+    {nama = "Welcome to My House", id = "86078342485207", genre = "DJ Mix", pembuat = "DistrokidOfficial"},
+    {nama = "Baila Lento", id = "112179327038508", genre = "DJ Mix", pembuat = "DistrokidOfficial"},
+    {nama = "Skyline Riot", id = "106661367200367", genre = "EDM", pembuat = "DistrokidOfficial"},
+    {nama = "After the Fall", id = "78224983844766", genre = "EDM", pembuat = "DistrokidOfficial"},
+    {nama = "Pulse After Midnight", id = "116687923706682", genre = "EDM", pembuat = "DistrokidOfficial"},
+    {nama = "Ghosts in the Neon", id = "130827383001969", genre = "EDM", pembuat = "DistrokidOfficial"},
+    {nama = "Sky of Sound", id = "94699879620769", genre = "EDM", pembuat = "DistrokidOfficial"},
+    {nama = "Twinkle Twinkle Little Star (EDM-Pop Remix)", id = "133792227976953", genre = "EDM", pembuat = "DistrokidOfficial"},
     {nama = "I Miss You", id = "140627598377770", genre = "Sad", pembuat = "DistrokidOfficial"},
     {nama = "Sad End (Solo Piano)", id = "1838635121", genre = "Sad", pembuat = "APMOfficial"},
     {nama = "The Loneliest Hour", id = "114213622974713", genre = "Sad", pembuat = "DistrokidOfficial"},
@@ -5136,6 +5221,11 @@ local MUSIC_TRACKS = {
     {nama = "When You Said Goodbye", id = "96332574400847", genre = "Sad", pembuat = "DistrokidOfficial"},
     {nama = "We Almost Had Forever", id = "139085431440194", genre = "Sad", pembuat = "DistrokidOfficial"},
     {nama = "Spring of Deception", id = "102450285837527", genre = "Sad", pembuat = "DistrokidOfficial"},
+    {nama = "After The Rain We Rise", id = "135159252018449", genre = "Sad", pembuat = "DistrokidOfficial"},
+    {nama = "Reflections", id = "140636167703930", genre = "Sad", pembuat = "DistrokidOfficial"},
+    {nama = "Our World Is Too Far", id = "139380427193851", genre = "Sad", pembuat = "DistrokidOfficial"},
+    {nama = "Sad Love Songs That Make You Cry", id = "114888868295036", genre = "Sad", pembuat = "DistrokidOfficial"},
+    {nama = "sad song (soua)", id = "138915385850637", genre = "Sad", pembuat = "DistrokidOfficial"},
 }
 
 local musicService = game:GetService("SoundService")
@@ -5250,6 +5340,20 @@ local musicId = label({
     Size = UDim2.new(1, -110, 0, 14),
     TextTruncate = Enum.TextTruncate.AtEnd,
 }, nowPlaying)
+local musicProgressTrack = sudut(buat("Frame", {
+    Name = "PlaybackProgressTrack",
+    Size = UDim2.new(1, -110, 0, 4),
+    Position = UDim2.new(0, 100, 0, 98),
+    BackgroundColor3 = C.kartu,
+    BorderSizePixel = 0,
+    ClipsDescendants = true,
+}, nowPlaying), 2)
+local musicProgressFill = sudut(buat("Frame", {
+    Name = "PlaybackProgressFill",
+    Size = UDim2.new(0, 0, 1, 0),
+    BackgroundColor3 = C.aksen,
+    BorderSizePixel = 0,
+}, musicProgressTrack), 2)
 
 local musicPrevious = tombol({
     Text = "PREV",
@@ -5297,16 +5401,54 @@ local musicPlaybackState = label({
     Size = UDim2.new(1, -116, 0, 24),
     TextTruncate = Enum.TextTruncate.AtEnd,
 }, halMusic)
+local renderMusicList
+local musicGenreAktif = "Semua"
+local musicGenreButtons = {}
+local musicFilterRow = buat("Frame", {
+    Size = UDim2.new(1, -24, 0, 24),
+    Position = UDim2.new(0, 12, 0, 238),
+    BackgroundTransparency = 1,
+}, halMusic)
+buat("UIGridLayout", {
+    CellSize = UDim2.new(0.2, -4, 1, 0),
+    CellPadding = UDim2.new(0, 4, 0, 0),
+    FillDirectionMaxCells = 5,
+    SortOrder = Enum.SortOrder.LayoutOrder,
+}, musicFilterRow)
+local function perbaruiMusicGenre()
+    for genre, button in pairs(musicGenreButtons) do
+        local terpilih = genre == musicGenreAktif
+        button.BackgroundColor3 = terpilih and C.aktif or C.kartu
+        button.TextColor3 = terpilih and C.teks or C.redup
+    end
+end
+for i, genre in ipairs({"Semua", "Breakbeat", "EDM", "DJ Mix", "Sad"}) do
+    local namaGenre = genre
+    local genreButton = tombol({
+        Text = namaGenre,
+        TextSize = 8,
+        LayoutOrder = i,
+        BackgroundColor3 = namaGenre == musicGenreAktif and C.aktif or C.kartu,
+        TextColor3 = namaGenre == musicGenreAktif and C.teks or C.redup,
+        AutoButtonColor = false,
+    }, musicFilterRow)
+    musicGenreButtons[namaGenre] = genreButton
+    genreButton.Activated:Connect(function()
+        musicGenreAktif = namaGenre
+        perbaruiMusicGenre()
+        if renderMusicList then renderMusicList() end
+    end)
+end
 local musicSearch = kotakTeks({
     Size = UDim2.new(1, -24, 0, 30),
-    Position = UDim2.new(0, 12, 0, 240),
+    Position = UDim2.new(0, 12, 0, 270),
     Text = "",
     PlaceholderText = "Cari judul, genre, atau ID...",
 }, halMusic)
 local musicList = buatDaftarScroll(
     halMusic,
-    UDim2.new(0, 12, 0, 276),
-    UDim2.new(1, -24, 1, -314),
+    UDim2.new(0, 12, 0, 306),
+    UDim2.new(1, -24, 1, -344),
     false
 )
 local musicCount = label({
@@ -5320,7 +5462,6 @@ local musicCount = label({
 
 local musicSongIndex
 local musicLoadToken = 0
-local renderMusicList
 local function playMusicTrack(index)
     local track = MUSIC_TRACKS[index]
     if not track then return end
@@ -5350,58 +5491,69 @@ local function playMusicTrack(index)
     end)
 end
 
+local function daftarLaguTerfilter()
+    local query = trim(musicSearch.Text):lower()
+    local indices = {}
+    for index, track in ipairs(MUSIC_TRACKS) do
+        local haystack = (track.nama .. " " .. track.genre .. " " .. track.id .. " " .. track.pembuat):lower()
+        local matchesGenre = musicGenreAktif == "Semua" or track.genre == musicGenreAktif
+        if matchesGenre and (query == "" or haystack:find(query, 1, true)) then
+            table.insert(indices, index)
+        end
+    end
+    return indices
+end
+
 renderMusicList = function()
     for _, child in ipairs(musicList:GetChildren()) do
         if child.Name == "MusicTrackItem" or child.Name == "MusicEmpty" then
             child:Destroy()
         end
     end
-    local query = trim(musicSearch.Text):lower()
     local matches = 0
-    for index, track in ipairs(MUSIC_TRACKS) do
-        local haystack = (track.nama .. " " .. track.genre .. " " .. track.id .. " " .. track.pembuat):lower()
-        if query == "" or haystack:find(query, 1, true) then
-            matches += 1
-            local row = sudut(buat("Frame", {
-                Name = "MusicTrackItem",
-                Size = UDim2.new(1, -8, 0, 58),
-                BackgroundColor3 = C.kartu,
-                BorderSizePixel = 0,
-                LayoutOrder = matches,
-            }, musicList), 8)
-            sudut(buat("ImageLabel", {
-                Size = UDim2.new(0, 34, 0, 34),
-                Position = UDim2.new(0, 8, 0.5, -17),
-                BackgroundColor3 = C.panel,
-                BorderSizePixel = 0,
-                Image = MUSIC_LOGO,
-                ScaleType = Enum.ScaleType.Fit,
-            }, row), 6)
-            label({
-                Text = track.nama,
-                Font = Enum.Font.GothamBold,
-                TextSize = 10,
-                Position = UDim2.new(0, 50, 0, 8),
-                Size = UDim2.new(1, -116, 0, 18),
-                TextTruncate = Enum.TextTruncate.AtEnd,
-            }, row)
-            label({
-                Text = track.genre .. " | ID " .. track.id,
-                TextColor3 = C.redup,
-                TextSize = 8,
-                Position = UDim2.new(0, 50, 0, 29),
-                Size = UDim2.new(1, -116, 0, 16),
-                TextTruncate = Enum.TextTruncate.AtEnd,
-            }, row)
-            local playTrack = tombol({
-                Text = musicSongIndex == index and musicSound.IsPlaying and "AKTIF" or "PUTAR",
-                TextSize = 8,
-                Size = UDim2.new(0, 54, 0, 28),
-                Position = UDim2.new(1, -62, 0.5, -14),
-                BackgroundColor3 = musicSongIndex == index and musicSound.IsPlaying and C.aktif or C.panel,
-            }, row)
-            playTrack.Activated:Connect(function() playMusicTrack(index) end)
-        end
+    local filteredIndices = daftarLaguTerfilter()
+    for _, index in ipairs(filteredIndices) do
+        local track = MUSIC_TRACKS[index]
+        matches += 1
+        local row = sudut(buat("Frame", {
+            Name = "MusicTrackItem",
+            Size = UDim2.new(1, -8, 0, 58),
+            BackgroundColor3 = C.kartu,
+            BorderSizePixel = 0,
+            LayoutOrder = matches,
+        }, musicList), 8)
+        sudut(buat("ImageLabel", {
+            Size = UDim2.new(0, 34, 0, 34),
+            Position = UDim2.new(0, 8, 0.5, -17),
+            BackgroundColor3 = C.panel,
+            BorderSizePixel = 0,
+            Image = MUSIC_LOGO,
+            ScaleType = Enum.ScaleType.Fit,
+        }, row), 6)
+        label({
+            Text = track.nama,
+            Font = Enum.Font.GothamBold,
+            TextSize = 10,
+            Position = UDim2.new(0, 50, 0, 8),
+            Size = UDim2.new(1, -116, 0, 18),
+            TextTruncate = Enum.TextTruncate.AtEnd,
+        }, row)
+        label({
+            Text = track.genre .. " | ID " .. track.id,
+            TextColor3 = C.redup,
+            TextSize = 8,
+            Position = UDim2.new(0, 50, 0, 29),
+            Size = UDim2.new(1, -116, 0, 16),
+            TextTruncate = Enum.TextTruncate.AtEnd,
+        }, row)
+        local playTrack = tombol({
+            Text = musicSongIndex == index and musicSound.IsPlaying and "AKTIF" or "PUTAR",
+            TextSize = 8,
+            Size = UDim2.new(0, 54, 0, 28),
+            Position = UDim2.new(1, -62, 0.5, -14),
+            BackgroundColor3 = musicSongIndex == index and musicSound.IsPlaying and C.aktif or C.panel,
+        }, row)
+        playTrack.Activated:Connect(function() playMusicTrack(index) end)
     end
     if matches == 0 then
         label({
@@ -5437,24 +5589,25 @@ musicVolume.Activated:Connect(function()
     musicVolume.Text = "VOL " .. tostring(math.floor(musicSound.Volume * 100 + 0.5)) .. "%"
 end)
 musicPrevious.Activated:Connect(function()
-    local index = musicSongIndex and (musicSongIndex - 2) % #MUSIC_TRACKS + 1 or #MUSIC_TRACKS
+    local filtered = daftarLaguTerfilter()
+    if #filtered == 0 then return end
+    local currentPosition = musicSongIndex and table.find(filtered, musicSongIndex)
+    local index = filtered[currentPosition and (currentPosition - 2) % #filtered + 1 or #filtered]
     playMusicTrack(index)
 end)
 musicNext.Activated:Connect(function()
-    local index = musicSongIndex and musicSongIndex % #MUSIC_TRACKS + 1 or 1
-    playMusicTrack(index)
+    local filtered = daftarLaguTerfilter()
+    if #filtered == 0 then return end
+    local currentPosition = musicSongIndex and table.find(filtered, musicSongIndex)
+    local nextPosition = currentPosition and currentPosition % #filtered + 1 or 1
+    playMusicTrack(filtered[nextPosition])
 end)
 musicPlay.Activated:Connect(function()
     if not musicSongIndex then
-        local query = trim(musicSearch.Text):lower()
-        for index, track in ipairs(MUSIC_TRACKS) do
-            local haystack = (track.nama .. " " .. track.genre .. " " .. track.id .. " " .. track.pembuat):lower()
-            if query == "" or haystack:find(query, 1, true) then
-                playMusicTrack(index)
-                return
-            end
+        local filtered = daftarLaguTerfilter()
+        if #filtered > 0 then playMusicTrack(filtered[1]) else
+            setStatus("Tidak ada lagu yang cocok untuk diputar", true)
         end
-        setStatus("Tidak ada lagu yang cocok untuk diputar", true)
         return
     end
     if musicSound.IsPlaying then
@@ -5491,7 +5644,7 @@ bukaMusicPanel = function()
     if musicTerbuka then return end
     musicTerbuka = true
     halMusic.Visible = true
-    aturLayoutPanelSamping()
+    aturLayoutPanelSamping(true)
     if sorotMenu then sorotMenu("music") end
     jalankanSapuan()
 end
@@ -5499,11 +5652,19 @@ tutupMusicPanel = function()
     if not musicTerbuka then return end
     musicTerbuka = false
     halMusic.Visible = false
-    aturLayoutPanelSamping()
+    aturLayoutPanelSamping(true)
     if sorotMenu then sorotMenu(halamanAktif) end
 end
 musicClose.Activated:Connect(tutupMusicPanel)
 renderMusicList()
+task.spawn(function()
+    while gui.Parent and musicSound.Parent do
+        local duration = musicSound.TimeLength
+        local progress = duration > 0 and math.clamp(musicSound.TimePosition / duration, 0, 1) or 0
+        musicProgressFill.Size = UDim2.new(progress, 0, 1, 0)
+        task.wait(0.2)
+    end
+end)
 
 ------------------------------------------------------------------
 -- HALAMAN: AI CHAT (OpenRouter)
@@ -5751,18 +5912,18 @@ local function terapkanTema(nama)
 end
 
 local themeRow = buat("Frame", {
-    Size = UDim2.new(1, -8, 0, 34),
+    Size = UDim2.new(1, -8, 0, 70),
     BackgroundTransparency = 1,
     LayoutOrder = 3,
 }, halSetelan)
 buat("UIGridLayout", {
-    CellSize = UDim2.new(0.2, -4, 1, 0),
-    CellPadding = UDim2.new(0, 4, 0, 0),
+    CellSize = UDim2.new(0.2, -4, 0.5, -3),
+    CellPadding = UDim2.new(0, 4, 0, 4),
     FillDirectionMaxCells = 5,
     SortOrder = Enum.SortOrder.LayoutOrder,
 }, themeRow)
 
-for i, nama in ipairs({"Pink", "Putih", "Merah", "Biru", "Abu"}) do
+for i, nama in ipairs({"Pink", "Putih", "Merah", "Biru", "Abu", "Ungu", "Toska", "Hijau", "Emas", "Midnight"}) do
     local namaTema = nama
     local palet = TEMA[nama]
     local button = tombol({
@@ -6052,7 +6213,7 @@ koneksiGeser = UIS.InputChanged:Connect(function(input)
         local d = input.Position - dragStart
         frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + d.X,
             startPos.Y.Scale, startPos.Y.Offset + d.Y)
-        posisikanPanelSamping()
+        posisikanPanelSamping(false)
     end
 end)
 
