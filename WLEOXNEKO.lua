@@ -6179,12 +6179,18 @@ end
 initHalamanAI()
 
 ------------------------------------------------------------------
--- ENGINE SPOOFER & BYPASS IN-GAME (Ultra-Fast 60FPS Non-Blocking Engine)
+-- ENGINE SPOOFER & BYPASS IN-GAME (Full Auto Place ID Bypass + 60FPS)
 ------------------------------------------------------------------
 local spoofCache = {}
+local lastWorkingPlaceId = nil
+local DEFAULT_SEEDS = {
+    119031818630096, 76077593225337, 131528987147518,
+    125981614068947, 112742012181598, 6872265039,
+    5765186170, 3271915715, 4483381587, 7415484388,
+}
 
 local function ambilDetailAset(aid)
-    local name = nil
+    local name, creatorId, creatorType = nil, nil, nil
 
     -- 1. Economy API v2 (Cepat, 1 request)
     local ok1, res1 = pcall(httpReq, {
@@ -6194,7 +6200,14 @@ local function ambilDetailAset(aid)
     })
     if ok1 and res1 and (res1.StatusCode == 200 or res1.Status == 200) then
         local d = decodeJson(res1)
-        if d then name = d.Name or d.TargetName end
+        if d then
+            name = d.Name or d.TargetName
+            local c = d.Creator
+            if c then
+                creatorId = c.CreatorTargetId or c.Id
+                creatorType = c.CreatorType
+            end
+        end
     end
 
     -- 2. Fallback Develop API (hanya jika gagal)
@@ -6206,48 +6219,130 @@ local function ambilDetailAset(aid)
         })
         if ok2 and res2 and (res2.StatusCode == 200 or res2.Status == 200) then
             local d = decodeJson(res2)
-            if d and d.data and d.data[1] then name = d.data[1].name end
+            if d and d.data and d.data[1] then
+                name = d.data[1].name
+                local c = d.data[1].creator
+                if c then
+                    creatorId = c.id
+                    creatorType = c.type
+                end
+            end
         end
     end
 
     local cleanName = name and name:gsub("[^%w%s%-_]", ""):sub(1, 35) or ("Asset_" .. aid)
     if cleanName == "" then cleanName = "Asset_" .. aid end
-    return cleanName
+    return cleanName, creatorId, creatorType
 end
 
-local function unduhAssetCepat(aid)
-    -- Jalur 1: v2 Langsung dengan game.PlaceId (Instan <0.1 detik untuk 95% aset)
-    local ok, r = pcall(httpReq, {
-        Url = "https://assetdelivery.roblox.com/v2/assetId/" .. aid,
-        Method = "GET",
-        Headers = {
-            ["User-Agent"] = "Roblox/WinInet",
-            ["Roblox-Place-Id"] = tostring(game.PlaceId or 6872265039)
-        }
-    })
-    if ok and r and (r.StatusCode == 200 or r.Status == 200) then
-        local d = decodeJson(r)
-        if d and d.locations and d.locations[1] and d.locations[1].location then
-            local cdnUrl = d.locations[1].location
-            local ok2, r2 = pcall(httpReq, {
-                Url = cdnUrl,
-                Method = "GET",
-                Headers = {["User-Agent"] = "Roblox/WinInet"}
-            })
-            if ok2 and r2 and (r2.StatusCode == 200 or r2.Status == 200)
-                and type(r2.Body) == "string" and #r2.Body > 80 then
-                return r2.Body
+local function unduhAssetCepat(aid, srcCId, srcCType)
+    local function cobaDownload(pid)
+        local h = {["User-Agent"] = "Roblox/WinInet"}
+        if pid then h["Roblox-Place-Id"] = tostring(pid) end
+        local ok, r = pcall(httpReq, {
+            Url = "https://assetdelivery.roblox.com/v2/assetId/" .. aid,
+            Method = "GET",
+            Headers = h,
+        })
+        if ok and r and (r.StatusCode == 200 or r.Status == 200) then
+            local d = decodeJson(r)
+            if d and d.locations and d.locations[1] and d.locations[1].location then
+                local ok2, r2 = pcall(httpReq, {
+                    Url = d.locations[1].location,
+                    Method = "GET",
+                    Headers = {["User-Agent"] = "Roblox/WinInet"}
+                })
+                if ok2 and r2 and (r2.StatusCode == 200 or r2.Status == 200)
+                    and type(r2.Body) == "string" and #r2.Body > 80 then
+                    return r2.Body
+                end
+            end
+        end
+        return nil
+    end
+
+    -- Jalur 1: Coba game.PlaceId (Current game di Delta - Instan <0.1 detik)
+    if game.PlaceId and game.PlaceId > 0 then
+        local b = cobaDownload(game.PlaceId)
+        if b then
+            lastWorkingPlaceId = game.PlaceId
+            return b
+        end
+    end
+
+    -- Jalur 2: Coba lastWorkingPlaceId (Tempat yang sukses sebelumnya)
+    if lastWorkingPlaceId and lastWorkingPlaceId ~= game.PlaceId then
+        local b = cobaDownload(lastWorkingPlaceId)
+        if b then return b end
+    end
+
+    -- Jalur 3: Direct tanpa Place-Id (untuk public asset)
+    local bDirect = cobaDownload(nil)
+    if bDirect then return bDirect end
+
+    -- Jalur 4: Auto-detect games pembuat aset (User / Group bypass)
+    local placeList = {}
+    if srcCId and srcCType == "User" then
+        local okU, resU = pcall(httpReq, {
+            Url = "https://games.roblox.com/v2/users/" .. srcCId .. "/games?accessFilter=Public&limit=6&sortOrder=Asc",
+            Method = "GET",
+            Headers = {["User-Agent"] = "Roblox/WinInet"}
+        })
+        if okU and resU and (resU.StatusCode == 200 or resU.Status == 200) then
+            local dU = decodeJson(resU)
+            if dU and dU.data then
+                for _, g in ipairs(dU.data) do
+                    if g.rootPlace and g.rootPlace.id then
+                        table.insert(placeList, g.rootPlace.id)
+                    end
+                end
+            end
+        end
+    elseif srcCId and srcCType == "Group" then
+        local okGrp, resGrp = pcall(httpReq, {
+            Url = "https://games.roblox.com/v2/groups/" .. srcCId .. "/games?accessFilter=Public&limit=6&sortOrder=Asc",
+            Method = "GET",
+            Headers = {["User-Agent"] = "Roblox/WinInet"}
+        })
+        if okGrp and resGrp and (resGrp.StatusCode == 200 or resGrp.Status == 200) then
+            local dG = decodeJson(resGrp)
+            if dG and dG.data then
+                for _, g in ipairs(dG.data) do
+                    if g.rootPlace and g.rootPlace.id then
+                        table.insert(placeList, g.rootPlace.id)
+                    end
+                end
             end
         end
     end
 
-    -- Jalur 2: v1 Direct bypass (Instan fallback)
+    -- Coba Place ID milik creator game
+    for _, pid in ipairs(placeList) do
+        local b = cobaDownload(pid)
+        if b then
+            lastWorkingPlaceId = pid
+            return b
+        end
+        task.wait(0.01) -- Non-blocking yield
+    end
+
+    -- Jalur 5: Bypass Seeds (Mirror bot DC)
+    for _, pid in ipairs(DEFAULT_SEEDS) do
+        local b = cobaDownload(pid)
+        if b then
+            lastWorkingPlaceId = pid
+            return b
+        end
+        task.wait(0.01) -- Non-blocking yield
+    end
+
+    -- Jalur 6: Direct v1 bypass
     local okV1, rV1 = pcall(httpReq, {
         Url = "https://assetdelivery.roblox.com/v1/asset/?id=" .. aid,
         Method = "GET",
         Headers = {
             ["User-Agent"] = "Roblox/WinInet",
-            ["Roblox-Place-Id"] = tostring(game.PlaceId or 6872265039)
+            ["Roblox-Place-Id"] = tostring(lastWorkingPlaceId or game.PlaceId or 6872265039)
         }
     })
     if okV1 and rV1 and (rV1.StatusCode == 200 or rV1.Status == 200)
@@ -6258,34 +6353,7 @@ local function unduhAssetCepat(aid)
         end
     end
 
-    -- Jalur 3: Top 2 bypass seed place IDs jika aset private
-    local seeds = {6872265039, 5765186170}
-    for _, pid in ipairs(seeds) do
-        local okS, rS = pcall(httpReq, {
-            Url = "https://assetdelivery.roblox.com/v2/assetId/" .. aid,
-            Method = "GET",
-            Headers = {
-                ["User-Agent"] = "Roblox/WinInet",
-                ["Roblox-Place-Id"] = tostring(pid)
-            }
-        })
-        if okS and rS and (rS.StatusCode == 200 or rS.Status == 200) then
-            local d = decodeJson(rS)
-            if d and d.locations and d.locations[1] and d.locations[1].location then
-                local okCdn, rCdn = pcall(httpReq, {
-                    Url = d.locations[1].location,
-                    Method = "GET",
-                    Headers = {["User-Agent"] = "Roblox/WinInet"}
-                })
-                if okCdn and rCdn and (rCdn.StatusCode == 200 or rCdn.Status == 200)
-                    and type(rCdn.Body) == "string" and #rCdn.Body > 80 then
-                    return rCdn.Body
-                end
-            end
-        end
-    end
-
-    -- Jalur 4: game:HttpGet client
+    -- Jalur 7: game:HttpGet client
     if game.HttpGet then
         local okG, bodyG = pcall(function()
             return game:HttpGet("https://assetdelivery.roblox.com/v1/asset/?id=" .. aid)
@@ -6312,11 +6380,11 @@ local function spoofAssetSingleCore(assetId, targetType, speedVal)
         return c.id, c.name
     end
 
-    -- Ambil nama aset (1 request ringan)
-    local assetName = ambilDetailAset(assetId)
+    -- Ambil nama aset dan creator info untuk Auto Place ID Bypass
+    local assetName, srcCId, srcCType = ambilDetailAset(assetId)
 
-    -- Unduh aset dengan jalur cepat
-    local fileData = unduhAssetCepat(assetId)
+    -- Unduh aset dengan Auto Place ID Bypass lengkap
+    local fileData = unduhAssetCepat(assetId, srcCId, srcCType)
     if not fileData then
         return nil, "Asset tidak dapat diunduh (private/rate-limit)", assetName
     end
@@ -6379,10 +6447,11 @@ local function spoofAssetSingleCore(assetId, targetType, speedVal)
         return nil, "Ditolak Roblox: " .. tostring(errPesan), assetName
     end
 
-    -- Polling cepat (interval 0.9s, maks 12x = maks 10 detik bukan 50 detik)
+    -- Polling adaptif cepat (mulai 0.3s s/d 0.9s, maks 12x)
     local newAssetId = nil
-    for _ = 1, 12 do
-        task.wait(0.9)
+    local pollDelays = {0.3, 0.5, 0.7, 0.9, 0.9, 1.0, 1.0, 1.0, 1.2, 1.2, 1.5, 1.5}
+    for _, delaySec in ipairs(pollDelays) do
+        task.wait(delaySec)
         local okQ, r2 = pcall(httpReq, {
             Url = "https://apis.roblox.com/assets/v1/" .. d.path,
             Method = "GET",
