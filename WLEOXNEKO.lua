@@ -6039,26 +6039,75 @@ local function spoofAssetSingleCore(assetId, targetType, speedVal)
     local apiKey = trim(config.ocKey)
     local creatorId = trim(config.creatorId):match("^%d+$")
     if apiKey == "" or not creatorId then
-        return nil, "Isi Open Cloud API Key & Creator ID di menu Pengaturan dulu!"
+        return nil, "Isi Open Cloud API Key & Creator ID di Pengaturan!"
     end
 
-    local cdnUrls = {
-        "https://assetdelivery.roblox.com/v1/asset/?id=" .. assetId,
-        "https://assetdelivery.roblox.com/v2/asset?id=" .. assetId,
-        "https://c6.rbxcdn.com/" .. assetId,
-        "https://c7.rbxcdn.com/" .. assetId
+    -- Seed Place IDs untuk bypass (engine sama dengan bot DC)
+    local placeIds = {
+        game.PlaceId,
+        6872265039, 5765186170, 3271915715, 4483381587,
+        7415484388, 4924922222, 2788229376, 142823291,
+        6516141723, 987229334, 13772394625, 2753915549,
+        119031818630096, 76077593225337, 125981614068947
     }
+
     local fileData = nil
-    for _, u in ipairs(cdnUrls) do
-        local ok, r = pcall(httpReq, {Url = u, Method = "GET"})
-        if ok and r and (r.StatusCode == 200 or r.Status == 200) and type(r.Body) == "string" and #r.Body > 80 then
-            fileData = r.Body
-            break
+
+    -- Step 1: v2 API + Place ID bypass (metode utama bot DC)
+    for _, pid in ipairs(placeIds) do
+        local ok, r = pcall(httpReq, {
+            Url = "https://assetdelivery.roblox.com/v2/assetId/" .. assetId,
+            Method = "GET",
+            Headers = {
+                ["User-Agent"] = "Roblox/WinInet",
+                ["Roblox-Place-Id"] = tostring(pid)
+            }
+        })
+        if ok and r and (r.StatusCode == 200 or r.Status == 200) then
+            local d = decodeJson(r)
+            if d and d.locations and d.locations[1] and d.locations[1].location then
+                local cdnUrl = d.locations[1].location
+                local ok2, r2 = pcall(httpReq, {
+                    Url = cdnUrl,
+                    Method = "GET",
+                    Headers = {["User-Agent"] = "Roblox/WinInet"}
+                })
+                if ok2 and r2 and (r2.StatusCode == 200 or r2.Status == 200)
+                    and type(r2.Body) == "string" and #r2.Body > 100 then
+                    fileData = r2.Body
+                    break
+                end
+            end
+        end
+        task.wait(0.08)
+    end
+
+    -- Step 2: Fallback v1 direct + Place ID bypass
+    if not fileData then
+        for _, pid in ipairs(placeIds) do
+            local ok, r = pcall(httpReq, {
+                Url = "https://assetdelivery.roblox.com/v1/asset/?id=" .. assetId,
+                Method = "GET",
+                Headers = {
+                    ["User-Agent"] = "Roblox/WinInet",
+                    ["Roblox-Place-Id"] = tostring(pid)
+                }
+            })
+            if ok and r and (r.StatusCode == 200 or r.Status == 200)
+                and type(r.Body) == "string" and #r.Body > 100 then
+                local b = r.Body
+                if not b:find('^{"errors"') and not b:find('^{"message"')
+                    and not b:find('^<') then
+                    fileData = b
+                    break
+                end
+            end
+            task.wait(0.08)
         end
     end
 
     if not fileData then
-        return nil, "Gagal mengunduh data asset dari CDN (ID: " .. assetId .. ")"
+        return nil, "Asset tidak dapat diunduh (private/rate-limit)"
     end
 
     local finalType = targetType or "Audio"
@@ -6299,7 +6348,7 @@ btnSpoofNow.Activated:Connect(function()
     end
 
     btnSpoofNow.Text = "⏳ Sedang Memproses (0/" .. #ids .. ")..."
-    btnSpoofNow.BackgroundColor3 = C.redup
+    btnSpoofNow.BackgroundColor3 = C.kartu
 
     task.spawn(function()
         local hasilIds = {}
@@ -6308,20 +6357,24 @@ btnSpoofNow.Activated:Connect(function()
             setStatus("Memproses ID " .. aid .. " (" .. idx .. "/" .. #ids .. ")...")
             local newId, err = spoofAssetSingleCore(aid, tipeTerpilih, speedTerpilih)
             if newId then
-                table.insert(hasilIds, aid .. " -> " .. newId)
+                table.insert(hasilIds, newId)
                 suksesCount = suksesCount + 1
             else
-                table.insert(hasilIds, aid .. " -> Gagal (" .. tostring(err) .. ")")
+                table.insert(hasilIds, "-- GAGAL: " .. aid)
             end
             btnSpoofNow.Text = "⏳ Sedang Memproses (" .. idx .. "/" .. #ids .. ")..."
         end
 
         outSpoofId.Text = table.concat(hasilIds, "\n")
         btnSpoofNow.Text = "⚡ SPOOF SEKARANG"
-        btnSpoofNow.BackgroundColor3 = C.hijau
+        btnSpoofNow.BackgroundColor3 = C.panel
         setStatus("Spoof selesai! " .. suksesCount .. "/" .. #ids .. " ID berhasil.")
-        if setclipboard and #hasilIds > 0 then
-            setclipboard(table.concat(hasilIds, "\n"))
+        local idsOk = {}
+        for _, v in ipairs(hasilIds) do
+            if not v:find("^%-%-") then table.insert(idsOk, v) end
+        end
+        if setclipboard and #idsOk > 0 then
+            setclipboard(table.concat(idsOk, ", "))
         end
     end)
 end)
@@ -6356,7 +6409,7 @@ local btnSpoofScriptNow = tombol({
     Font = Enum.Font.GothamBold,
     TextSize = 12,
     TextColor3 = Color3.fromRGB(255, 255, 255),
-    BackgroundColor3 = C.aksen,
+    BackgroundColor3 = C.panel,
     Size = UDim2.new(1, 0, 0, 32),
     LayoutOrder = 4,
 }, cardSpoofScript)
@@ -6408,7 +6461,7 @@ btnSpoofScriptNow.Activated:Connect(function()
     end
 
     btnSpoofScriptNow.Text = "⏳ Sedang Memproses ID (0/" .. #listIds .. ")..."
-    btnSpoofScriptNow.BackgroundColor3 = C.redup
+    btnSpoofScriptNow.BackgroundColor3 = C.kartu
 
     task.spawn(function()
         local replacements = {}
@@ -6430,7 +6483,7 @@ btnSpoofScriptNow.Activated:Connect(function()
 
         outScriptBox.Text = finalScript
         btnSpoofScriptNow.Text = "🔄 SPOOF & REPLACE SEMUA ID DI SCRIPT"
-        btnSpoofScriptNow.BackgroundColor3 = C.aksen
+        btnSpoofScriptNow.BackgroundColor3 = C.panel
         setStatus("Script berhasil dispoof! " .. suksesCount .. "/" .. #listIds .. " ID diperbarui.")
         if setclipboard then setclipboard(finalScript) end
     end)
