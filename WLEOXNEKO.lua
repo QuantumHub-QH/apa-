@@ -2568,51 +2568,59 @@ side.Position = UDim2.fromOffset(12, 56)
 side.Size = UDim2.fromOffset(SIDE_W, MAIN_H - 68)
 side.ZIndex = 20
 
-do
-    local sideLabel = text(side, "MENU", 10, Enum.Font.GothamBold, C.muted)
-    sideLabel.Position = UDim2.fromOffset(12, 5)
-    sideLabel.Size = UDim2.new(1, -24, 0, 14)
-    sideLabel.ZIndex = 21
+local sideScroll = Instance.new("ScrollingFrame")
+sideScroll.Name = "SideScroll"
+sideScroll.Position = UDim2.fromOffset(0, 2)
+sideScroll.Size = UDim2.new(1, 0, 1, -36)
+sideScroll.BackgroundTransparency = 1
+sideScroll.BorderSizePixel = 0
+sideScroll.ScrollBarThickness = 2
+sideScroll.ScrollBarImageColor3 = C.accent
+sideScroll.CanvasSize = UDim2.fromOffset(0, 252)
+sideScroll.ZIndex = 20
+sideScroll.Parent = side
+
+local function sideCategory(labelText, y, withDivider)
+    if withDivider then
+        local div = Instance.new("Frame")
+        div.Position = UDim2.fromOffset(10, y - 3)
+        div.Size = UDim2.new(1, -20, 0, 1)
+        div.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+        div.BackgroundTransparency = 0.85
+        div.BorderSizePixel = 0
+        div.ZIndex = 21
+        div.Parent = sideScroll
+    end
+    local l = text(sideScroll, labelText, 10, Enum.Font.GothamBold, C.muted)
+    l.Position = UDim2.fromOffset(12, y)
+    l.Size = UDim2.new(1, -24, 0, 14)
+    l.ZIndex = 21
 end
 
 -- state dashboard / panel (dipakai banyak bagian)
 local DASH = { mode = "dash", hooks = {}, tiles = {}, stat = {} }
-local TAB_LABEL = { HOME = "HOME", TOOLBOX = "TOOLBOX PC" }
+local ACCT = { connected = false, data = {} }
+local TAB_LABEL = { HOME = "HOME", TOOLBOX = "TOOLBOX PC", AKUN = "AKUN" }
 local function tabLabel(n) return TAB_LABEL[n] or n end
-
-do
-    local div = Instance.new("Frame")
-    div.Position = UDim2.fromOffset(10, 83)
-    div.Size = UDim2.new(1, -20, 0, 1)
-    div.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-    div.BackgroundTransparency = 0.85
-    div.BorderSizePixel = 0
-    div.ZIndex = 21
-    div.Parent = side
-    local impLabel = text(side, "IMPORTER", 10, Enum.Font.GothamBold, C.muted)
-    impLabel.Position = UDim2.fromOffset(12, 86)
-    impLabel.Size = UDim2.new(1, -24, 0, 14)
-    impLabel.ZIndex = 21
-end
 
 local tabButtons = {}
 local function makeTab(name, y)
-    local noBadge = (name == "TOOLBOX" or name == "HOME")
+    local noBadge = (name == "TOOLBOX" or name == "HOME" or name == "AKUN")
     local b = Instance.new("TextButton")
-    b.Size = UDim2.new(1, -12, 0, 28)
+    b.Size = UDim2.new(1, -12, 0, 26)
     b.Position = UDim2.fromOffset(6, y)
     b.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
     b.BackgroundTransparency = 0.9
     b.Text = ""
     b.AutoButtonColor = false
     b.ZIndex = 21
-    b.Parent = side
+    b.Parent = sideScroll
     corner(b, 10)
     glassStroke(b, 1)
 
     if ICONS[name] then
         local ic = Instance.new("ImageLabel")
-        ic.Position = UDim2.fromOffset(6, 4)
+        ic.Position = UDim2.fromOffset(6, 3)
         ic.Size = UDim2.fromOffset(20, 20)
         ic.BackgroundTransparency = 1
         ic.Image = ICONS[name]
@@ -2620,11 +2628,11 @@ local function makeTab(name, y)
         ic.ZIndex = 22
         ic.Parent = b
     else
-        local ic = text(b, "H", 10, Enum.Font.GothamBold, Color3.fromRGB(10, 20, 50), Enum.TextXAlignment.Center)
-        ic.Position = UDim2.fromOffset(6, 4)
+        local ic = text(b, name:sub(1, 1), 10, Enum.Font.GothamBold, Color3.fromRGB(10, 20, 50), Enum.TextXAlignment.Center)
+        ic.Position = UDim2.fromOffset(6, 3)
         ic.Size = UDim2.fromOffset(20, 20)
         ic.BackgroundTransparency = 0.1
-        ic.BackgroundColor3 = C.accent
+        ic.BackgroundColor3 = (name == "AKUN") and C.accent2 or C.accent
         ic.ZIndex = 22
         corner(ic, 6)
     end
@@ -2648,23 +2656,26 @@ local function makeTab(name, y)
     end
     tabButtons[name] = { btn = b, lbl = lbl, badge = badge }
 end
--- kategori MENU
-makeTab("HOME", 21)
-makeTab("TOOLBOX", 52)
--- kategori IMPORTER
-makeTab("RBXM", 102)
-makeTab("RBXMX", 133)
-makeTab("RBXL", 164)
-makeTab("RBXLX", 195)
+
+sideCategory("MENU", 3, false)
+makeTab("HOME", 17)
+makeTab("TOOLBOX", 45)
+sideCategory("IMPORTER", 77, true)
+makeTab("RBXM", 92)
+makeTab("RBXMX", 119)
+makeTab("RBXL", 146)
+makeTab("RBXLX", 173)
+sideCategory("GENERAL", 205, true)
+makeTab("AKUN", 220)
 
 local scanBtn = Instance.new("TextButton")
-scanBtn.Size = UDim2.new(1, -12, 0, 28)
+scanBtn.Size = UDim2.new(1, -12, 0, 24)
 scanBtn.AnchorPoint = Vector2.new(0, 1)
 scanBtn.Position = UDim2.new(0, 6, 1, -6)
 scanBtn.BackgroundColor3 = C.accent
 scanBtn.BackgroundTransparency = 0.15
 scanBtn.Text = "SCAN"
-scanBtn.TextSize = 12
+scanBtn.TextSize = 11
 scanBtn.Font = Enum.Font.GothamBold
 scanBtn.TextColor3 = Color3.fromRGB(10, 20, 50)
 scanBtn.AutoButtonColor = false
@@ -2929,6 +2940,8 @@ do
     btxt.Position = UDim2.fromOffset(24, 0)
     btxt.Size = UDim2.new(1, -28, 1, 0)
     btxt.ZIndex = 23
+    btxt.TextTruncate = Enum.TextTruncate.AtEnd
+    DASH.badgeText = btxt
 
     local t1 = text(hero, "IMPORTER", 26, Enum.Font.GothamBold, C.text)
     t1.Position = UDim2.fromOffset(14, 44)
@@ -3226,7 +3239,7 @@ do
     homeTile(3, "RBXMX", "RBXMX", ICONS.RBXMX, C.accent, nil, function() DASH.hooks.setTab("RBXMX") end)
     homeTile(4, "RBXL", "RBXL", ICONS.RBXL, C.accent2, nil, function() DASH.hooks.setTab("RBXL") end)
     homeTile(5, "RBXLX", "RBXLX", ICONS.RBXLX, C.accent2, nil, function() DASH.hooks.setTab("RBXLX") end)
-    homeTile(6, "SCAN", "SCAN", nil, C.warn, "SCAN", function() DASH.hooks.scan() end).Text = "Cari ulang file"
+    homeTile(6, "AKUN", "AKUN", nil, C.accent2, "A", function() DASH.hooks.setTab("AKUN") end).Text = "Belum terhubung"
 
     -- sinkron tombol SCAN (sidebar) -> dashboard & home
     scanBtn:GetPropertyChangedSignal("Text"):Connect(function()
@@ -3281,6 +3294,8 @@ local function refreshTabs()
         contentTitle.Text = "TOOLBOX PC"
     elseif currentTab == "HOME" then
         contentTitle.Text = "HOME"
+    elseif currentTab == "AKUN" then
+        contentTitle.Text = "AKUN • GENERAL"
     else
         contentTitle.Text = currentTab .. " FILES"
     end
@@ -3408,7 +3423,7 @@ local function makeCard(info)
 end
 
 renderList = function()
-    if currentTab == "TOOLBOX" or currentTab == "HOME" then return end
+    if currentTab == "TOOLBOX" or currentTab == "HOME" or currentTab == "AKUN" then return end
     for _, c in ipairs(list:GetChildren()) do
         if c:IsA("Frame") then c:Destroy() end
     end
@@ -3434,15 +3449,17 @@ end
 do
     local httpRequest = (syn and syn.request) or (http and http.request) or http_request or request or (fluxus and fluxus.request)
 
-    local function httpGetJson(url)
+    local function rawGet(url, withKey)
         local body
         if httpRequest then
-            local ok, res = pcall(httpRequest, { Url = url, Method = "GET", Headers = { ["Accept"] = "application/json" } })
+            local headers = { ["Accept"] = "application/json" }
+            if withKey and ACCT.apiKey then headers["x-api-key"] = ACCT.apiKey end
+            local ok, res = pcall(httpRequest, { Url = url, Method = "GET", Headers = headers })
             if ok and type(res) == "table" and (res.Success or res.StatusCode == 200) and type(res.Body) == "string" then
                 body = res.Body
             end
         end
-        if not body then
+        if not body and not withKey then
             local ok, res = pcall(function() return game:HttpGet(url) end)
             if ok and type(res) == "string" then body = res end
         end
@@ -3450,6 +3467,16 @@ do
         local ok, data = pcall(function() return HttpService:JSONDecode(body) end)
         return ok and data or nil
     end
+
+    local function httpGetJson(url)
+        local data = rawGet(url, false)
+        -- kalau gagal & ada API key tersimpan: coba lagi sekali dengan x-api-key (hanya ke apis.roblox.com)
+        if data == nil and ACCT.apiKey and httpRequest and url:find("^https://apis%.roblox%.com/") then
+            data = rawGet(url, true)
+        end
+        return data
+    end
+    TB.httpGetJson = httpGetJson
 
     local TB_CATS = {
         { name = "MODEL", id = 10 },
@@ -3739,83 +3766,183 @@ do
         end
     end
 
-    function TB.search()
-        local q = searchBox.Text:gsub("^%s+", ""):gsub("%s+$", "")
-        if q == "" then
-            clearTb()
-            TB.setMsg("Ketik nama aset atau ID lalu tekan GO")
+    -- ================= paging: muat terus sampai habis =================
+    local TB_PAGE = 30
+    local tbS = { q = nil, cat = 10, page = 0, loading = false, done = true, single = false, count = 0, seen = {} }
+
+    local footer = Instance.new("TextButton")
+    footer.Name = "TbFooter"
+    footer.LayoutOrder = 1000000
+    footer.Size = UDim2.new(1, -4, 0, 30)
+    footer.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    footer.BackgroundTransparency = 0.86
+    footer.Text = ""
+    footer.TextSize = 10
+    footer.Font = Enum.Font.GothamBold
+    footer.TextColor3 = C.text
+    footer.AutoButtonColor = false
+    footer.Visible = false
+    footer.ZIndex = 22
+    footer.Parent = tbList
+    corner(footer, 10)
+    glassStroke(footer, 1)
+
+    local function setFooter()
+        if tbS.q == nil or tbS.single or (tbS.count == 0 and not tbS.loading) then
+            footer.Visible = false
             return
         end
+        footer.Visible = true
+        if tbS.loading then
+            footer.Text = ("MEMUAT... • %d ASET"):format(tbS.count)
+        elseif tbS.done then
+            footer.Text = ("SEMUA HASIL DIMUAT • %d ASET"):format(tbS.count)
+        else
+            footer.Text = ("MUAT LAGI • %d ASET SEKARANG"):format(tbS.count)
+        end
+    end
+
+    local function fetchIds(q, cat, page)
+        local ids, total = {}, nil
+        local enc = HttpService:UrlEncode(q)
+        local urls = {
+            ("https://apis.roblox.com/toolbox-service/v1/marketplace/%d?limit=%d&pageNumber=%d&keyword=%s&sortType=Relevance"):format(cat, TB_PAGE, page, enc),
+            ("https://apis.roblox.com/toolbox-service/v1/marketplace/%d?keyword=%s&num=%d&pageNumber=%d"):format(cat, enc, TB_PAGE, page),
+        }
+        for _, url in ipairs(urls) do
+            local data = httpGetJson(url)
+            if data and type(data.data) == "table" then
+                total = tonumber(data.totalResults) or total
+                for _, e in ipairs(data.data) do
+                    local rawId = (type(e) == "table") and (e.id or e.Id or e.assetId) or e
+                    rawId = tonumber(rawId)
+                    if rawId then ids[#ids + 1] = rawId end
+                end
+            end
+            if #ids > 0 then break end
+        end
+        return ids, total
+    end
+
+    local function fetchMeta(ids)
+        local metaById = {}
+        for i = 1, #ids, 30 do
+            local chunk = {}
+            for j = i, math.min(i + 29, #ids) do chunk[#chunk + 1] = ids[j] end
+            local det = httpGetJson("https://apis.roblox.com/toolbox-service/v1/items/details?assetIds=" .. table.concat(chunk, ","))
+            if det and type(det.data) == "table" then
+                for _, d in ipairs(det.data) do
+                    local a = d.asset or d
+                    local aid = tonumber(a.id or a.Id)
+                    if aid then
+                        metaById[aid] = {
+                            name = a.name or a.Name,
+                            creator = d.creator and (d.creator.name or d.creator.Name) or nil,
+                        }
+                    end
+                end
+            end
+        end
+        return metaById
+    end
+
+    local function loadPage()
+        if tbS.loading or tbS.done or not tbS.q then return end
+        tbS.loading = true
+        local my = tbToken
+        local q, cat, page = tbS.q, tbS.cat, tbS.page
+        ind.busy = true
+        setStatus(("TOOLBOX • MEMUAT HALAMAN %d..."):format(page + 1), C.ok)
+        setFooter()
+        task.spawn(function()
+            local ids, total = fetchIds(q, cat, page)
+            if my ~= tbToken then return end
+            local fresh = {}
+            for _, id in ipairs(ids) do
+                if not tbS.seen[id] then
+                    tbS.seen[id] = true
+                    fresh[#fresh + 1] = id
+                end
+            end
+            if #fresh == 0 then
+                tbS.loading = false
+                tbS.done = true
+                ind.busy = false
+                if tbS.count == 0 then
+                    if not httpRequest then
+                        TB.setMsg("Fungsi request tidak ada di executor ini")
+                        setStatus("TOOLBOX • request tidak tersedia", C.bad)
+                    else
+                        TB.setMsg("Tidak ada hasil untuk \"" .. q .. "\"\n(atau endpoint tidak merespon)")
+                        setStatus("TOOLBOX • 0 HASIL", C.warn)
+                    end
+                else
+                    setStatus(("TOOLBOX • SELESAI • %d ASET"):format(tbS.count), C.ok)
+                end
+                setFooter()
+                return
+            end
+            local meta = fetchMeta(fresh)
+            if my ~= tbToken then return end
+            TB.setMsg("")
+            for _, id in ipairs(fresh) do
+                if my ~= tbToken then return end
+                tbS.count += 1
+                makeTbCard(tbS.count, id, meta[id] or {}, cat)
+                if tbS.count % 6 == 0 then task.wait() end
+            end
+            tbS.page = page + 1
+            tbS.loading = false
+            ind.busy = false
+            if total and tbS.count >= total then tbS.done = true end
+            setStatus(("TOOLBOX • %d ASET%s"):format(tbS.count, tbS.done and "" or " • scroll untuk muat lagi"), C.ok)
+            setFooter()
+        end)
+    end
+
+    function TB.search()
+        local q = searchBox.Text:gsub("^%s+", ""):gsub("%s+$", "")
         tbToken += 1
         local my = tbToken
         clearTb()
+        tbS.q, tbS.cat, tbS.page = nil, tbCat, 0
+        tbS.loading, tbS.done, tbS.single, tbS.count, tbS.seen = false, true, false, 0, {}
+        setFooter()
+        if q == "" then
+            TB.setMsg("Ketik nama aset atau ID lalu tekan GO")
+            return
+        end
+        pcall(function() tbList.CanvasPosition = Vector2.new(0, 0) end)
         TB.setMsg("Mencari...")
         ind.busy = true
         setStatus("TOOLBOX • MENCARI " .. q:upper(), C.ok)
-        local cat = tbCat
-        task.spawn(function()
-            local ids = {}
-            if q:match("^%d+$") then
-                ids[1] = tonumber(q)
-            else
-                local enc = HttpService:UrlEncode(q)
-                local urls = {
-                    ("https://apis.roblox.com/toolbox-service/v1/marketplace/%d?limit=30&pageNumber=0&keyword=%s&sortType=Relevance"):format(cat, enc),
-                    ("https://apis.roblox.com/toolbox-service/v1/marketplace/%d?keyword=%s&num=30"):format(cat, enc),
-                }
-                for _, url in ipairs(urls) do
-                    local data = httpGetJson(url)
-                    if data and type(data.data) == "table" then
-                        for _, e in ipairs(data.data) do
-                            local rawId = (type(e) == "table") and (e.id or e.Id or e.assetId) or e
-                            rawId = tonumber(rawId)
-                            if rawId then ids[#ids + 1] = rawId end
-                        end
-                    end
-                    if #ids > 0 then break end
-                end
-            end
-            if my ~= tbToken then return end
-            if #ids == 0 then
-                ind.busy = false
-                if not httpRequest then
-                    TB.setMsg("Fungsi request tidak ada di executor ini")
-                    setStatus("TOOLBOX • request tidak tersedia", C.bad)
-                else
-                    TB.setMsg("Tidak ada hasil untuk \"" .. q .. "\"\n(atau endpoint tidak merespon)")
-                    setStatus("TOOLBOX • 0 HASIL", C.warn)
-                end
-                return
-            end
-            local metaById = {}
-            for i = 1, #ids, 30 do
-                local chunk = {}
-                for j = i, math.min(i + 29, #ids) do chunk[#chunk + 1] = ids[j] end
-                local det = httpGetJson("https://apis.roblox.com/toolbox-service/v1/items/details?assetIds=" .. table.concat(chunk, ","))
-                if det and type(det.data) == "table" then
-                    for _, d in ipairs(det.data) do
-                        local a = d.asset or d
-                        local aid = tonumber(a.id or a.Id)
-                        if aid then
-                            metaById[aid] = {
-                                name = a.name or a.Name,
-                                creator = d.creator and (d.creator.name or d.creator.Name) or nil,
-                            }
-                        end
-                    end
-                end
-            end
-            if my ~= tbToken then return end
-            TB.setMsg("")
-            for order, id in ipairs(ids) do
+        if q:match("^%d+$") then
+            local id = tonumber(q)
+            tbS.single = true
+            tbS.seen[id] = true
+            task.spawn(function()
+                local meta = fetchMeta({ id })
                 if my ~= tbToken then return end
-                makeTbCard(order, id, metaById[id] or {}, cat)
-                if order % 6 == 0 then task.wait() end
-            end
-            ind.busy = false
-            setStatus(("TOOLBOX • %d HASIL"):format(#ids), C.ok)
-        end)
+                TB.setMsg("")
+                tbS.count = 1
+                makeTbCard(1, id, meta[id] or {}, tbCat)
+                ind.busy = false
+                setStatus("TOOLBOX • ID " .. id, C.ok)
+                setFooter()
+            end)
+            return
+        end
+        tbS.q, tbS.done = q, false
+        loadPage()
     end
+
+    -- scroll sampai dekat bawah = muat halaman berikutnya otomatis
+    tbList:GetPropertyChangedSignal("CanvasPosition"):Connect(function()
+        if tbS.loading or tbS.done or not tbS.q then return end
+        local remain = tbList.AbsoluteCanvasSize.Y - (tbList.CanvasPosition.Y + tbList.AbsoluteWindowSize.Y)
+        if remain < 140 then loadPage() end
+    end)
+    footer.MouseButton1Click:Connect(function() loadPage() end)
 
     goBtn.MouseButton1Click:Connect(function() TB.search() end)
     searchBox.FocusLost:Connect(function(enter)
@@ -3823,21 +3950,386 @@ do
     end)
 end
 
+-- =====================================================================
+--                GENERAL • AKUN (API key, User ID, Group ID)
+-- =====================================================================
+do
+    local WHITE = Color3.fromRGB(255, 255, 255)
+    local DARK = Color3.fromRGB(10, 20, 50)
+    local ACCT_FILE = "WLEO_NEKO_ACCOUNT.json"   -- nama tetap, jangan diganti supaya akun aman saat script di-update
+    local genv = (type(getgenv) == "function" and getgenv()) or _G
+    local canFile = type(writefile) == "function" and type(readfile) == "function" and type(isfile) == "function"
+
+    local function loadSaved()
+        if canFile then
+            local ok, t = pcall(function()
+                if isfile(ACCT_FILE) then return HttpService:JSONDecode(readfile(ACCT_FILE)) end
+            end)
+            if ok and type(t) == "table" and tonumber(t.userId) then return t end
+        end
+        local g = genv.WLEO_NEKO_ACCOUNT
+        if type(g) == "table" and tonumber(g.userId) then return g end
+        return nil
+    end
+    local function saveSaved(t)
+        genv.WLEO_NEKO_ACCOUNT = t
+        if canFile then
+            pcall(function() writefile(ACCT_FILE, HttpService:JSONEncode(t)) end)
+        end
+    end
+    local function clearSaved()
+        genv.WLEO_NEKO_ACCOUNT = nil
+        if canFile then
+            local removed = false
+            if type(delfile) == "function" then
+                removed = pcall(function() if isfile(ACCT_FILE) then delfile(ACCT_FILE) end end)
+            end
+            if not removed then pcall(function() writefile(ACCT_FILE, "{}") end) end
+        end
+    end
+
+    local page = Instance.new("Frame")
+    page.Name = "AccountPage"
+    page.BackgroundTransparency = 1
+    page.Position = UDim2.fromOffset(6, 28)
+    page.Size = UDim2.new(1, -12, 1, -34)
+    page.ZIndex = 21
+    page.Visible = false
+    page.Parent = content
+    ACCT.page = page
+
+    -- ---------- form (belum konek) ----------
+    local form = Instance.new("Frame")
+    form.BackgroundTransparency = 1
+    form.Size = UDim2.new(1, 0, 1, -44)
+    form.ZIndex = 21
+    form.Parent = page
+
+    local function field(y, labelText, placeholder)
+        local l = text(form, labelText, 9, Enum.Font.GothamBold, C.muted)
+        l.Position = UDim2.fromOffset(2, y)
+        l.Size = UDim2.new(1, -4, 0, 12)
+        l.ZIndex = 22
+        local tb = Instance.new("TextBox")
+        tb.Position = UDim2.fromOffset(0, y + 14)
+        tb.Size = UDim2.new(1, 0, 0, 26)
+        tb.BackgroundColor3 = WHITE
+        tb.BackgroundTransparency = 0.82
+        tb.Text = ""
+        tb.PlaceholderText = placeholder
+        tb.PlaceholderColor3 = C.muted
+        tb.TextColor3 = C.text
+        tb.TextSize = 11
+        tb.Font = Enum.Font.GothamMedium
+        tb.ClearTextOnFocus = false
+        tb.TextXAlignment = Enum.TextXAlignment.Left
+        tb.ZIndex = 22
+        tb.Parent = form
+        corner(tb, 9)
+        glassStroke(tb, 1)
+        local pad = Instance.new("UIPadding")
+        pad.PaddingLeft = UDim.new(0, 8)
+        pad.PaddingRight = UDim.new(0, 8)
+        pad.Parent = tb
+        return tb
+    end
+    local apiBox = field(0, "API KEY (Open Cloud) • opsional", "Tempel API key...")
+    local uidBox = field(46, "USER ID", "Kosong = pakai akun yang sedang bermain")
+    local gidBox = field(92, "GROUP ID • untuk menautkan komunitas (opsional)", "Contoh: 1234567")
+
+    local hint = text(form, "Data tersimpan di device ini dan tetap ada saat script di-update. Hanya hilang kalau kamu tekan DISCONNECT.", 9, Enum.Font.GothamMedium, C.muted)
+    hint.Position = UDim2.fromOffset(2, 140)
+    hint.Size = UDim2.new(1, -4, 0, 26)
+    hint.TextWrapped = true
+    hint.TextYAlignment = Enum.TextYAlignment.Top
+    hint.ZIndex = 22
+
+    local msg = text(form, "", 10, Enum.Font.GothamBold, C.muted)
+    msg.Position = UDim2.fromOffset(2, 170)
+    msg.Size = UDim2.new(1, -4, 0, 24)
+    msg.TextWrapped = true
+    msg.TextYAlignment = Enum.TextYAlignment.Top
+    msg.ZIndex = 22
+    local function setMsg(m, color)
+        msg.Text = m or ""
+        msg.TextColor3 = color or C.muted
+    end
+
+    -- ---------- kartu profil (sudah konek) ----------
+    local card = Instance.new("Frame")
+    card.BackgroundTransparency = 1
+    card.Size = UDim2.new(1, 0, 1, -44)
+    card.ZIndex = 21
+    card.Visible = false
+    card.Parent = page
+
+    local prof = glassPanel(card, 0.86, 14)
+    prof.Size = UDim2.new(1, 0, 0, 92)
+    prof.ZIndex = 22
+    local avatar = Instance.new("ImageLabel")
+    avatar.Position = UDim2.fromOffset(12, 10)
+    avatar.Size = UDim2.fromOffset(72, 72)
+    avatar.BackgroundColor3 = WHITE
+    avatar.BackgroundTransparency = 0.85
+    avatar.ScaleType = Enum.ScaleType.Crop
+    avatar.ZIndex = 23
+    avatar.Parent = prof
+    corner(avatar, 36)
+    glassStroke(avatar, 1.5, true)
+    local dispLbl = text(prof, "", 16, Enum.Font.GothamBold, C.text)
+    dispLbl.Position = UDim2.fromOffset(96, 12)
+    dispLbl.Size = UDim2.new(1, -108, 0, 22)
+    dispLbl.TextTruncate = Enum.TextTruncate.AtEnd
+    dispLbl.ZIndex = 23
+    local userLbl = text(prof, "", 11, Enum.Font.GothamMedium, C.accent)
+    userLbl.Position = UDim2.fromOffset(96, 35)
+    userLbl.Size = UDim2.new(1, -108, 0, 16)
+    userLbl.TextTruncate = Enum.TextTruncate.AtEnd
+    userLbl.ZIndex = 23
+    local idLbl = text(prof, "", 10, Enum.Font.GothamMedium, C.muted)
+    idLbl.Position = UDim2.fromOffset(96, 53)
+    idLbl.Size = UDim2.new(1, -108, 0, 14)
+    idLbl.ZIndex = 23
+    local stLbl = text(prof, "• TERHUBUNG", 9, Enum.Font.GothamBold, C.ok)
+    stLbl.Position = UDim2.fromOffset(96, 68)
+    stLbl.Size = UDim2.new(1, -108, 0, 14)
+    stLbl.ZIndex = 23
+
+    local grp = glassPanel(card, 0.86, 14)
+    grp.Position = UDim2.fromOffset(0, 100)
+    grp.Size = UDim2.new(1, 0, 0, 52)
+    grp.ZIndex = 22
+    local groupIcon = Instance.new("ImageLabel")
+    groupIcon.Position = UDim2.fromOffset(10, 8)
+    groupIcon.Size = UDim2.fromOffset(36, 36)
+    groupIcon.BackgroundColor3 = WHITE
+    groupIcon.BackgroundTransparency = 0.85
+    groupIcon.ScaleType = Enum.ScaleType.Crop
+    groupIcon.ZIndex = 23
+    groupIcon.Visible = false
+    groupIcon.Parent = grp
+    corner(groupIcon, 9)
+    local groupGlyph = text(grp, "G", 12, Enum.Font.GothamBold, DARK, Enum.TextXAlignment.Center)
+    groupGlyph.Position = UDim2.fromOffset(10, 8)
+    groupGlyph.Size = UDim2.fromOffset(36, 36)
+    groupGlyph.BackgroundTransparency = 0.1
+    groupGlyph.BackgroundColor3 = C.accent2
+    groupGlyph.ZIndex = 23
+    corner(groupGlyph, 9)
+    local groupName = text(grp, "", 12, Enum.Font.GothamBold, C.text)
+    groupName.Position = UDim2.fromOffset(56, 8)
+    groupName.Size = UDim2.new(1, -66, 0, 18)
+    groupName.TextTruncate = Enum.TextTruncate.AtEnd
+    groupName.ZIndex = 23
+    local groupSub = text(grp, "", 10, Enum.Font.GothamMedium, C.muted)
+    groupSub.Position = UDim2.fromOffset(56, 27)
+    groupSub.Size = UDim2.new(1, -66, 0, 14)
+    groupSub.ZIndex = 23
+
+    local api = glassPanel(card, 0.86, 12)
+    api.Position = UDim2.fromOffset(0, 160)
+    api.Size = UDim2.new(1, 0, 0, 30)
+    api.ZIndex = 22
+    local apiLbl = text(api, "", 10, Enum.Font.GothamMedium, C.soft)
+    apiLbl.Position = UDim2.fromOffset(12, 0)
+    apiLbl.Size = UDim2.new(1, -24, 1, 0)
+    apiLbl.ZIndex = 23
+
+    -- ---------- tombol KONEK / DISCONNECT ----------
+    local acctBtn = Instance.new("TextButton")
+    acctBtn.AnchorPoint = Vector2.new(0, 1)
+    acctBtn.Position = UDim2.new(0, 0, 1, 0)
+    acctBtn.Size = UDim2.new(1, 0, 0, 34)
+    acctBtn.BackgroundColor3 = C.accent
+    acctBtn.BackgroundTransparency = 0.15
+    acctBtn.BorderSizePixel = 0
+    acctBtn.Text = "KONEK"
+    acctBtn.TextSize = 12
+    acctBtn.Font = Enum.Font.GothamBold
+    acctBtn.TextColor3 = DARK
+    acctBtn.AutoButtonColor = false
+    acctBtn.ZIndex = 23
+    acctBtn.Parent = page
+    corner(acctBtn, 11)
+    local btnGrad = grad(acctBtn, Color3.fromRGB(150, 225, 255), Color3.fromRGB(110, 160, 255), 90)
+
+    local function mask(k)
+        if type(k) ~= "string" or k == "" then return "tidak diisi" end
+        return "••••••••" .. (#k > 4 and k:sub(-4) or "")
+    end
+
+    local function render()
+        local d = ACCT.data or {}
+        local on = ACCT.connected
+        form.Visible = not on
+        card.Visible = on
+        if on then
+            local uid = math.floor(tonumber(d.userId) or 0)
+            avatar.Image = ("rbxthumb://type=AvatarHeadShot&id=%d&w=150&h=150"):format(uid)
+            dispLbl.Text = d.displayName or d.name or ("User " .. uid)
+            userLbl.Text = "@" .. (d.name or "?")
+            idLbl.Text = "User ID " .. uid
+            local gid = tonumber(d.groupId)
+            if gid then
+                gid = math.floor(gid)
+                groupIcon.Image = ("rbxthumb://type=GroupIcon&id=%d&w=150&h=150"):format(gid)
+                groupIcon.Visible = true
+                groupGlyph.Visible = false
+                groupName.Text = d.groupName or ("Group " .. gid)
+                groupSub.Text = "Komunitas tertaut • ID " .. gid
+            else
+                groupIcon.Visible = false
+                groupGlyph.Visible = true
+                groupName.Text = "Komunitas"
+                groupSub.Text = "Belum ditautkan"
+            end
+            apiLbl.Text = "API KEY    " .. mask(d.apiKey)
+            acctBtn.Text = "DISCONNECT"
+            btnGrad.Color = ColorSequence.new(Color3.fromRGB(255, 150, 170), Color3.fromRGB(255, 105, 135))
+        else
+            acctBtn.Text = "KONEK"
+            btnGrad.Color = ColorSequence.new(Color3.fromRGB(150, 225, 255), Color3.fromRGB(110, 160, 255))
+        end
+        if DASH.tiles.AKUN then
+            DASH.tiles.AKUN.Text = on and ("@" .. (d.name or "?")) or "Belum terhubung"
+        end
+        if DASH.badgeText then
+            DASH.badgeText.Text = on and (d.displayName or d.name or "Terhubung") or "Importer Ready"
+        end
+    end
+
+    local function fetchProfile(userId, groupId)
+        local u = TB.httpGetJson("https://users.roblox.com/v1/users/" .. userId)
+        if not (type(u) == "table" and u.name) then
+            return nil, "User ID tidak ditemukan atau jaringan bermasalah"
+        end
+        local g
+        if groupId then
+            g = TB.httpGetJson("https://groups.roblox.com/v1/groups/" .. groupId)
+            if not (type(g) == "table" and g.name) then
+                return nil, "Group ID tidak ditemukan"
+            end
+        end
+        return { name = u.name, displayName = u.displayName or u.name, groupName = g and g.name or nil }
+    end
+
+    local connecting = false
+    local function doConnect()
+        if connecting then return end
+        local key = apiBox.Text:gsub("^%s+", ""):gsub("%s+$", "")
+        local uidText = uidBox.Text:gsub("%s", "")
+        local gidText = gidBox.Text:gsub("%s", "")
+        local uid = (uidText == "") and LocalPlayer.UserId or tonumber(uidText)
+        if not uid or uid <= 0 or uid ~= math.floor(uid) then
+            setMsg("User ID harus berupa angka", C.bad)
+            return
+        end
+        local gid
+        if gidText ~= "" then
+            gid = tonumber(gidText)
+            if not gid or gid <= 0 or gid ~= math.floor(gid) then
+                setMsg("Group ID harus berupa angka", C.bad)
+                return
+            end
+        end
+        connecting = true
+        acctBtn.Text = "MENGHUBUNGKAN..."
+        setMsg("Mengambil profil Roblox...", C.warn)
+        task.spawn(function()
+            local p, err = fetchProfile(uid, gid)
+            connecting = false
+            if not p then
+                setMsg(err, C.bad)
+                render()
+                return
+            end
+            ACCT.data = {
+                userId = uid, groupId = gid, apiKey = (key ~= "") and key or nil,
+                name = p.name, displayName = p.displayName, groupName = p.groupName,
+            }
+            ACCT.apiKey = ACCT.data.apiKey
+            ACCT.connected = true
+            saveSaved(ACCT.data)
+            apiBox.Text = ""
+            setMsg(canFile and "" or "Penyimpanan file tidak tersedia, akun hanya tersimpan selama sesi ini", C.warn)
+            render()
+            setStatus(("AKUN TERHUBUNG • @%s"):format(p.name), C.ok)
+            notify("WLEO x NEKO", "Akun terhubung: " .. p.displayName)
+        end)
+    end
+
+    local function doDisconnect()
+        ACCT.connected = false
+        ACCT.data = {}
+        ACCT.apiKey = nil
+        clearSaved()
+        apiBox.Text, uidBox.Text, gidBox.Text = "", "", ""
+        setMsg("Akun diputuskan dan data dihapus dari device", C.ok)
+        render()
+        setStatus("AKUN DIPUTUSKAN", C.warn)
+    end
+
+    local confirmAt = 0
+    acctBtn.MouseButton1Click:Connect(function()
+        if ACCT.connected then
+            if os.clock() - confirmAt < 3 then
+                confirmAt = 0
+                doDisconnect()
+            else
+                confirmAt = os.clock()
+                acctBtn.Text = "TAP LAGI UNTUK DISCONNECT"
+                task.delay(3.1, function()
+                    if ACCT.connected and confirmAt ~= 0 and os.clock() - confirmAt >= 3 then
+                        confirmAt = 0
+                        acctBtn.Text = "DISCONNECT"
+                    end
+                end)
+            end
+        else
+            doConnect()
+        end
+    end)
+
+    -- ---------- auto-konek dari data tersimpan ----------
+    local saved = loadSaved()
+    if saved then
+        saved.userId = math.floor(tonumber(saved.userId))
+        if tonumber(saved.groupId) then saved.groupId = math.floor(tonumber(saved.groupId)) else saved.groupId = nil end
+        ACCT.data = saved
+        ACCT.apiKey = saved.apiKey
+        ACCT.connected = true
+        render()
+        task.spawn(function()
+            local p = fetchProfile(saved.userId, saved.groupId)
+            if p and ACCT.connected and ACCT.data == saved then
+                saved.name, saved.displayName = p.name, p.displayName
+                saved.groupName = p.groupName or saved.groupName
+                saveSaved(saved)
+                render()
+            end
+        end)
+    else
+        render()
+    end
+end
+
 -- ---------- tab ----------
 local function setTab(name)
     currentTab = name
     local isTB = (name == "TOOLBOX")
     local isHome = (name == "HOME")
+    local isAcct = (name == "AKUN")
     refreshTabs()
     DASH.home.Visible = isHome
-    searchBox.Visible = not isHome
-    if isHome then
+    if ACCT.page then ACCT.page.Visible = isAcct end
+    searchBox.Visible = not (isHome or isAcct)
+    if isHome or isAcct then
         list.Visible = false
         TB.list.Visible = false
         TB.chips.Visible = false
         TB.go.Visible = false
         emptyLbl.Visible = false
-        DASH.refresh()
+        if isHome then DASH.refresh() end
         return
     end
     list.Visible = not isTB
