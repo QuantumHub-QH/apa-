@@ -414,17 +414,77 @@ local function tombol(props, parent)
 end
 
 local function kotakTeks(props, parent)
-    props.BackgroundColor3 = C.panel
+    props.BackgroundColor3 = props.BackgroundColor3 or C.panel
     props.BorderSizePixel = 0
-    props.TextColor3 = C.teks
+    props.TextColor3 = props.TextColor3 or C.teks
     props.PlaceholderColor3 = C.redup
-    props.Font = Enum.Font.Gotham
-    props.TextSize = 12
-    props.TextXAlignment = Enum.TextXAlignment.Left
+    props.Font = props.Font or Enum.Font.Gotham
+    props.TextSize = props.TextSize or 11
+    props.TextXAlignment = props.TextXAlignment or Enum.TextXAlignment.Left
     props.ClearTextOnFocus = false
-    local tb = sudut(buat("TextBox", props, parent), 8)
-    buat("UIPadding", {PaddingLeft = UDim.new(0, 10), PaddingRight = UDim.new(0, 10)}, tb)
+    props.ClipsDescendants = true
+    if props.MultiLine then
+        props.TextWrapped = true
+        props.TextYAlignment = Enum.TextYAlignment.Top
+    end
+    local tb = sudut(buat("TextBox", props, parent), 6)
+    tb.ClipsDescendants = true
+    buat("UIPadding", {
+        PaddingLeft = UDim.new(0, 10),
+        PaddingRight = UDim.new(0, 10),
+        PaddingTop = props.MultiLine and UDim.new(0, 6) or UDim.new(0, 0),
+        PaddingBottom = props.MultiLine and UDim.new(0, 6) or UDim.new(0, 0)
+    }, tb)
     return tb
+end
+
+local function buatKotakKode(cfg, parent)
+    local container = sudut(buat("Frame", {
+        Size = cfg.Size or UDim2.new(1, 0, 0, 105),
+        BackgroundColor3 = C.panel,
+        BorderSizePixel = 0,
+        ClipsDescendants = true,
+        LayoutOrder = cfg.LayoutOrder or 1,
+    }, parent), 6)
+
+    local scroll = buat("ScrollingFrame", {
+        Size = UDim2.new(1, 0, 1, 0),
+        BackgroundTransparency = 1,
+        BorderSizePixel = 0,
+        ScrollBarThickness = 4,
+        ScrollBarImageColor3 = C.redup,
+        CanvasSize = UDim2.new(0, 0, 0, 0),
+        AutomaticCanvasSize = Enum.AutomaticSize.Y,
+        ClipsDescendants = true,
+    }, container)
+    buat("UIPadding", {
+        PaddingLeft = UDim.new(0, 8),
+        PaddingRight = UDim.new(0, 8),
+        PaddingTop = UDim.new(0, 6),
+        PaddingBottom = UDim.new(0, 6)
+    }, scroll)
+
+    local tb = buat("TextBox", {
+        Size = UDim2.new(1, 0, 1, 0),
+        AutomaticSize = Enum.AutomaticSize.Y,
+        BackgroundTransparency = 1,
+        BorderSizePixel = 0,
+        TextColor3 = C.teks,
+        PlaceholderColor3 = C.redup,
+        PlaceholderText = cfg.PlaceholderText or "",
+        Text = cfg.Text or "",
+        Font = Enum.Font.Code,
+        TextSize = 10,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        TextYAlignment = Enum.TextYAlignment.Top,
+        MultiLine = true,
+        TextWrapped = true,
+        ClearTextOnFocus = false,
+        ClipsDescendants = true,
+        TextEditable = (cfg.TextEditable ~= false),
+    }, scroll)
+
+    return tb, container
 end
 
 local function pilihParent()
@@ -6295,15 +6355,17 @@ local daftarSpeed = {"0.8", "1.0", "1.2", "1.5", "1.8", "2.0", "2.3", "2.5", "3.
 
 local function initHalamanSpoof()
 ------------------------------------------------------------------
--- HALAMAN: SPOOFER & SCRIPT ID REPLACER
+-- HALAMAN: SPOOFER & SCRIPT ID REPLACER (Pixel Perfect & Clean)
 ------------------------------------------------------------------
 local halSpoof = buat("ScrollingFrame", {
     Size = UDim2.new(1, 0, 1, 0),
     BackgroundTransparency = 1,
     BorderSizePixel = 0,
     ScrollBarThickness = 4,
+    ScrollBarImageColor3 = C.redup,
     CanvasSize = UDim2.new(0, 0, 0, 0),
     AutomaticCanvasSize = Enum.AutomaticSize.Y,
+    ClipsDescendants = true,
     Visible = false,
 }, isi)
 halaman.spoof = halSpoof
@@ -6321,6 +6383,7 @@ local cardSpoofId = sudut(buat("Frame", {
     Size = UDim2.new(1, 0, 0, 0),
     AutomaticSize = Enum.AutomaticSize.Y,
     BorderSizePixel = 0,
+    ClipsDescendants = true,
     LayoutOrder = 3,
 }, halSpoof), 8)
 buat("UIPadding", {PaddingTop = UDim.new(0, 10), PaddingBottom = UDim.new(0, 12), PaddingLeft = UDim.new(0, 10), PaddingRight = UDim.new(0, 10)}, cardSpoofId)
@@ -6420,7 +6483,7 @@ for _, sp in ipairs(daftarSpeed) do
 end
 updateSpeedUI()
 
--- Tombol Spoof Sekarang (Warna Abu Default C.aktif)
+-- Tombol Spoof Sekarang
 local btnSpoofNow = tombol({
     Text = "⚡ SPOOF SEKARANG",
     Font = Enum.Font.GothamBold,
@@ -6431,12 +6494,11 @@ local btnSpoofNow = tombol({
     LayoutOrder = 8,
 }, cardSpoofId)
 
-local outSpoofId = kotakTeks({
+-- Kotak Hasil Spoof ID (Read-only, rapi, tidak bisa diedit)
+local outSpoofId = buatKotakKode({
     Size = UDim2.new(1, 0, 0, 75),
-    PlaceholderText = "Hasil nama aset dan ID baru akan muncul di sini...",
-    TextYAlignment = Enum.TextYAlignment.Top,
-    MultiLine = true,
-    ClearTextOnFocus = false,
+    PlaceholderText = "Hasil nama aset dan ID baru akan muncul di sini (Read-only)...",
+    TextEditable = false,
     LayoutOrder = 9,
 }, cardSpoofId)
 
@@ -6514,6 +6576,7 @@ local cardSpoofScript = sudut(buat("Frame", {
     Size = UDim2.new(1, 0, 0, 0),
     AutomaticSize = Enum.AutomaticSize.Y,
     BorderSizePixel = 0,
+    ClipsDescendants = true,
     LayoutOrder = 4,
 }, halSpoof), 8)
 buat("UIPadding", {PaddingTop = UDim.new(0, 10), PaddingBottom = UDim.new(0, 12), PaddingLeft = UDim.new(0, 10), PaddingRight = UDim.new(0, 10)}, cardSpoofScript)
@@ -6524,12 +6587,11 @@ label({Text = "2. SPOOF & REPLACE ID DI SCRIPT (Audio / Animasi)", Font = Enum.F
 label({Text = "Tempel script Lua di bawah. Semua ID sound/animasi akan dispoof & diganti ke ID baru otomatis:",
     TextColor3 = C.redup, TextSize = 10, Size = UDim2.new(1, 0, 0, 14), LayoutOrder = 2}, cardSpoofScript)
 
-local inputScriptBox = kotakTeks({
-    Size = UDim2.new(1, 0, 0, 100),
-    PlaceholderText = "Tempel script Lua kamu di sini... (contoh: sound.SoundId = 'rbxassetid://12345678')",
-    TextYAlignment = Enum.TextYAlignment.Top,
-    MultiLine = true,
-    ClearTextOnFocus = false,
+-- Input Script Box: Scrollable, font code, tidak akan bocor ke luar
+local inputScriptBox = buatKotakKode({
+    Size = UDim2.new(1, 0, 0, 110),
+    PlaceholderText = "Tempel script Lua kamu di sini...\n(contoh: sound.SoundId = 'rbxassetid://12345678')",
+    TextEditable = true,
     LayoutOrder = 3,
 }, cardSpoofScript)
 
@@ -6543,12 +6605,11 @@ local btnSpoofScriptNow = tombol({
     LayoutOrder = 4,
 }, cardSpoofScript)
 
-local outScriptBox = kotakTeks({
-    Size = UDim2.new(1, 0, 0, 100),
-    PlaceholderText = "Hasil script dengan ID baru akan muncul di sini...",
-    TextYAlignment = Enum.TextYAlignment.Top,
-    MultiLine = true,
-    ClearTextOnFocus = false,
+-- Output Script Box: Scrollable, font code, READ ONLY (tidak bisa diedit oleh user)
+local outScriptBox = buatKotakKode({
+    Size = UDim2.new(1, 0, 0, 110),
+    PlaceholderText = "Hasil script dengan ID baru akan muncul di sini (Hanya bisa disalin)...",
+    TextEditable = false,
     LayoutOrder = 5,
 }, cardSpoofScript)
 
@@ -6622,15 +6683,17 @@ initHalamanSpoof()
 
 local function initHalamanYt()
 ------------------------------------------------------------------
--- HALAMAN: YOUTUBE UPLOADER & AUDIO BYPASS
+-- HALAMAN: YOUTUBE UPLOADER & AUDIO BYPASS (Pixel Perfect & Clean)
 ------------------------------------------------------------------
 local halYtUpload = buat("ScrollingFrame", {
     Size = UDim2.new(1, 0, 1, 0),
     BackgroundTransparency = 1,
     BorderSizePixel = 0,
     ScrollBarThickness = 4,
+    ScrollBarImageColor3 = C.redup,
     CanvasSize = UDim2.new(0, 0, 0, 0),
     AutomaticCanvasSize = Enum.AutomaticSize.Y,
+    ClipsDescendants = true,
     Visible = false,
 }, isi)
 halaman.ytupload = halYtUpload
@@ -6647,6 +6710,7 @@ local cardYt = sudut(buat("Frame", {
     Size = UDim2.new(1, 0, 0, 0),
     AutomaticSize = Enum.AutomaticSize.Y,
     BorderSizePixel = 0,
+    ClipsDescendants = true,
     LayoutOrder = 3,
 }, halYtUpload), 8)
 buat("UIPadding", {PaddingTop = UDim.new(0, 10), PaddingBottom = UDim.new(0, 12), PaddingLeft = UDim.new(0, 10), PaddingRight = UDim.new(0, 10)}, cardYt)
@@ -6719,12 +6783,11 @@ local btnYtNow = tombol({
     LayoutOrder = 6,
 }, cardYt)
 
-local outYtStatus = kotakTeks({
-    Size = UDim2.new(1, 0, 0, 55),
-    PlaceholderText = "Status dan hasil Asset ID audio akan muncul di sini...",
-    TextYAlignment = Enum.TextYAlignment.Top,
-    MultiLine = true,
-    ClearTextOnFocus = false,
+-- Kotak Hasil YT (Read-only, tidak bisa diedit)
+local outYtStatus = buatKotakKode({
+    Size = UDim2.new(1, 0, 0, 60),
+    PlaceholderText = "Status dan hasil Asset ID audio akan muncul di sini (Read-only)...",
+    TextEditable = false,
     LayoutOrder = 7,
 }, cardYt)
 
