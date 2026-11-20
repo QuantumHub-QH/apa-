@@ -2485,7 +2485,7 @@ do
 end
 
 -- ---------- header ----------
-local closeBtn
+local closeBtn, backBtn, hdrTitle, hdrSub
 do
     local header = Instance.new("Frame")
     header.Size = UDim2.new(1, -24, 0, 42)
@@ -2530,6 +2530,25 @@ do
     closeBtn.Parent = header
     corner(closeBtn, 9)
     glassStroke(closeBtn, 1)
+
+    hdrTitle, hdrSub = title, subtitle
+
+    backBtn = Instance.new("TextButton")
+    backBtn.Name = "BackBtn"
+    backBtn.Size = UDim2.fromOffset(64, 26)
+    backBtn.Position = UDim2.fromOffset(42, 8)
+    backBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    backBtn.BackgroundTransparency = 0.85
+    backBtn.Text = "< BACK"
+    backBtn.TextSize = 11
+    backBtn.Font = Enum.Font.GothamBold
+    backBtn.TextColor3 = C.accent
+    backBtn.AutoButtonColor = false
+    backBtn.Visible = false
+    backBtn.ZIndex = 22
+    backBtn.Parent = header
+    corner(backBtn, 9)
+    glassStroke(backBtn, 1)
 end
 
 -- ---------- icon format ----------
@@ -2555,11 +2574,31 @@ do
     sideLabel.ZIndex = 21
 end
 
+-- state dashboard / panel (dipakai banyak bagian)
+local DASH = { mode = "dash", hooks = {}, tiles = {}, stat = {} }
+local TAB_LABEL = { HOME = "HOME", TOOLBOX = "TOOLBOX PC" }
+local function tabLabel(n) return TAB_LABEL[n] or n end
+
+do
+    local div = Instance.new("Frame")
+    div.Position = UDim2.fromOffset(10, 83)
+    div.Size = UDim2.new(1, -20, 0, 1)
+    div.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    div.BackgroundTransparency = 0.85
+    div.BorderSizePixel = 0
+    div.ZIndex = 21
+    div.Parent = side
+    local impLabel = text(side, "IMPORTER", 10, Enum.Font.GothamBold, C.muted)
+    impLabel.Position = UDim2.fromOffset(12, 86)
+    impLabel.Size = UDim2.new(1, -24, 0, 14)
+    impLabel.ZIndex = 21
+end
+
 local tabButtons = {}
 local function makeTab(name, y)
-    local isTB = (name == "TOOLBOX")
+    local noBadge = (name == "TOOLBOX" or name == "HOME")
     local b = Instance.new("TextButton")
-    b.Size = UDim2.new(1, -12, 0, 32)
+    b.Size = UDim2.new(1, -12, 0, 28)
     b.Position = UDim2.fromOffset(6, y)
     b.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
     b.BackgroundTransparency = 0.9
@@ -2570,28 +2609,37 @@ local function makeTab(name, y)
     corner(b, 10)
     glassStroke(b, 1)
 
-    do
+    if ICONS[name] then
         local ic = Instance.new("ImageLabel")
-        ic.Position = UDim2.fromOffset(6, 5)
-        ic.Size = UDim2.fromOffset(22, 22)
+        ic.Position = UDim2.fromOffset(6, 4)
+        ic.Size = UDim2.fromOffset(20, 20)
         ic.BackgroundTransparency = 1
         ic.Image = ICONS[name]
         ic.ScaleType = Enum.ScaleType.Fit
         ic.ZIndex = 22
         ic.Parent = b
+    else
+        local ic = text(b, "H", 10, Enum.Font.GothamBold, Color3.fromRGB(10, 20, 50), Enum.TextXAlignment.Center)
+        ic.Position = UDim2.fromOffset(6, 4)
+        ic.Size = UDim2.fromOffset(20, 20)
+        ic.BackgroundTransparency = 0.1
+        ic.BackgroundColor3 = C.accent
+        ic.ZIndex = 22
+        corner(ic, 6)
     end
 
-    local lbl = text(b, name, 10, Enum.Font.GothamBold, C.text)
-    lbl.Position = UDim2.fromOffset(34, 0)
-    lbl.Size = UDim2.new(1, isTB and -36 or -62, 1, 0)
+    local lbl = text(b, tabLabel(name), 10, Enum.Font.GothamBold, C.text)
+    lbl.Position = UDim2.fromOffset(32, 0)
+    lbl.Size = UDim2.new(1, noBadge and -36 or -62, 1, 0)
+    lbl.TextTruncate = Enum.TextTruncate.AtEnd
     lbl.ZIndex = 22
 
     local badge
-    if not isTB then
+    if not noBadge then
         badge = text(b, "0", 10, Enum.Font.GothamBold, C.text, Enum.TextXAlignment.Center)
         badge.AnchorPoint = Vector2.new(1, 0.5)
         badge.Position = UDim2.new(1, -6, 0.5, 0)
-        badge.Size = UDim2.fromOffset(24, 18)
+        badge.Size = UDim2.fromOffset(24, 16)
         badge.BackgroundTransparency = 0.7
         badge.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
         badge.ZIndex = 22
@@ -2599,9 +2647,14 @@ local function makeTab(name, y)
     end
     tabButtons[name] = { btn = b, lbl = lbl, badge = badge }
 end
-for i, name in ipairs({ "RBXM", "RBXMX", "RBXL", "RBXLX", "TOOLBOX" }) do
-    makeTab(name, 22 + (i - 1) * 35)
-end
+-- kategori MENU
+makeTab("HOME", 21)
+makeTab("TOOLBOX", 52)
+-- kategori IMPORTER
+makeTab("RBXM", 102)
+makeTab("RBXMX", 133)
+makeTab("RBXL", 164)
+makeTab("RBXLX", 195)
 
 local scanBtn = Instance.new("TextButton")
 scanBtn.Size = UDim2.new(1, -12, 0, 28)
@@ -2809,6 +2862,296 @@ local function copyText(s)
     return (pcall(fn, tostring(s)))
 end
 
+-- =====================================================================
+--                DASHBOARD  +  HOME (semua tombol jadi satu)
+-- =====================================================================
+do
+    local WHITE = Color3.fromRGB(255, 255, 255)
+    local DARK = Color3.fromRGB(10, 20, 50)
+
+    local function pressFx(btn, base)
+        btn.MouseButton1Down:Connect(function()
+            TweenService:Create(btn, TweenInfo.new(0.08), { BackgroundTransparency = math.max(base - 0.12, 0) }):Play()
+        end)
+        local function release()
+            TweenService:Create(btn, TweenInfo.new(0.15), { BackgroundTransparency = base }):Play()
+        end
+        btn.MouseButton1Up:Connect(release)
+        btn.MouseLeave:Connect(release)
+    end
+
+    local function glassButton(parent, base)
+        local b = Instance.new("TextButton")
+        b.BackgroundColor3 = WHITE
+        b.BackgroundTransparency = base
+        b.BorderSizePixel = 0
+        b.Text = ""
+        b.AutoButtonColor = false
+        b.ZIndex = 23
+        b.Parent = parent
+        corner(b, 12)
+        glassStroke(b, 1)
+        pressFx(b, base)
+        return b
+    end
+
+    -- ================= DASHBOARD (sebelum panel utama) =================
+    local dash = Instance.new("CanvasGroup")
+    dash.Name = "Dashboard"
+    dash.Position = UDim2.fromOffset(12, 56)
+    dash.Size = UDim2.new(1, -24, 1, -68)
+    dash.BackgroundTransparency = 1
+    dash.BorderSizePixel = 0
+    dash.ZIndex = 20
+    dash.Parent = main
+    DASH.dash = dash
+
+    -- kartu kiri (hero)
+    local hero = glassPanel(dash, 0.9, 16)
+    hero.Position = UDim2.fromOffset(0, 0)
+    hero.Size = UDim2.new(0, 272, 1, 0)
+    hero.ZIndex = 21
+
+    local badge = glassPanel(hero, 0.82, 11)
+    badge.Position = UDim2.fromOffset(14, 14)
+    badge.Size = UDim2.fromOffset(128, 22)
+    badge.ZIndex = 22
+    local bdot = Instance.new("Frame")
+    bdot.Position = UDim2.fromOffset(10, 7)
+    bdot.Size = UDim2.fromOffset(8, 8)
+    bdot.BackgroundColor3 = C.ok
+    bdot.BorderSizePixel = 0
+    bdot.ZIndex = 23
+    bdot.Parent = badge
+    corner(bdot, 4)
+    local btxt = text(badge, "Importer Ready", 10, Enum.Font.GothamMedium, C.soft)
+    btxt.Position = UDim2.fromOffset(24, 0)
+    btxt.Size = UDim2.new(1, -28, 1, 0)
+    btxt.ZIndex = 23
+
+    local t1 = text(hero, "IMPORTER", 28, Enum.Font.GothamBold, C.text)
+    t1.Position = UDim2.fromOffset(14, 46)
+    t1.Size = UDim2.new(1, -28, 0, 32)
+    t1.ZIndex = 22
+    local t2 = text(hero, "DASHBOARD", 28, Enum.Font.GothamBold, C.accent)
+    t2.Position = UDim2.fromOffset(14, 76)
+    t2.Size = UDim2.new(1, -28, 0, 32)
+    t2.ZIndex = 22
+
+    local desc = text(hero, "Pilih file RBXM, RBXMX, RBXL & RBXLX langsung masuk ke game. Toolbox PC siap pakai, hasil spawn auto anchored.", 11, Enum.Font.GothamMedium, C.soft)
+    desc.Position = UDim2.fromOffset(14, 116)
+    desc.Size = UDim2.new(1, -28, 0, 56)
+    desc.TextWrapped = true
+    desc.TextYAlignment = Enum.TextYAlignment.Top
+    desc.ZIndex = 22
+
+    local openBtn = Instance.new("TextButton")
+    openBtn.Position = UDim2.fromOffset(14, 186)
+    openBtn.Size = UDim2.fromOffset(150, 36)
+    openBtn.BackgroundColor3 = C.accent
+    openBtn.BackgroundTransparency = 0.15
+    openBtn.BorderSizePixel = 0
+    openBtn.Text = "OPEN PANEL"
+    openBtn.TextSize = 12
+    openBtn.Font = Enum.Font.GothamBold
+    openBtn.TextColor3 = DARK
+    openBtn.AutoButtonColor = false
+    openBtn.ZIndex = 23
+    openBtn.Parent = hero
+    corner(openBtn, 11)
+    grad(openBtn, Color3.fromRGB(150, 225, 255), Color3.fromRGB(110, 160, 255), 90)
+    pressFx(openBtn, 0.15)
+    openBtn.MouseButton1Click:Connect(function() DASH.hooks.openTab("HOME") end)
+
+    local dScan = glassButton(hero, 0.84)
+    dScan.Position = UDim2.fromOffset(172, 186)
+    dScan.Size = UDim2.fromOffset(86, 36)
+    dScan.Text = "SCAN ULANG"
+    dScan.TextSize = 10
+    dScan.Font = Enum.Font.GothamBold
+    dScan.TextColor3 = C.text
+    dScan.MouseButton1Click:Connect(function() DASH.hooks.scan() end)
+
+    local dashFoot = text(hero, "TOTAL 0 • DIIMPOR 0", 10, Enum.Font.GothamMedium, C.muted)
+    dashFoot.Position = UDim2.fromOffset(14, 240)
+    dashFoot.Size = UDim2.new(1, -28, 0, 22)
+    dashFoot.ZIndex = 22
+
+    -- kartu kanan atas: statistik file
+    local stats = glassPanel(dash, 0.9, 16)
+    stats.Position = UDim2.new(0, 282, 0, 0)
+    stats.Size = UDim2.new(1, -282, 0, 150)
+    stats.ZIndex = 21
+    local sl = text(stats, "FILE TERDETEKSI", 10, Enum.Font.GothamBold, C.muted)
+    sl.Position = UDim2.fromOffset(14, 8)
+    sl.Size = UDim2.new(1, -28, 0, 16)
+    sl.ZIndex = 22
+
+    for _, spec in ipairs({
+        { "RBXM", C.accent, 10, 28 }, { "RBXMX", C.accent, 118, 28 },
+        { "RBXL", C.accent2, 10, 86 }, { "RBXLX", C.accent2, 118, 86 },
+    }) do
+        local name, col, x, y = spec[1], spec[2], spec[3], spec[4]
+        local tile = glassButton(stats, 0.84)
+        tile.Position = UDim2.fromOffset(x, y)
+        tile.Size = UDim2.fromOffset(106, 52)
+        local nl = text(tile, name, 10, Enum.Font.GothamBold, C.muted)
+        nl.Position = UDim2.fromOffset(10, 6)
+        nl.Size = UDim2.new(1, -44, 0, 14)
+        nl.ZIndex = 24
+        local cl = text(tile, "0", 20, Enum.Font.GothamBold, col)
+        cl.Position = UDim2.fromOffset(10, 20)
+        cl.Size = UDim2.new(1, -44, 0, 26)
+        cl.ZIndex = 24
+        local ic = Instance.new("ImageLabel")
+        ic.AnchorPoint = Vector2.new(1, 0.5)
+        ic.Position = UDim2.new(1, -8, 0.5, 0)
+        ic.Size = UDim2.fromOffset(24, 24)
+        ic.BackgroundTransparency = 1
+        ic.Image = ICONS[name]
+        ic.ScaleType = Enum.ScaleType.Fit
+        ic.ZIndex = 24
+        ic.Parent = tile
+        DASH.stat[name] = cl
+        tile.MouseButton1Click:Connect(function() DASH.hooks.openTab(name) end)
+    end
+
+    -- kartu kanan bawah: akses cepat
+    local quick = glassPanel(dash, 0.9, 16)
+    quick.Position = UDim2.new(0, 282, 0, 160)
+    quick.Size = UDim2.new(1, -282, 1, -160)
+    quick.ZIndex = 21
+    local ql = text(quick, "AKSES CEPAT", 10, Enum.Font.GothamBold, C.muted)
+    ql.Position = UDim2.fromOffset(14, 6)
+    ql.Size = UDim2.new(1, -28, 0, 16)
+    ql.ZIndex = 22
+
+    local tbBtn = glassButton(quick, 0.6)
+    tbBtn.BackgroundColor3 = C.accent2
+    tbBtn.Position = UDim2.fromOffset(10, 24)
+    tbBtn.Size = UDim2.new(1, -20, 0, 42)
+    local tbIc = Instance.new("ImageLabel")
+    tbIc.Position = UDim2.fromOffset(10, 9)
+    tbIc.Size = UDim2.fromOffset(24, 24)
+    tbIc.BackgroundTransparency = 1
+    tbIc.Image = ICONS.TOOLBOX
+    tbIc.ScaleType = Enum.ScaleType.Fit
+    tbIc.ZIndex = 24
+    tbIc.Parent = tbBtn
+    local tbLbl = text(tbBtn, "TOOLBOX PC", 12, Enum.Font.GothamBold, C.text)
+    tbLbl.Position = UDim2.fromOffset(44, 0)
+    tbLbl.Size = UDim2.new(1, -52, 1, 0)
+    tbLbl.ZIndex = 24
+    tbBtn.MouseButton1Click:Connect(function() DASH.hooks.openTab("TOOLBOX") end)
+
+    local homeBtn = glassButton(quick, 0.84)
+    homeBtn.Position = UDim2.fromOffset(10, 72)
+    homeBtn.Size = UDim2.new(1, -20, 0, 32)
+    homeBtn.Text = "HOME • SEMUA MENU"
+    homeBtn.TextSize = 10
+    homeBtn.Font = Enum.Font.GothamBold
+    homeBtn.TextColor3 = C.text
+    homeBtn.MouseButton1Click:Connect(function() DASH.hooks.openTab("HOME") end)
+
+    -- ================= HOME (di dalam panel, kategori MENU) =================
+    local home = Instance.new("Frame")
+    home.Name = "HomePage"
+    home.BackgroundTransparency = 1
+    home.Position = UDim2.fromOffset(6, 28)
+    home.Size = UDim2.new(1, -12, 1, -34)
+    home.ZIndex = 21
+    home.Visible = false
+    home.Parent = content
+    DASH.home = home
+
+    local grid = Instance.new("UIGridLayout")
+    grid.CellSize = UDim2.fromOffset(118, 108)
+    grid.CellPadding = UDim2.fromOffset(8, 8)
+    grid.SortOrder = Enum.SortOrder.LayoutOrder
+    grid.Parent = home
+
+    local function homeTile(order, key, title, iconId, accent, glyph, onClick)
+        local t = Instance.new("TextButton")
+        t.LayoutOrder = order
+        t.Text = ""
+        t.AutoButtonColor = false
+        t.BackgroundColor3 = WHITE
+        t.BackgroundTransparency = 0.86
+        t.BorderSizePixel = 0
+        t.ZIndex = 22
+        t.Parent = home
+        corner(t, 14)
+        glassStroke(t, 1)
+        pressFx(t, 0.86)
+
+        if iconId then
+            local ic = Instance.new("ImageLabel")
+            ic.AnchorPoint = Vector2.new(0.5, 0)
+            ic.Position = UDim2.new(0.5, 0, 0, 14)
+            ic.Size = UDim2.fromOffset(38, 38)
+            ic.BackgroundTransparency = 1
+            ic.Image = iconId
+            ic.ScaleType = Enum.ScaleType.Fit
+            ic.ZIndex = 23
+            ic.Parent = t
+        else
+            local ic = text(t, glyph, 11, Enum.Font.GothamBold, DARK, Enum.TextXAlignment.Center)
+            ic.AnchorPoint = Vector2.new(0.5, 0)
+            ic.Position = UDim2.new(0.5, 0, 0, 14)
+            ic.Size = UDim2.fromOffset(38, 38)
+            ic.BackgroundTransparency = 0.1
+            ic.BackgroundColor3 = accent
+            ic.ZIndex = 23
+            corner(ic, 11)
+        end
+
+        local ttl = text(t, title, 11, Enum.Font.GothamBold, C.text, Enum.TextXAlignment.Center)
+        ttl.Position = UDim2.fromOffset(0, 60)
+        ttl.Size = UDim2.new(1, 0, 0, 16)
+        ttl.ZIndex = 23
+        local sub = text(t, "", 9, Enum.Font.GothamMedium, accent, Enum.TextXAlignment.Center)
+        sub.Position = UDim2.fromOffset(0, 78)
+        sub.Size = UDim2.new(1, 0, 0, 14)
+        sub.ZIndex = 23
+        DASH.tiles[key] = sub
+        t.MouseButton1Click:Connect(onClick)
+        return sub
+    end
+
+    homeTile(1, "TOOLBOX", "TOOLBOX PC", ICONS.TOOLBOX, C.ok, nil, function() DASH.hooks.setTab("TOOLBOX") end).Text = "Cari & spawn aset"
+    homeTile(2, "RBXM", "RBXM", ICONS.RBXM, C.accent, nil, function() DASH.hooks.setTab("RBXM") end)
+    homeTile(3, "RBXMX", "RBXMX", ICONS.RBXMX, C.accent, nil, function() DASH.hooks.setTab("RBXMX") end)
+    homeTile(4, "RBXL", "RBXL", ICONS.RBXL, C.accent2, nil, function() DASH.hooks.setTab("RBXL") end)
+    homeTile(5, "RBXLX", "RBXLX", ICONS.RBXLX, C.accent2, nil, function() DASH.hooks.setTab("RBXLX") end)
+    homeTile(6, "SCAN", "SCAN", nil, C.warn, "SCAN", function() DASH.hooks.scan() end).Text = "Cari ulang file"
+
+    -- sinkron tombol SCAN (sidebar) -> dashboard & home
+    scanBtn:GetPropertyChangedSignal("Text"):Connect(function()
+        local idle = (scanBtn.Text == "SCAN")
+        dScan.Text = idle and "SCAN ULANG" or scanBtn.Text
+        if DASH.tiles.SCAN then DASH.tiles.SCAN.Text = idle and "Cari ulang file" or scanBtn.Text end
+    end)
+
+    function DASH.refresh()
+        local counts, total = {}, 0
+        for _, f in ipairs(allFiles) do
+            local k = f.ext:upper()
+            counts[k] = (counts[k] or 0) + 1
+            total += 1
+        end
+        local imported = 0
+        for _, st in pairs(fileState) do
+            if st.label == "DONE" or st.label == "ACTIVE" then imported += 1 end
+        end
+        for name, lbl in pairs(DASH.stat) do lbl.Text = tostring(counts[name] or 0) end
+        for _, name in ipairs({ "RBXM", "RBXMX", "RBXL", "RBXLX" }) do
+            local sub = DASH.tiles[name]
+            if sub then sub.Text = (counts[name] or 0) .. " file" end
+        end
+        dashFoot.Text = ("TOTAL %d • DIIMPOR %d"):format(total, imported)
+    end
+end
+
 local renderList
 local function updateBadges()
     local counts = {}
@@ -2819,6 +3162,7 @@ local function updateBadges()
     for name, t in pairs(tabButtons) do
         if t.badge then t.badge.Text = tostring(counts[name] or 0) end
     end
+    if DASH.refresh then DASH.refresh() end
 end
 local function refreshTabs()
     for name, t in pairs(tabButtons) do
@@ -2828,7 +3172,14 @@ local function refreshTabs()
             BackgroundColor3 = active and C.accent2 or Color3.fromRGB(255, 255, 255),
         }):Play()
     end
-    contentTitle.Text = (currentTab == "TOOLBOX") and "TOOLBOX PC" or (currentTab .. " FILES")
+    if currentTab == "TOOLBOX" then
+        contentTitle.Text = "TOOLBOX PC"
+    elseif currentTab == "HOME" then
+        contentTitle.Text = "HOME"
+    else
+        contentTitle.Text = currentTab .. " FILES"
+    end
+    if DASH.mode == "panel" and hdrSub then hdrSub.Text = "PANEL • " .. tabLabel(currentTab) end
 end
 
 -- ---------- kartu file ----------
@@ -2952,7 +3303,7 @@ local function makeCard(info)
 end
 
 renderList = function()
-    if currentTab == "TOOLBOX" then return end
+    if currentTab == "TOOLBOX" or currentTab == "HOME" then return end
     for _, c in ipairs(list:GetChildren()) do
         if c:IsA("Frame") then c:Destroy() end
     end
@@ -3371,7 +3722,19 @@ end
 local function setTab(name)
     currentTab = name
     local isTB = (name == "TOOLBOX")
+    local isHome = (name == "HOME")
     refreshTabs()
+    DASH.home.Visible = isHome
+    searchBox.Visible = not isHome
+    if isHome then
+        list.Visible = false
+        TB.list.Visible = false
+        TB.chips.Visible = false
+        TB.go.Visible = false
+        emptyLbl.Visible = false
+        DASH.refresh()
+        return
+    end
     list.Visible = not isTB
     TB.list.Visible = isTB
     TB.chips.Visible = isTB
@@ -3426,6 +3789,48 @@ local function scanNow()
 end
 scanBtn.MouseButton1Click:Connect(scanNow)
 
+-- ---------- dashboard <-> panel ----------
+local function setHeaderMode(panel)
+    backBtn.Visible = panel
+    local x = panel and 112 or 44
+    local w = panel and -176 or -120
+    hdrTitle.Position = UDim2.fromOffset(x, 2)
+    hdrTitle.Size = UDim2.new(1, w, 0, 20)
+    hdrSub.Position = UDim2.fromOffset(x, 22)
+    hdrSub.Size = UDim2.new(1, w, 0, 14)
+end
+
+local function showDashboard()
+    DASH.mode = "dash"
+    setHeaderMode(false)
+    hdrSub.Text = "IMPORTER DASHBOARD"
+    side.Visible = false
+    content.Visible = false
+    DASH.refresh()
+    local d = DASH.dash
+    d.Visible = true
+    d.GroupTransparency = 1
+    d.Position = UDim2.fromOffset(12, 66)
+    TweenService:Create(d, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+        GroupTransparency = 0,
+        Position = UDim2.fromOffset(12, 56),
+    }):Play()
+end
+
+local function showPanel(tab)
+    DASH.mode = "panel"
+    setHeaderMode(true)
+    DASH.dash.Visible = false
+    side.Visible = true
+    content.Visible = true
+    setTab(tab or "HOME")
+end
+
+DASH.hooks.scan = scanNow
+DASH.hooks.setTab = setTab
+DASH.hooks.openTab = showPanel
+backBtn.MouseButton1Click:Connect(showDashboard)
+
 -- ---------- buka / tutup ----------
 local isOpen = false
 local function setOpen(v)
@@ -3478,6 +3883,7 @@ end)
 
 refreshTabs()
 renderList()
+showDashboard()
 setOpen(true)
 task.delay(0.3, scanNow)
 print("[WLEO x NEKO] RBXL/RBXM importer + toolbox (liquid glass) loaded")
