@@ -265,7 +265,7 @@ local function taruhGrupDiDepan(objects)
         local okMove = pcall(function()
             obj:PivotTo(offset * obj:GetPivot())
         end)
-        if okMove then moved += 1 end
+        if okMove then moved = moved + (1) end
     end
     if moved ~= #movable then
         return false, "Sebagian objek tidak dapat dipindahkan"
@@ -863,7 +863,7 @@ local function pasangHasil(hasil, namaSumber)
             sa, sb, gagal
         )
         if spawnError then
-            pesanError ..= " | spawn depan kamera gagal: " .. tostring(spawnError)
+            pesanError = pesanError .. (" | spawn depan kamera gagal: " .. tostring(spawnError))
         end
         setStatus(pesanError, true)
         warn(string.format("[Importer] %s: %s", namaSumber, pesanError))
@@ -875,7 +875,7 @@ local function pasangHasil(hasil, namaSumber)
         #ditaruh, sa, rinci
     )
     if spawnError then
-        pesanSukses ..= " | spawn depan kamera gagal: " .. tostring(spawnError)
+        pesanSukses = pesanSukses .. (" | spawn depan kamera gagal: " .. tostring(spawnError))
         setStatus(pesanSukses, true)
     else
         setStatus(pesanSukses)
@@ -1062,7 +1062,7 @@ local function lz4(lz4data)
     local function readByte()
         if pos > #raw then error("LZ4 unexpected end") end
         local b = string.byte(raw, pos)
-        pos += 1
+        pos = pos + (1)
         return b
     end
     local function extLen(base)
@@ -1070,7 +1070,7 @@ local function lz4(lz4data)
         if base == 15 then
             while true do
                 local b = readByte()
-                len += b
+                len = len + (b)
                 if b ~= 255 then break end
             end
         end
@@ -1080,7 +1080,7 @@ local function lz4(lz4data)
         local token = readByte()
         local literalLen = extLen(bit32.rshift(token, 4))
         for _ = 1, literalLen do
-            outLen += 1
+            outLen = outLen + (1)
             out[outLen] = string.char(readByte())
         end
         if outLen >= decompressedLen then break end
@@ -1091,9 +1091,9 @@ local function lz4(lz4data)
         local matchLen = extLen(bit32.band(token, 15)) + 4
         local srcIndex = outLen - offset + 1
         for _ = 1, matchLen do
-            outLen += 1
+            outLen = outLen + (1)
             out[outLen] = out[srcIndex]
-            srcIndex += 1
+            srcIndex = srcIndex + (1)
             if outLen >= decompressedLen then break end
         end
     end
@@ -1134,7 +1134,7 @@ local function _bytesToString(v)
                 local e = math.min(n - 1, i + 4095)
                 local chars = table.create(e - i + 1)
                 for j = i, e do chars[j - i + 1] = string.char(buffer.readu8(v, j)) end
-                k += 1
+                k = k + (1)
                 parts[k] = table.concat(chars)
             end
             return table.concat(parts)
@@ -1561,10 +1561,10 @@ local function _decodePropertyArray(buffer, typeID, count, sharedStrings)
         for i=1,count do
             if kinds[i] == 1 then
                 a[i]=uris[ui]
-                ui += 1
+                ui = ui + (1)
             elseif kinds[i] == 2 then
                 a[i]={__ContentObjectRef=objectRefs[oi]}
-                oi += 1
+                oi = oi + (1)
             else
                 a[i]=""
             end
@@ -1706,7 +1706,7 @@ local function flushServerLoadsAsync()
     for _ = 1, math.min(ASSET_WORKERS, #jobs) do
         task.spawn(function()
             while true do
-                cursor += 1
+                cursor = cursor + (1)
                 local index = cursor
                 local id = jobs[index]
                 if not id then break end
@@ -2386,28 +2386,28 @@ local function buildRBXL(parsed, sourceFileName)
             local obj, mode = tryCreateMeshPartNode(node)
             if obj then
                 if mode == "native" then
-                    meshNative += 1
+                    meshNative = meshNative + (1)
                 elseif mode == "fallback" then
-                    meshFallback += 1
+                    meshFallback = meshFallback + (1)
                 else
-                    meshUnresolved += 1
+                    meshUnresolved = meshUnresolved + (1)
                 end
                 return obj
             end
-            meshUnresolved += 1
+            meshUnresolved = meshUnresolved + (1)
             return nil
         end
         if node.ClassName == "UnionOperation" or node.ClassName == "PartOperation" or node.ClassName == "IntersectOperation" then
             local obj, mode = tryLoadPartOperationNode(node)
             if obj then
                 if mode == "asset" or mode == "mesh" or mode == "visual" then
-                    csgAsset += 1
+                    csgAsset = csgAsset + (1)
                 else
-                    csgProxy += 1
+                    csgProxy = csgProxy + (1)
                 end
                 return obj
             end
-            csgProxy += 1
+            csgProxy = csgProxy + (1)
             return nil
         end
         local ok, obj = pcall(Instance.new, node.ClassName)
@@ -2419,7 +2419,7 @@ local function buildRBXL(parsed, sourceFileName)
         local routeKey = routeForNode(node, inheritedKey)
         if isMeshPartOnlyChildClass(node.ClassName)
             and (not parent or not parent:IsA("MeshPart")) then
-            skipped += 1
+            skipped = skipped + (1)
             return nil
         end
         local nodeName = tostring((node.Properties and node.Properties.Name) or "")
@@ -2437,7 +2437,7 @@ local function buildRBXL(parsed, sourceFileName)
         preloadNodeAssets(node)
         local obj = instantiateNode(node)
         if not obj then
-            skipped += 1
+            skipped = skipped + (1)
             for _, child in ipairs(node.Children) do
                 createNode(child, parent or containers[routeKey] or containers.WS, routeKey)
             end
@@ -2452,7 +2452,7 @@ local function buildRBXL(parsed, sourceFileName)
             local okName = pcall(function()
                 obj.Name = tostring(node.Properties.Name)
             end)
-            if not okName then failedProperties += 1 end
+            if not okName then failedProperties = failedProperties + (1) end
         end
         for propName, value in pairs(node.Properties) do
             if propName ~= "Name" then
@@ -2462,15 +2462,15 @@ local function buildRBXL(parsed, sourceFileName)
                     value,
                     node.PropertyTypes and node.PropertyTypes[propName]
                 )
-                if not okProp then failedProperties += 1 end
+                if not okProp then failedProperties = failedProperties + (1) end
             end
         end
         rememberStudioLiteState(obj, node)
         disableImportedScript(obj, node)
         normalizePartGeometry(obj, node)
         obj.Parent = parent or containers[routeKey] or containers.WS
-        buildBurstCount += 1
-        progressMade += 1
+        buildBurstCount = buildBurstCount + (1)
+        progressMade = progressMade + (1)
         if progressMade == 1 or progressMade % 120 == 0 then
             local ratio = math.min(progressMade / progressTotal, 1)
             reportImportProgress(
@@ -2487,7 +2487,7 @@ local function buildRBXL(parsed, sourceFileName)
             if not (meshPartOnly and not obj:IsA("MeshPart")) then
                 createNode(child, obj, routeKey)
             else
-                skipped += 1
+                skipped = skipped + (1)
             end
         end
         return obj
@@ -2514,7 +2514,7 @@ local function buildRBXL(parsed, sourceFileName)
                         local okRef = pcall(function()
                             obj[propName] = targetObj
                         end)
-                        if not okRef then failedProperties += 1 end
+                        if not okRef then failedProperties = failedProperties + (1) end
                     end
                 elseif typeID == 0x22 then
                     local contentValue = node.Properties[propName]
@@ -2524,7 +2524,7 @@ local function buildRBXL(parsed, sourceFileName)
                             local okRef = pcall(function()
                                 obj[propName] = targetObj
                             end)
-                            if not okRef then failedProperties += 1 end
+                            if not okRef then failedProperties = failedProperties + (1) end
                         end
                     end
                 end
@@ -2545,7 +2545,7 @@ local function buildRBXL(parsed, sourceFileName)
                 pcall(function()
                     injectStudioLiteUI(obj, {})
                 end)
-                scriptBatch += 1
+                scriptBatch = scriptBatch + (1)
                 if scriptBatch >= 40 then
                     scriptBatch = 0
                     task.wait()
@@ -2555,7 +2555,7 @@ local function buildRBXL(parsed, sourceFileName)
     end)
     flushServerLoadsAsync()
     local madeCount = 0
-    for _ in pairs(made) do madeCount += 1 end
+    for _ in pairs(made) do madeCount = madeCount + (1) end
     reportImportProgress(0.78, ("BUILD COMPLETE • %d INSTANCES"):format(madeCount))
     return madeCount, skipped, failedProperties,
         meshNative, meshFallback, meshUnresolved, csgAsset, csgProxy, importRoot
@@ -2787,7 +2787,7 @@ local function parseRobloxXML(data)
             return nil, openEnd + 1, "Item tanpa class"
         end
         local ref = nextRef
-        nextRef += 1
+        nextRef = nextRef + (1)
         local node = {
             Ref = ref,
             ClassName = xmlDecodeText(className),
@@ -3064,7 +3064,7 @@ local function buildRBXModelParsed(parsed, sourceFileName)
         preloadNodeAssets(node)
         local obj = instantiateModelNode(node)
         if not obj then
-            skipped += 1
+            skipped = skipped + (1)
             for _, child in ipairs(node.Children or {}) do
                 createNode(child, parent)
             end
@@ -3089,7 +3089,7 @@ local function buildRBXModelParsed(parsed, sourceFileName)
                     value,
                     node.PropertyTypes and node.PropertyTypes[propName]
                 )
-                if not okProp then failedProperties += 1 end
+                if not okProp then failedProperties = failedProperties + (1) end
             end
         end
         if obj:IsA("LuaSourceContainer") then
@@ -3117,7 +3117,7 @@ local function buildRBXModelParsed(parsed, sourceFileName)
             if not (isMeshPartOnlyChildClass(child.ClassName) and not obj:IsA("MeshPart")) then
                 createNode(child, obj)
             else
-                skipped += 1
+                skipped = skipped + (1)
             end
         end
         return obj
@@ -3163,7 +3163,7 @@ local function buildRBXModelParsed(parsed, sourceFileName)
     end
     flushServerLoadsAsync()
     local count = 0
-    for _ in pairs(made) do count += 1 end
+    for _ in pairs(made) do count = count + (1) end
     return importedRoots, count, skipped, failedProperties
 end
 local function importRBXM(fileInfo)
@@ -3284,7 +3284,7 @@ local function importRBXM(fileInfo)
                     part.Anchored = true
                 end
             end
-            totalObjects += #descendants + 1
+            totalObjects = totalObjects + (#descendants + 1)
             local all = {root}
             for _, obj in ipairs(descendants) do
                 all[#all + 1] = obj
@@ -3292,20 +3292,20 @@ local function importRBXM(fileInfo)
             for i, obj in ipairs(all) do
                 obj:SetAttribute("LANGZ_ImportedObject", true)
                 if obj:IsA("LuaSourceContainer") then
-                    scriptCount += 1
+                    scriptCount = scriptCount + (1)
                     local source = takeRBXMSource(sourceQueues, obj)
                     if source then
-                        sourceFound += 1
+                        sourceFound = sourceFound + (1)
                         _G.Langz_RAW_SOURCES[obj] = source
                         local wrote = tryWriteRBXMSource(obj, source)
                         if wrote then
-                            sourceWritten += 1
+                            sourceWritten = sourceWritten + (1)
                         end
                         local okEditor = pcall(function()
                             injectStudioLiteUI(obj, {})
                         end)
                         if okEditor then
-                            editorRestored += 1
+                            editorRestored = editorRestored + (1)
                         end
                     end
                 end
@@ -3513,24 +3513,24 @@ local function activateLocalScriptsInLiveRoot(root)
     end
     for _, scr in ipairs(list) do
         if not importedScriptShouldRun(scr) then
-            stats.skipped += 1
+            stats.skipped = stats.skipped + (1)
             setScriptEnabledState(scr, false)
         else
             local hasRealSource = canReadExecutableSource(scr)
             if hasRealSource then
                 local ok = setScriptEnabledState(scr, true)
                 if ok then
-                    stats.native += 1
+                    stats.native = stats.native + (1)
                 else
-                    stats.failed += 1
+                    stats.failed = stats.failed + (1)
                 end
             else
                 setScriptEnabledState(scr, false)
                 local ok = runLocalScriptBridge(scr)
                 if ok then
-                    stats.bridge += 1
+                    stats.bridge = stats.bridge + (1)
                 else
-                    stats.failed += 1
+                    stats.failed = stats.failed + (1)
                 end
             end
         end
@@ -3538,10 +3538,10 @@ local function activateLocalScriptsInLiveRoot(root)
     return stats
 end
 local function mergeLiveStats(dst, src)
-    dst.native += src.native or 0
-    dst.bridge += src.bridge or 0
-    dst.failed += src.failed or 0
-    dst.skipped += src.skipped or 0
+    dst.native = dst.native + (src.native or 0)
+    dst.bridge = dst.bridge + (src.bridge or 0)
+    dst.failed = dst.failed + (src.failed or 0)
+    dst.skipped = dst.skipped + (src.skipped or 0)
 end
 local function findStudioLiteRemote(name)
     local sl = ReplicatedStorage:FindFirstChild("StudioLiteFolder")
@@ -3598,18 +3598,18 @@ local function restoreImportedRuntimeState(root)
     end
     for _, obj in ipairs(all) do
         if obj:IsA("LuaSourceContainer") then
-            stats.scripts += 1
+            stats.scripts = stats.scripts + (1)
             local ok = tryWriteRealScriptSource(obj)
             if ok then
-                stats.scriptSourceOK += 1
+                stats.scriptSourceOK = stats.scriptSourceOK + (1)
             else
-                stats.scriptSourceFailed += 1
+                stats.scriptSourceFailed = stats.scriptSourceFailed + (1)
             end
         end
     end
     for _, obj in ipairs(all) do
         if obj:IsA("BasePart") then
-            stats.parts += 1
+            stats.parts = stats.parts + (1)
             local originalAnchored = obj:GetAttribute("SL_Anchored")
             local originalCanCollide = obj:GetAttribute("SL_CanCollide")
             if originalCanCollide ~= nil then
@@ -3634,7 +3634,7 @@ local function moveChildren(source, destination, onMoved)
             child.Parent = destination
         end)
         if ok then
-            moved += 1
+            moved = moved + (1)
             if onMoved then
                 pcall(onMoved, child, destination)
             end
@@ -3697,7 +3697,7 @@ local function activateImportRoot(importRoot)
                 child.Parent = destination
             end)
             if okMove then
-                moved += 1
+                moved = moved + (1)
             end
         end
         return moved
@@ -3728,7 +3728,7 @@ local function activateImportRoot(importRoot)
     local function forceGetService(serviceName)
         local existing = findExistingService(serviceName)
         if existing then
-            reusedServiceCount += 1
+            reusedServiceCount = reusedServiceCount + (1)
             serviceModes[serviceName] = "REUSED_STUDIO_LITE"
             return existing
         end
@@ -3741,7 +3741,7 @@ local function activateImportRoot(importRoot)
             created.Parent = game
         end)
         if okCreate and created then
-            createdServiceCount += 1
+            createdServiceCount = createdServiceCount + (1)
             serviceModes[serviceName] = "CREATED_MISSING"
             return created
         end
@@ -3749,14 +3749,14 @@ local function activateImportRoot(importRoot)
             return game:GetService(serviceName)
         end)
         if okGet and service then
-            forcedServiceCount += 1
+            forcedServiceCount = forcedServiceCount + (1)
             serviceModes[serviceName] = "GETSERVICE_MISSING"
             pcall(function()
                 service:SetAttribute("LANGZ_ServiceRole", serviceName)
             end)
             return service
         end
-        missingRealServices += 1
+        missingRealServices = missingRealServices + (1)
         serviceModes[serviceName] = "FAILED"
         warn(
             "[LANGZ] SERVICE FAILED: "
@@ -3925,7 +3925,7 @@ local function activateImportRoot(importRoot)
                 local scriptCount = 0
                 for _, d in ipairs(serviceFolder:GetDescendants()) do
                     if d:IsA("LuaSourceContainer") then
-                        scriptCount += 1
+                        scriptCount = scriptCount + (1)
                     end
                 end
                 stagedScriptCounts[key] = scriptCount
@@ -3943,9 +3943,9 @@ local function activateImportRoot(importRoot)
                         table.insert(workspaceSpawnObjects, child)
                     end
                 end
-                moved += moveChildren(serviceFolder, destination, onMoved)
+                moved = moved + (moveChildren(serviceFolder, destination, onMoved))
             elseif #serviceFolder:GetChildren() > 0 then
-                failedServices += 1
+                failedServices = failedServices + (1)
             end
         end
     end
@@ -3963,7 +3963,7 @@ local function activateImportRoot(importRoot)
             obj:SetAttribute("LANGZ_StagedDisabled", nil)
         end)
         if shouldRun then
-            activatedScripts += 1
+            activatedScripts = activatedScripts + (1)
         end
     end
     for _, obj in ipairs(importRoot:GetDescendants()) do
@@ -4029,14 +4029,14 @@ local function activateImportRoot(importRoot)
             local hasRealSource = canReadExecutableSource(obj)
             if hasRealSource then
                 setScriptEnabledState(obj, true)
-                liveStats.native += 1
+                liveStats.native = liveStats.native + (1)
             else
                 setScriptEnabledState(obj, false)
                 local ok = runLocalScriptBridge(obj)
                 if ok then
-                    liveStats.bridge += 1
+                    liveStats.bridge = liveStats.bridge + (1)
                 else
-                    liveStats.failed += 1
+                    liveStats.failed = liveStats.failed + (1)
                 end
             end
         end
@@ -4053,11 +4053,11 @@ local function activateImportRoot(importRoot)
         for _, obj in ipairs(service:GetDescendants()) do
             if obj:IsA("LuaSourceContainer")
                 and obj:GetAttribute("LANGZ_ImportedObject") == true then
-                deployedScriptCount += 1
+                deployedScriptCount = deployedScriptCount + (1)
                 if serviceKey == "SSS" then
-                    sssImportedScripts += 1
+                    sssImportedScripts = sssImportedScripts + (1)
                 elseif serviceKey == "SS" then
-                    ssImportedScripts += 1
+                    ssImportedScripts = ssImportedScripts + (1)
                 end
                 local refKey = obj:GetAttribute("LANGZ_Ref")
                 local source = _G.Langz_RAW_SOURCES[obj]
@@ -4069,7 +4069,7 @@ local function activateImportRoot(importRoot)
                     end
                 end
                 if type(source) == "string" and source ~= "" then
-                    sourceVisibleCount += 1
+                    sourceVisibleCount = sourceVisibleCount + (1)
                     pcall(function()
                         tryWriteRealScriptSource(obj)
                     end)
@@ -4077,7 +4077,7 @@ local function activateImportRoot(importRoot)
                         injectStudioLiteUI(obj, {})
                     end)
                     if okEditor then
-                        editorInjectedCount += 1
+                        editorInjectedCount = editorInjectedCount + (1)
                     end
                 end
             end
@@ -4136,7 +4136,7 @@ local function activateImportRoot(importRoot)
     local remainingStagedObjects = 0
     for _, serviceFolder in ipairs(importRoot:GetChildren()) do
         if serviceFolder:IsA("Folder") then
-            remainingStagedObjects += #serviceFolder:GetChildren()
+            remainingStagedObjects = remainingStagedObjects + (#serviceFolder:GetChildren())
         end
     end
     if remainingStagedObjects == 0 then
@@ -4161,7 +4161,7 @@ local function activateImportRoot(importRoot)
         missingRealServices
     )
     if not spawnOk then
-        summary ..= " • spawn depan kamera gagal: " .. tostring(spawnError)
+        summary = summary .. (" • spawn depan kamera gagal: " .. tostring(spawnError))
     end
     return true, summary
 end
@@ -4303,9 +4303,9 @@ local function prepareToolboxObjects(objects, sourceData)
                     obj:SetAttribute("LANGZ_AutoAnchored", true)
                     obj.Anchored = true
                 end)
-                if okAnchor then stats.parts += 1 end
+                if okAnchor then stats.parts = stats.parts + (1) end
             elseif obj:IsA("LuaSourceContainer") then
-                stats.scripts += 1
+                stats.scripts = stats.scripts + (1)
                 local originalEnabled = getOriginalScriptEnabled(obj, {Properties = {}})
                 pcall(function()
                     obj:SetAttribute("LANGZ_OriginalEnabled", originalEnabled)
@@ -4325,19 +4325,19 @@ local function prepareToolboxObjects(objects, sourceData)
                     end
                 end
                 if type(source) == "string" and source ~= "" then
-                    stats.sources += 1
+                    stats.sources = stats.sources + (1)
                     _G.Langz_RAW_SOURCES[obj] = source
                     local wrote = tryWriteRBXMSource(obj, source)
                     if not wrote then
                         wrote = tryWriteRealScriptSource(obj)
                     end
-                    if wrote then stats.written += 1 end
+                    if wrote then stats.written = stats.written + (1) end
                     pcall(injectStudioLiteUI, obj, {})
                     local hasEditor = obj:FindFirstChild("SL_CodeTextBox") ~= nil
                     if hasEditor then
-                        stats.editors += 1
+                        stats.editors = stats.editors + (1)
                     end
-                    if wrote or hasEditor then stats.visible += 1 end
+                    if wrote or hasEditor then stats.visible = stats.visible + (1) end
                 end
             end
         end
@@ -4789,7 +4789,7 @@ buat("UIGridLayout", {
 
 local metricOrder = 0
 local function buatMetrikDashboard(key, judul)
-    metricOrder += 1
+    metricOrder = metricOrder + (1)
     local card = sudut(buat("Frame", {
         BackgroundColor3 = C.panel,
         BorderSizePixel = 0,
@@ -5767,7 +5767,7 @@ local function playMusicTrack(index)
     musicId.Text = "ID: " .. track.id
     musicSound:Stop()
     musicSound.SoundId = "rbxassetid://" .. track.id
-    musicLoadToken += 1
+    musicLoadToken = musicLoadToken + (1)
     local loadToken = musicLoadToken
     musicPlaybackState.Text = "Memuat audio..."
     local okPlay, playError = pcall(function() musicSound:Play() end)
@@ -5810,7 +5810,7 @@ renderMusicList = function()
     local filteredIndices = daftarLaguTerfilter()
     for _, index in ipairs(filteredIndices) do
         local track = MUSIC_TRACKS[index]
-        matches += 1
+        matches = matches + (1)
         local row = sudut(buat("Frame", {
             Name = "MusicTrackItem",
             Size = UDim2.new(1, -8, 0, 58),
@@ -5928,7 +5928,7 @@ musicPlay.Activated:Connect(function()
     renderMusicList()
 end)
 musicStop.Activated:Connect(function()
-    musicLoadToken += 1
+    musicLoadToken = musicLoadToken + (1)
     musicSound:Stop()
     musicPlay.Text = "PLAY"
     musicPlaybackState.Text = "Dihentikan"
@@ -7032,17 +7032,43 @@ local toggleGui = buat("ScreenGui", {
 }, parentGui)
 local toggler = sudut(buat("ImageButton", {
     Name = "HubToggle",
-    Size = UDim2.new(0, 64, 0, 64),
-    Position = UDim2.new(0, 18, 0.5, -32),
+    Size = UDim2.new(0, 60, 0, 60),
+    Position = UDim2.new(0, 18, 0.5, -30),
     Image = TOGGLE_IMAGE,
-    BackgroundTransparency = 1,
+    BackgroundColor3 = Color3.fromRGB(15, 20, 18),
+    BackgroundTransparency = 0.2,
     BorderSizePixel = 0,
     Active = true,
 }, toggleGui), 14)
-toggler.Activated:Connect(function()
-    toggleGui.Enabled = false
-    gui.Enabled = true
-    jalankanSapuan()
+buat("UIStroke", {Color = IJO_SEREM, Thickness = 1.6}, toggler)
+
+local tDrag, tMoved, tStart, tPos = false, false, nil, nil
+toggler.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        tDrag = true
+        tMoved = false
+        tStart = input.Position
+        tPos = toggler.Position
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                tDrag = false
+                if not tMoved then
+                    toggleGui.Enabled = false
+                    gui.Enabled = true
+                    jalankanSapuan()
+                end
+            end
+        end)
+    end
+end)
+UIS.InputChanged:Connect(function(input)
+    if tDrag and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+        local delta = input.Position - tStart
+        if math.abs(delta.X) > 4 or math.abs(delta.Y) > 4 then
+            tMoved = true
+            toggler.Position = UDim2.new(tPos.X.Scale, tPos.X.Offset + delta.X, tPos.Y.Scale, tPos.Y.Offset + delta.Y)
+        end
+    end
 end)
 
 btnTutup.Activated:Connect(function()
