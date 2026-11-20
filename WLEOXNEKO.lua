@@ -6033,8 +6033,54 @@ tambahPesan("sistem", "Halo! Tanya apa saja soal Roblox/Luau. Isi API key OpenRo
 -- HALAMAN: PENGATURAN
 ------------------------------------------------------------------
 ------------------------------------------------------------------
--- ENGINE SPOOFER & BYPASS IN-GAME
+-- ENGINE SPOOFER & BYPASS IN-GAME (100% Mirror Bot DC Engine)
 ------------------------------------------------------------------
+local function ambilDetailAset(aid)
+    local name, creatorId, creatorType = nil, nil, nil
+
+    -- 1. Economy API v2 (Endpoint Utama bot DC)
+    local ok1, res1 = pcall(httpReq, {
+        Url = "https://economy.roblox.com/v2/assets/" .. aid .. "/details",
+        Method = "GET",
+        Headers = {["User-Agent"] = "Roblox/WinInet"}
+    })
+    if ok1 and res1 and (res1.StatusCode == 200 or res1.Status == 200) then
+        local d = decodeJson(res1)
+        if d then
+            name = d.Name or d.TargetName
+            local c = d.Creator
+            if c then
+                creatorId = c.CreatorTargetId or c.Id
+                creatorType = c.CreatorType
+            end
+        end
+    end
+
+    -- 2. Fallback: Develop API
+    if not name then
+        local ok2, res2 = pcall(httpReq, {
+            Url = "https://develop.roblox.com/v1/assets?assetIds=" .. aid,
+            Method = "GET",
+            Headers = {["User-Agent"] = "Roblox/WinInet"}
+        })
+        if ok2 and res2 and (res2.StatusCode == 200 or res2.Status == 200) then
+            local d = decodeJson(res2)
+            if d and d.data and d.data[1] then
+                name = d.data[1].name
+                local c = d.data[1].creator
+                if c then
+                    creatorId = c.id
+                    creatorType = c.type
+                end
+            end
+        end
+    end
+
+    local cleanName = name and name:gsub("[^%w%s%-_]", ""):sub(1, 35) or ("Asset_" .. aid)
+    if cleanName == "" then cleanName = "Asset_" .. aid end
+    return cleanName, creatorId, creatorType
+end
+
 local function spoofAssetSingleCore(assetId, targetType, speedVal)
     local apiKey = trim(config.ocKey)
     local creatorId = trim(config.creatorId):match("^%d+$")
@@ -6042,7 +6088,10 @@ local function spoofAssetSingleCore(assetId, targetType, speedVal)
         return nil, "Isi Open Cloud API Key & Creator ID di Pengaturan!"
     end
 
-    -- Seed Place IDs untuk bypass (engine sama dengan bot DC)
+    -- Ambil nama aset dan creator info
+    local assetName, srcCId, srcCType = ambilDetailAset(assetId)
+
+    -- Seed Place IDs untuk bypass (100% mirror bot DC)
     local placeIds = {
         game.PlaceId,
         6872265039, 5765186170, 3271915715, 4483381587,
@@ -6051,9 +6100,42 @@ local function spoofAssetSingleCore(assetId, targetType, speedVal)
         119031818630096, 76077593225337, 125981614068947
     }
 
+    -- Lacak games creator asal seperti bot DC
+    if srcCId and srcCType == "User" then
+        local okG, resG = pcall(httpReq, {
+            Url = "https://games.roblox.com/v2/users/" .. srcCId .. "/games?accessFilter=Public&limit=10&sortOrder=Asc",
+            Method = "GET"
+        })
+        if okG and resG and (resG.StatusCode == 200 or resG.Status == 200) then
+            local dG = decodeJson(resG)
+            if dG and dG.data then
+                for _, g in ipairs(dG.data) do
+                    if g.rootPlace and g.rootPlace.id then
+                        table.insert(placeIds, 1, g.rootPlace.id)
+                    end
+                end
+            end
+        end
+    elseif srcCId and srcCType == "Group" then
+        local okG, resG = pcall(httpReq, {
+            Url = "https://games.roblox.com/v2/groups/" .. srcCId .. "/games?accessFilter=Public&limit=10&sortOrder=Asc",
+            Method = "GET"
+        })
+        if okG and resG and (resG.StatusCode == 200 or resG.Status == 200) then
+            local dG = decodeJson(resG)
+            if dG and dG.data then
+                for _, g in ipairs(dG.data) do
+                    if g.rootPlace and g.rootPlace.id then
+                        table.insert(placeIds, 1, g.rootPlace.id)
+                    end
+                end
+            end
+        end
+    end
+
     local fileData = nil
 
-    -- Step 1: v2 API + Place ID bypass (metode utama bot DC)
+    -- 1. v2 API + Place ID bypass (metode utama bot DC)
     for _, pid in ipairs(placeIds) do
         local ok, r = pcall(httpReq, {
             Url = "https://assetdelivery.roblox.com/v2/assetId/" .. assetId,
@@ -6079,10 +6161,10 @@ local function spoofAssetSingleCore(assetId, targetType, speedVal)
                 end
             end
         end
-        task.wait(0.08)
+        task.wait(0.05)
     end
 
-    -- Step 2: Fallback v1 direct + Place ID bypass
+    -- 2. Fallback v1 direct + Place ID bypass
     if not fileData then
         for _, pid in ipairs(placeIds) do
             local ok, r = pcall(httpReq, {
@@ -6096,18 +6178,27 @@ local function spoofAssetSingleCore(assetId, targetType, speedVal)
             if ok and r and (r.StatusCode == 200 or r.Status == 200)
                 and type(r.Body) == "string" and #r.Body > 100 then
                 local b = r.Body
-                if not b:find('^{"errors"') and not b:find('^{"message"')
-                    and not b:find('^<') then
+                if not b:find('^{"errors"') and not b:find('^{"message"') and not b:find('^<') then
                     fileData = b
                     break
                 end
             end
-            task.wait(0.08)
+            task.wait(0.05)
+        end
+    end
+
+    -- 3. Fallback game:HttpGet
+    if not fileData and game.HttpGet then
+        local okG, bodyG = pcall(function()
+            return game:HttpGet("https://assetdelivery.roblox.com/v1/asset/?id=" .. assetId)
+        end)
+        if okG and type(bodyG) == "string" and #bodyG > 100 and not bodyG:find('^{"errors"') then
+            fileData = bodyG
         end
     end
 
     if not fileData then
-        return nil, "Asset tidak dapat diunduh (private/rate-limit)"
+        return nil, "Asset tidak dapat diunduh (private/rate-limit)", assetName
     end
 
     local finalType = targetType or "Audio"
@@ -6121,8 +6212,13 @@ local function spoofAssetSingleCore(assetId, targetType, speedVal)
         mime = "image/png"
     else
         finalType = "Audio"
-        ext = "mp3"
-        mime = "audio/mpeg"
+        if fileData:sub(1, 4) == "OggS" then
+            ext = "ogg"
+            mime = "audio/ogg"
+        else
+            ext = "mp3"
+            mime = "audio/mpeg"
+        end
     end
 
     local creatorObj = {}
@@ -6133,7 +6229,7 @@ local function spoofAssetSingleCore(assetId, targetType, speedVal)
     end
 
     local speedLabel = (speedVal and speedVal ~= "1.0" and speedVal ~= "1") and (" (" .. speedVal .. "x)") or ""
-    local displayName = ("Spoofed_" .. assetId .. speedLabel):sub(1, 50)
+    local displayName = (assetName .. speedLabel):sub(1, 45)
 
     local meta = HttpService:JSONEncode({
         assetType = finalType,
@@ -6154,13 +6250,13 @@ local function spoofAssetSingleCore(assetId, targetType, speedVal)
     })
 
     if not okP or not res then
-        return nil, "Koneksi upload Open Cloud gagal"
+        return nil, "Koneksi upload Open Cloud gagal", assetName
     end
 
     local d = decodeJson(res)
     if not d or not d.path then
         local errPesan = d and (d.message or d.error) or ("HTTP " .. tostring(res.StatusCode))
-        return nil, "Ditolak Roblox: " .. tostring(errPesan)
+        return nil, "Ditolak Roblox: " .. tostring(errPesan), assetName
     end
 
     local newAssetId = nil
@@ -6178,16 +6274,16 @@ local function spoofAssetSingleCore(assetId, targetType, speedVal)
                 break
             else
                 local msg = dOp.error and dOp.error.message or "Error processing"
-                return nil, msg
+                return nil, msg, assetName
             end
         end
     end
 
     if not newAssetId then
-        return nil, "Proses upload timeout di server Roblox"
+        return nil, "Proses upload timeout di server Roblox", assetName
     end
 
-    return newAssetId
+    return newAssetId, assetName
 end
 
 local daftarSpeed = {"0.8", "1.0", "1.2", "1.5", "1.8", "2.0", "2.3", "2.5", "3.0"}
@@ -6238,7 +6334,7 @@ local inputSpoofId = kotakTeks({
 -- Pilihan Tipe
 label({Text = "PILIH TIPE ASET:", TextColor3 = C.redup, TextSize = 10, Size = UDim2.new(1, 0, 0, 14), LayoutOrder = 3}, cardSpoofId)
 local rowTipe = buat("Frame", {Size = UDim2.new(1, 0, 0, 28), BackgroundTransparency = 1, LayoutOrder = 4}, cardSpoofId)
-local layoutTipe = buat("UIListLayout", {FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 6)}, rowTipe)
+buat("UIListLayout", {FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 6)}, rowTipe)
 
 local tipeTerpilih = "Audio"
 local tombolTipeMap = {}
@@ -6251,8 +6347,8 @@ local daftarTipe = {
 local function updateTipeUI()
     for k, btn in pairs(tombolTipeMap) do
         local aktif = (k == tipeTerpilih)
-        btn.BackgroundColor3 = aktif and C.aksen or C.panel
-        btn.TextColor3 = aktif and Color3.fromRGB(255, 255, 255) or C.teks
+        btn.BackgroundColor3 = aktif and C.aktif or C.panel
+        btn.TextColor3 = aktif and C.teks or C.redup
     end
 end
 
@@ -6273,7 +6369,23 @@ updateTipeUI()
 -- Pilihan Speed
 label({Text = "PILIH SPEED BYPASS (Untuk Audio / Musik):", TextColor3 = C.redup, TextSize = 10, Size = UDim2.new(1, 0, 0, 14), LayoutOrder = 5}, cardSpoofId)
 local rowSpeed = buat("Frame", {Size = UDim2.new(1, 0, 0, 26), BackgroundTransparency = 1, LayoutOrder = 6}, cardSpoofId)
-local layoutSpeed = buat("UIListLayout", {FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 4)}, rowSpeed)
+buat("UIListLayout", {FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 4)}, rowSpeed)
+
+-- Rekomendasi Sound.PlaybackSpeed Realtime Label
+local lblRecSpeed = label({
+    Text = "💡 Rekomendasi Sound.PlaybackSpeed: 1.00x",
+    TextColor3 = C.redup,
+    TextSize = 10,
+    Font = Enum.Font.Gotham,
+    Size = UDim2.new(1, 0, 0, 16),
+    LayoutOrder = 7,
+}, cardSpoofId)
+
+local function hitungRecPlayback(sp)
+    local num = tonumber(sp)
+    if not num or num <= 0 then return "1.00x" end
+    return string.format("%.2f", 1.0 / num) .. "x"
+end
 
 local speedTerpilih = "1.0"
 local tombolSpeedMap = {}
@@ -6281,8 +6393,11 @@ local tombolSpeedMap = {}
 local function updateSpeedUI()
     for s, btn in pairs(tombolSpeedMap) do
         local aktif = (s == speedTerpilih)
-        btn.BackgroundColor3 = aktif and C.aksen or C.panel
-        btn.TextColor3 = aktif and Color3.fromRGB(255, 255, 255) or C.redup
+        btn.BackgroundColor3 = aktif and C.aktif or C.panel
+        btn.TextColor3 = aktif and C.teks or C.redup
+    end
+    if lblRecSpeed then
+        lblRecSpeed.Text = "💡 Rekomendasi Sound.PlaybackSpeed In-Game: " .. hitungRecPlayback(speedTerpilih)
     end
 end
 
@@ -6301,21 +6416,24 @@ for _, sp in ipairs(daftarSpeed) do
 end
 updateSpeedUI()
 
--- Tombol Spoof Sekarang
+-- Tombol Spoof Sekarang (Warna Abu Default C.aktif)
 local btnSpoofNow = tombol({
     Text = "⚡ SPOOF SEKARANG",
     Font = Enum.Font.GothamBold,
     TextSize = 12,
-    TextColor3 = Color3.fromRGB(255, 255, 255),
-    BackgroundColor3 = C.hijau,
+    TextColor3 = C.teks,
+    BackgroundColor3 = C.aktif,
     Size = UDim2.new(1, 0, 0, 32),
-    LayoutOrder = 7,
+    LayoutOrder = 8,
 }, cardSpoofId)
 
 local outSpoofId = kotakTeks({
-    Size = UDim2.new(1, 0, 0, 48),
-    PlaceholderText = "Hasil ID baru akan muncul di sini...",
-    LayoutOrder = 8,
+    Size = UDim2.new(1, 0, 0, 75),
+    PlaceholderText = "Hasil nama aset dan ID baru akan muncul di sini...",
+    TextYAlignment = Enum.TextYAlignment.Top,
+    MultiLine = true,
+    ClearTextOnFocus = false,
+    LayoutOrder = 9,
 }, cardSpoofId)
 
 local btnSalinHasilId = tombol({
@@ -6324,12 +6442,20 @@ local btnSalinHasilId = tombol({
     TextSize = 11,
     Size = UDim2.new(1, 0, 0, 26),
     BackgroundColor3 = C.panel,
-    LayoutOrder = 9,
+    LayoutOrder = 10,
 }, cardSpoofId)
+
+local cleanOnlyIds = {}
+
 btnSalinHasilId.Activated:Connect(function()
-    if setclipboard and trim(outSpoofId.Text) ~= "" then
-        setclipboard(outSpoofId.Text)
-        btnSalinHasilId.Text = "✔ Berhasil Disalin!"
+    if setclipboard then
+        if #cleanOnlyIds > 0 then
+            setclipboard(table.concat(cleanOnlyIds, ", "))
+            btnSalinHasilId.Text = "✔ ID Berhasil Disalin!"
+        elseif trim(outSpoofId.Text) ~= "" then
+            setclipboard(outSpoofId.Text)
+            btnSalinHasilId.Text = "✔ Berhasil Disalin!"
+        end
         task.delay(1.5, function() btnSalinHasilId.Text = "📋 Salin ID Hasil" end)
     end
 end)
@@ -6348,33 +6474,32 @@ btnSpoofNow.Activated:Connect(function()
     end
 
     btnSpoofNow.Text = "⏳ Sedang Memproses (0/" .. #ids .. ")..."
-    btnSpoofNow.BackgroundColor3 = C.kartu
+    btnSpoofNow.BackgroundColor3 = C.panel
 
     task.spawn(function()
-        local hasilIds = {}
+        local hasilLines = {}
+        cleanOnlyIds = {}
         local suksesCount = 0
         for idx, aid in ipairs(ids) do
             setStatus("Memproses ID " .. aid .. " (" .. idx .. "/" .. #ids .. ")...")
-            local newId, err = spoofAssetSingleCore(aid, tipeTerpilih, speedTerpilih)
+            local newId, optTitle = spoofAssetSingleCore(aid, tipeTerpilih, speedTerpilih)
+            local titleClean = optTitle or ("Asset_" .. aid)
             if newId then
-                table.insert(hasilIds, newId)
+                table.insert(hasilLines, titleClean .. " | ID: " .. newId)
+                table.insert(cleanOnlyIds, newId)
                 suksesCount = suksesCount + 1
             else
-                table.insert(hasilIds, "-- GAGAL: " .. aid)
+                table.insert(hasilLines, "❌ " .. titleClean .. " | Gagal")
             end
             btnSpoofNow.Text = "⏳ Sedang Memproses (" .. idx .. "/" .. #ids .. ")..."
         end
 
-        outSpoofId.Text = table.concat(hasilIds, "\n")
+        outSpoofId.Text = table.concat(hasilLines, "\n")
         btnSpoofNow.Text = "⚡ SPOOF SEKARANG"
-        btnSpoofNow.BackgroundColor3 = C.panel
+        btnSpoofNow.BackgroundColor3 = C.aktif
         setStatus("Spoof selesai! " .. suksesCount .. "/" .. #ids .. " ID berhasil.")
-        local idsOk = {}
-        for _, v in ipairs(hasilIds) do
-            if not v:find("^%-%-") then table.insert(idsOk, v) end
-        end
-        if setclipboard and #idsOk > 0 then
-            setclipboard(table.concat(idsOk, ", "))
+        if setclipboard and #cleanOnlyIds > 0 then
+            setclipboard(table.concat(cleanOnlyIds, ", "))
         end
     end)
 end)
@@ -6408,8 +6533,8 @@ local btnSpoofScriptNow = tombol({
     Text = "🔄 SPOOF & REPLACE SEMUA ID DI SCRIPT",
     Font = Enum.Font.GothamBold,
     TextSize = 12,
-    TextColor3 = Color3.fromRGB(255, 255, 255),
-    BackgroundColor3 = C.panel,
+    TextColor3 = C.teks,
+    BackgroundColor3 = C.aktif,
     Size = UDim2.new(1, 0, 0, 32),
     LayoutOrder = 4,
 }, cardSpoofScript)
@@ -6461,7 +6586,7 @@ btnSpoofScriptNow.Activated:Connect(function()
     end
 
     btnSpoofScriptNow.Text = "⏳ Sedang Memproses ID (0/" .. #listIds .. ")..."
-    btnSpoofScriptNow.BackgroundColor3 = C.kartu
+    btnSpoofScriptNow.BackgroundColor3 = C.panel
 
     task.spawn(function()
         local replacements = {}
@@ -6483,12 +6608,11 @@ btnSpoofScriptNow.Activated:Connect(function()
 
         outScriptBox.Text = finalScript
         btnSpoofScriptNow.Text = "🔄 SPOOF & REPLACE SEMUA ID DI SCRIPT"
-        btnSpoofScriptNow.BackgroundColor3 = C.panel
+        btnSpoofScriptNow.BackgroundColor3 = C.aktif
         setStatus("Script berhasil dispoof! " .. suksesCount .. "/" .. #listIds .. " ID diperbarui.")
         if setclipboard then setclipboard(finalScript) end
     end)
 end)
-
 
 end -- END: Spoof section scope
 
@@ -6538,13 +6662,32 @@ label({Text = "PILIH SPEED BYPASS AUDIO:", TextColor3 = C.redup, TextSize = 10, 
 local rowSpeedYt = buat("Frame", {Size = UDim2.new(1, 0, 0, 26), BackgroundTransparency = 1, LayoutOrder = 4}, cardYt)
 buat("UIListLayout", {FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 4)}, rowSpeedYt)
 
+-- Rekomendasi Sound.PlaybackSpeed Realtime Label untuk YT
+local lblRecSpeedYt = label({
+    Text = "💡 Rekomendasi Sound.PlaybackSpeed: 1.00x",
+    TextColor3 = C.redup,
+    TextSize = 10,
+    Font = Enum.Font.Gotham,
+    Size = UDim2.new(1, 0, 0, 16),
+    LayoutOrder = 5,
+}, cardYt)
+
+local function hitungRecPlaybackYt(sp)
+    local num = tonumber(sp)
+    if not num or num <= 0 then return "1.00x" end
+    return string.format("%.2f", 1.0 / num) .. "x"
+end
+
 local speedYtTerpilih = "1.0"
 local tombolSpeedYtMap = {}
 local function updateSpeedYtUI()
     for s, btn in pairs(tombolSpeedYtMap) do
         local aktif = (s == speedYtTerpilih)
-        btn.BackgroundColor3 = aktif and C.aksen or C.panel
-        btn.TextColor3 = aktif and Color3.fromRGB(255, 255, 255) or C.redup
+        btn.BackgroundColor3 = aktif and C.aktif or C.panel
+        btn.TextColor3 = aktif and C.teks or C.redup
+    end
+    if lblRecSpeedYt then
+        lblRecSpeedYt.Text = "💡 Rekomendasi Sound.PlaybackSpeed In-Game: " .. hitungRecPlaybackYt(speedYtTerpilih)
     end
 end
 
@@ -6567,16 +6710,19 @@ local btnYtNow = tombol({
     Text = "🚀 UPLOAD & BYPASS SEKARANG",
     Font = Enum.Font.GothamBold,
     TextSize = 12,
-    TextColor3 = Color3.fromRGB(255, 255, 255),
-    BackgroundColor3 = C.hijau,
+    TextColor3 = C.teks,
+    BackgroundColor3 = C.aktif,
     Size = UDim2.new(1, 0, 0, 32),
-    LayoutOrder = 5,
+    LayoutOrder = 6,
 }, cardYt)
 
 local outYtStatus = kotakTeks({
-    Size = UDim2.new(1, 0, 0, 48),
+    Size = UDim2.new(1, 0, 0, 55),
     PlaceholderText = "Status dan hasil Asset ID audio akan muncul di sini...",
-    LayoutOrder = 6,
+    TextYAlignment = Enum.TextYAlignment.Top,
+    MultiLine = true,
+    ClearTextOnFocus = false,
+    LayoutOrder = 7,
 }, cardYt)
 
 local btnSalinYt = tombol({
@@ -6585,12 +6731,14 @@ local btnSalinYt = tombol({
     TextSize = 11,
     Size = UDim2.new(1, 0, 0, 26),
     BackgroundColor3 = C.panel,
-    LayoutOrder = 7,
+    LayoutOrder = 8,
 }, cardYt)
 btnSalinYt.Activated:Connect(function()
     if setclipboard and trim(outYtStatus.Text) ~= "" then
-        setclipboard(outYtStatus.Text)
-        btnSalinYt.Text = "✔ Berhasil Disalin!"
+        local raw = outYtStatus.Text
+        local idMatch = raw:match("(%d%d%d%d%d%d+)")
+        setclipboard(idMatch or raw)
+        btnSalinYt.Text = "✔ ID Berhasil Disalin!"
         task.delay(1.5, function() btnSalinYt.Text = "📋 Salin ID Audio" end)
     end
 end)
@@ -6603,11 +6751,10 @@ btnYtNow.Activated:Connect(function()
     end
 
     btnYtNow.Text = "⏳ Memproses Audio YouTube..."
-    btnYtNow.BackgroundColor3 = C.redup
+    btnYtNow.BackgroundColor3 = C.panel
     setStatus("Memproses audio YouTube...")
 
     task.spawn(function()
-        -- Coba integrasi HTTP Bridge lokal jika ada, atau info bot Discord
         local bridgeOk = false
         local bridgeUrls = {"http://127.0.0.1:3000/ytupload", "http://localhost:3000/ytupload"}
         for _, bUrl in ipairs(bridgeUrls) do
@@ -6620,7 +6767,7 @@ btnYtNow.Activated:Connect(function()
             if ok and r and (r.StatusCode == 200 or r.Status == 200) then
                 local resData = decodeJson(r)
                 if resData and resData.assetId then
-                    outYtStatus.Text = "Asset ID: " .. tostring(resData.assetId)
+                    outYtStatus.Text = (resData.title or "YouTube Audio") .. " | ID: " .. tostring(resData.assetId)
                     bridgeOk = true
                     if setclipboard then setclipboard(tostring(resData.assetId)) end
                     break
@@ -6629,17 +6776,16 @@ btnYtNow.Activated:Connect(function()
         end
 
         btnYtNow.Text = "🚀 UPLOAD & BYPASS SEKARANG"
-        btnYtNow.BackgroundColor3 = C.hijau
+        btnYtNow.BackgroundColor3 = C.aktif
 
         if bridgeOk then
             setStatus("Upload YouTube berhasil! ID disalin.")
         else
-            outYtStatus.Text = "Gunakan perintah /ytupload di Discord Bot untuk hasil tercepat, atau jalankan Termux bridge. Link YouTube: " .. urlInput
+            outYtStatus.Text = "Gunakan perintah /ytupload di Discord Bot untuk hasil instan, atau jalankan bridge di Termux. URL: " .. urlInput
             setStatus("Bypass YT siap. Gunakan /ytupload di bot Discord untuk instant upload!")
         end
     end)
 end)
-
 
 end -- END: YT Upload section scope
 
