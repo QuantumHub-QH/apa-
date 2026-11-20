@@ -30,6 +30,50 @@ end)
 _G.Langz_RAW_SOURCES = _G.Langz_RAW_SOURCES or {}
 _G.Langz_RAW_SOURCE_BY_REF = _G.Langz_RAW_SOURCE_BY_REF or {}
 
+-- ============ AUTO ANCHOR (semua hasil spawn / import) ============
+local function anchorPart(p)
+    if not p or not p:IsA("BasePart") then return end
+    pcall(function()
+        if p:GetAttribute("LANGZ_FileAnchored") == nil then
+            p:SetAttribute("LANGZ_FileAnchored", p.Anchored)
+        end
+        p:SetAttribute("LANGZ_AutoAnchored", true)
+        p.Anchored = true
+        p.AssemblyLinearVelocity = Vector3.zero
+        p.AssemblyAngularVelocity = Vector3.zero
+    end)
+end
+local function anchorTree(root)
+    if typeof(root) ~= "Instance" then return 0 end
+    local n = 0
+    if root:IsA("BasePart") then anchorPart(root); n += 1 end
+    local okD, desc = pcall(function() return root:GetDescendants() end)
+    if okD and desc then
+        for i, d in ipairs(desc) do
+            if d:IsA("BasePart") then anchorPart(d); n += 1 end
+            if i % 400 == 0 then task.wait() end
+        end
+    end
+    return n
+end
+-- anchor sekarang + jaga terus: part baru yg muncul & re-check berkala
+local function lockAnchored(root)
+    if typeof(root) ~= "Instance" then return end
+    anchorTree(root)
+    pcall(function()
+        root.DescendantAdded:Connect(function(d)
+            if d:IsA("BasePart") then anchorPart(d) end
+        end)
+    end)
+    task.spawn(function()
+        for _, delay in ipairs({0.3, 1, 2.5}) do
+            task.wait(delay)
+            if not root.Parent then return end
+            anchorTree(root)
+        end
+    end)
+end
+
 if type(string.unpack) ~= "function" then
     warn("[WLEO RBXL] string.unpack tidak tersedia. Binary RBXL tidak dapat dibaca.")
 end
@@ -1315,6 +1359,13 @@ local function buildRBXL(parsed, sourceFileName)
         end
     end)
     flushServerLoadsAsync()
+    do
+        local lockTarget = importRoot
+        for _, o in pairs(made) do
+            if o and o:IsA("BasePart") then anchorPart(o) end
+        end
+        if lockTarget then lockAnchored(lockTarget) end
+    end
     local madeCount = 0
     for _ in pairs(made) do madeCount += 1 end
     reportImportProgress(0.78, ("BUILD COMPLETE • %d INSTANCES"):format(madeCount))
@@ -1595,12 +1646,14 @@ local function spawnInFrontOfCamera(root)
         local cam = workspace.CurrentCamera
         if not cam then return end
         local target = cam.CFrame * CFrame.new(0, 0, -10)
+        anchorTree(root)
         if root:IsA("Model") then
             root:PivotTo(CFrame.new(target.Position))
         elseif root:IsA("BasePart") then
             root.CFrame = CFrame.new(target.Position)
         end
     end)
+    lockAnchored(root)
 end
 local function collectRBXMSources(parsed)
     local queues = {}
@@ -1757,6 +1810,7 @@ local function importRBXM(fileInfo)
         reportImportProgress(0.34, "BUILDING RBXMX MODEL")
         local okBuild, roots, count, skipped, failedProperties = pcall(buildRBXModelParsed, parsed, fileInfo.name)
         if not okBuild then return false, "RBXMX BUILD ERROR: " .. tostring(roots) end
+        if roots then for _, r in ipairs(roots) do lockAnchored(r) end end
         if roots and roots[1] then spawnInFrontOfCamera(roots[1]) end
         reportImportProgress(1.00, "RBXMX GENERATION COMPLETE")
         return true, ("RBXMX XML OK • %d object(s) • skipped:%d • prop:%d"):format(count or 0, skipped or 0, failedProperties or 0), roots and roots[1] or nil
@@ -1815,6 +1869,7 @@ local function importRBXM(fileInfo)
             end
             queueAssetsFromRBXM(root)
             spawnInFrontOfCamera(root)
+            lockAnchored(root)
         end
         reportImportProgress(0.40 + (rootIndex / math.max(#objects, 1)) * 0.45, ("IMPORTING RBXM ROOT %d / %d"):format(rootIndex, #objects))
     end
@@ -2483,6 +2538,7 @@ local ICONS = {
     RBXMX = "rbxassetid://106962661743892",
     RBXL  = "rbxassetid://122982660526589",
     RBXLX = "rbxassetid://122982660526589",
+    TOOLBOX = "rbxassetid://121323758319527",
 }
 
 -- ---------- sidebar ----------
@@ -2514,15 +2570,7 @@ local function makeTab(name, y)
     corner(b, 10)
     glassStroke(b, 1)
 
-    if isTB then
-        local ic = text(b, "TB", 9, Enum.Font.GothamBold, Color3.fromRGB(10, 20, 50), Enum.TextXAlignment.Center)
-        ic.Position = UDim2.fromOffset(6, 5)
-        ic.Size = UDim2.fromOffset(22, 22)
-        ic.BackgroundTransparency = 0.1
-        ic.BackgroundColor3 = C.ok
-        ic.ZIndex = 22
-        corner(ic, 6)
-    else
+    do
         local ic = Instance.new("ImageLabel")
         ic.Position = UDim2.fromOffset(6, 5)
         ic.Size = UDim2.fromOffset(22, 22)
@@ -2629,13 +2677,13 @@ emptyLbl.Size = UDim2.new(1, -20, 0, 60)
 emptyLbl.TextWrapped = true
 emptyLbl.ZIndex = 22
 
--- ---------- progress pill (kanan bawah layar) ----------
+-- ---------- progress pill (kiri bawah layar) ----------
 local fill, statusText, pctText, dot, halo
 do
     local pill = Instance.new("Frame")
     pill.Name = "ProgressPill"
-    pill.AnchorPoint = Vector2.new(1, 1)
-    pill.Position = UDim2.new(1, -10, 1, -10)
+    pill.AnchorPoint = Vector2.new(0, 1)
+    pill.Position = UDim2.new(0, 10, 1, -10)
     pill.Size = UDim2.fromOffset(190, 34)
     pill.BackgroundColor3 = Color3.fromRGB(22, 30, 66)
     pill.BackgroundTransparency = 0.2
@@ -3073,7 +3121,9 @@ do
             if gok and type(objs) == "table" and #objs > 0 then
                 for _, o in ipairs(objs) do
                     pcall(function() o.Parent = workspace end)
+                    anchorTree(o)
                     spawnInFrontOfCamera(o)
+                    lockAnchored(o)
                     pcall(queueAssetsFromRBXM, o)
                     local all = { o }
                     for _, d in ipairs(o:GetDescendants()) do all[#all + 1] = d end
@@ -3091,9 +3141,10 @@ do
             triggerServerLoad(id)
             if mesh then
                 mesh.Name = "Mesh_" .. id
-                pcall(function() mesh.Anchored = true end)
+                anchorPart(mesh)
                 pcall(function() mesh.Parent = workspace end)
                 spawnInFrontOfCamera(mesh)
+                lockAnchored(mesh)
                 ok, info = true, ("MESH %d MASUK WORKSPACE (%s)"):format(id, tostring(how))
             elseif getStudioLiteServerFuncs() then
                 ok, info = true, ("MESH %d DIKIRIM KE STUDIOLITE RUNTIME"):format(id)
