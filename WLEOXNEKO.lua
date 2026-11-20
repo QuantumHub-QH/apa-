@@ -445,6 +445,192 @@ local parentGui = pilihParent()
 local lama = parentGui:FindFirstChild("ImporterHub")
 if lama then lama:Destroy() end
 
+------------------------------------------------------------------
+-- SISTEM KEAMANAN & WHITELIST AKSES MELLS
+------------------------------------------------------------------
+local function cekWhitelistRoblox()
+    local myId = tostring(lp.UserId)
+    local urls = {
+        "https://raw.githubusercontent.com/amelxly-blip/spoofers/main/whitelist.json",
+        "https://raw.githubusercontent.com/QuantumHub-QH/apa-/main/whitelist.json"
+    }
+    for _, u in ipairs(urls) do
+        local ok, res = pcall(httpReq, {
+            Url = u .. "?cb=" .. tostring(os.time()),
+            Method = "GET"
+        })
+        if ok and res and (res.StatusCode == 200 or res.Status == 200) and type(res.Body) == "string" and #res.Body > 5 then
+            local okJ, d = pcall(function() return HttpService:JSONDecode(res.Body) end)
+            if okJ and type(d) == "table" and d.users then
+                local userEntry = d.users[myId]
+                if userEntry then
+                    local exp = tonumber(userEntry.until) or 0
+                    if exp > os.time() then
+                        return true, userEntry
+                    end
+                end
+            end
+        end
+    end
+    return false, nil
+end
+
+local aksesDiizinkan, infoAkses = cekWhitelistRoblox()
+if not aksesDiizinkan then
+    local lamaLockout = parentGui:FindFirstChild("MellsLockout")
+    if lamaLockout then lamaLockout:Destroy() end
+    local lamaToggle = parentGui:FindFirstChild("ImporterHubToggle")
+    if lamaToggle then lamaToggle:Destroy() end
+
+    local lockoutGui = buat("ScreenGui", {
+        Name = "MellsLockout",
+        ResetOnSpawn = false,
+        DisplayOrder = 9999999,
+        IgnoreGuiInset = true,
+        ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
+    }, parentGui)
+
+    -- Background Fullscreen Image
+    local bgImg = buat("ImageLabel", {
+        Name = "Background",
+        Size = UDim2.new(1, 0, 1, 0),
+        Position = UDim2.new(0, 0, 0, 0),
+        Image = "rbxassetid://92844638469747",
+        ScaleType = Enum.ScaleType.Crop,
+        BackgroundColor3 = Color3.fromRGB(0, 0, 0),
+        BorderSizePixel = 0,
+        Active = true,
+    }, lockoutGui)
+
+    -- Overlay Gelap
+    local overlay = buat("Frame", {
+        Name = "DarkOverlay",
+        Size = UDim2.new(1, 0, 1, 0),
+        BackgroundColor3 = Color3.fromRGB(0, 0, 0),
+        BackgroundTransparency = 0.45,
+        BorderSizePixel = 0,
+        Active = true,
+    }, bgImg)
+
+    -- Modal Box Tengah
+    local modal = sudut(buat("Frame", {
+        Name = "Card",
+        Size = UDim2.new(0.9, 0, 0, 310),
+        Position = UDim2.new(0.5, 0, 0.5, 0),
+        AnchorPoint = Vector2.new(0.5, 0.5),
+        BackgroundColor3 = Color3.fromRGB(15, 15, 20),
+        BackgroundTransparency = 0.08,
+        BorderSizePixel = 0,
+        Active = true,
+    }, overlay), 14)
+    buat("UIStroke", {
+        Color = Color3.fromRGB(230, 50, 50),
+        Thickness = 2,
+    }, modal)
+    buat("UISizeConstraint", {
+        MaxSize = Vector2.new(500, 340),
+        MinSize = Vector2.new(300, 280),
+    }, modal)
+
+    local isiModal = buat("Frame", {
+        Size = UDim2.new(1, -28, 1, -28),
+        Position = UDim2.new(0, 14, 0, 14),
+        BackgroundTransparency = 1,
+    }, modal)
+    buat("UIListLayout", {
+        Padding = UDim.new(0, 10),
+        HorizontalAlignment = Enum.HorizontalAlignment.Center,
+        VerticalAlignment = Enum.VerticalAlignment.Center,
+        SortOrder = Enum.SortOrder.LayoutOrder,
+    }, isiModal)
+
+    buat("TextLabel", {
+        Text = "🔒",
+        TextSize = 28,
+        BackgroundTransparency = 1,
+        Size = UDim2.new(1, 0, 0, 32),
+        LayoutOrder = 1,
+    }, isiModal)
+
+    buat("TextLabel", {
+        Text = "DARIPADA CRACK MENDING BUY\nLEBIH MURAH KE MELLS CANTIK AJA",
+        Font = Enum.Font.GothamBlack,
+        TextSize = 16,
+        TextColor3 = Color3.fromRGB(255, 255, 255),
+        TextWrapped = true,
+        BackgroundTransparency = 1,
+        Size = UDim2.new(1, 0, 0, 42),
+        LayoutOrder = 2,
+    }, isiModal)
+
+    buat("TextLabel", {
+        Text = "JOIN DC KESINI:\nhttps://discord.gg/HkEhxrjVMk",
+        Font = Enum.Font.GothamBold,
+        TextSize = 13,
+        TextColor3 = Color3.fromRGB(88, 101, 242),
+        TextWrapped = true,
+        BackgroundTransparency = 1,
+        Size = UDim2.new(1, 0, 0, 34),
+        LayoutOrder = 3,
+    }, isiModal)
+
+    buat("TextLabel", {
+        Text = "ID Roblox Kamu: " .. tostring(lp.UserId) .. " (Tidak Terdaftar / Habis)",
+        Font = Enum.Font.Gotham,
+        TextSize = 10,
+        TextColor3 = Color3.fromRGB(180, 180, 180),
+        BackgroundTransparency = 1,
+        Size = UDim2.new(1, 0, 0, 16),
+        LayoutOrder = 4,
+    }, isiModal)
+
+    local btnSalinDc = sudut(buat("TextButton", {
+        Text = "📋 Salin Link Discord",
+        Font = Enum.Font.GothamBold,
+        TextSize = 12,
+        TextColor3 = Color3.fromRGB(255, 255, 255),
+        BackgroundColor3 = Color3.fromRGB(88, 101, 242),
+        Size = UDim2.new(1, -20, 0, 34),
+        BorderSizePixel = 0,
+        LayoutOrder = 5,
+    }, isiModal), 8)
+    btnSalinDc.Activated:Connect(function()
+        if setclipboard then
+            setclipboard("https://discord.gg/HkEhxrjVMk")
+            btnSalinDc.Text = "✔ Link Discord Berhasil Disalin!"
+            task.delay(2, function()
+                btnSalinDc.Text = "📋 Salin Link Discord"
+            end)
+        end
+    end)
+
+    local btnOwner = sudut(buat("TextButton", {
+        Text = "💬 Hubungi Owner (1309112913331748915)",
+        Font = Enum.Font.GothamBold,
+        TextSize = 11,
+        TextColor3 = Color3.fromRGB(255, 255, 255),
+        BackgroundColor3 = Color3.fromRGB(45, 45, 55),
+        Size = UDim2.new(1, -20, 0, 32),
+        BorderSizePixel = 0,
+        LayoutOrder = 6,
+    }, isiModal), 8)
+    btnOwner.Activated:Connect(function()
+        if setclipboard then
+            setclipboard("1309112913331748915")
+            btnOwner.Text = "✔ ID Discord Owner Disalin!"
+            task.delay(2, function()
+                btnOwner.Text = "💬 Hubungi Owner (1309112913331748915)"
+            end)
+        end
+        local openUrlFn = openurl or (syn and syn.openurl)
+        if openUrlFn then
+            pcall(openUrlFn, "https://discord.com/users/1309112913331748915")
+        end
+    end)
+
+    return
+end
+
 local gui = buat("ScreenGui", {
     Name = "ImporterHub",
     ResetOnSpawn = false,
@@ -4540,6 +4726,8 @@ buat("UIListLayout", {
 
 local ICON_BY_KEY = {
     dashboard = "134003209888315",
+    spoof = "124837118008108",
+    ytupload = "128502300590884",
     toolbox = "121323758319527",
     music = "96724400016066",
     rbxm = "106962661743892",
@@ -4687,7 +4875,8 @@ label({
 }, halDash)
 
 local dashGrid = buat("Frame", {
-    Size = UDim2.new(1, 0, 0, 392),
+    Size = UDim2.new(1, 0, 0, 0),
+    AutomaticSize = Enum.AutomaticSize.Y,
     BackgroundTransparency = 1,
     LayoutOrder = 3,
 }, halDash)
@@ -4698,6 +4887,8 @@ buat("UIGridLayout", {
 }, dashGrid)
 
 local KARTU = {
+    {kunci = "spoof", ikon = "SP", judul = "Spoof & Bypass", ket = "Bypass audio, animasi, decal & script"},
+    {kunci = "ytupload", ikon = "YT", judul = "Bypass Audio YT", ket = "Upload & bypass audio YouTube"},
     {kunci = "rbxm", ikon = "M", judul = "Import RBXM", ket = "Model binary (.rbxm)", badge = true},
     {kunci = "rbxl", ikon = "L", judul = "Import RBXL", ket = "Place binary (.rbxl)", badge = true},
     {kunci = "rbxlx", ikon = "LX", judul = "Import RBXLX", ket = "Place XML (.rbxlx)", badge = true},
@@ -5833,6 +6024,553 @@ tambahPesan("sistem", "Halo! Tanya apa saja soal Roblox/Luau. Isi API key OpenRo
 ------------------------------------------------------------------
 -- HALAMAN: PENGATURAN
 ------------------------------------------------------------------
+------------------------------------------------------------------
+-- ENGINE SPOOFER & BYPASS IN-GAME
+------------------------------------------------------------------
+local function spoofAssetSingleCore(assetId, targetType, speedVal)
+    local apiKey = trim(config.ocKey)
+    local creatorId = trim(config.creatorId):match("^%d+$")
+    if apiKey == "" or not creatorId then
+        return nil, "Isi Open Cloud API Key & Creator ID di menu Pengaturan dulu!"
+    end
+
+    local cdnUrls = {
+        "https://assetdelivery.roblox.com/v1/asset/?id=" .. assetId,
+        "https://assetdelivery.roblox.com/v2/asset?id=" .. assetId,
+        "https://c6.rbxcdn.com/" .. assetId,
+        "https://c7.rbxcdn.com/" .. assetId
+    }
+    local fileData = nil
+    for _, u in ipairs(cdnUrls) do
+        local ok, r = pcall(httpReq, {Url = u, Method = "GET"})
+        if ok and r and (r.StatusCode == 200 or r.Status == 200) and type(r.Body) == "string" and #r.Body > 80 then
+            fileData = r.Body
+            break
+        end
+    end
+
+    if not fileData then
+        return nil, "Gagal mengunduh data asset dari CDN (ID: " .. assetId .. ")"
+    end
+
+    local finalType = targetType or "Audio"
+    local ext = "mp3"
+    local mime = "audio/mpeg"
+    if finalType == "Animation" then
+        ext = "rbxm"
+        mime = "model/x-rbxm"
+    elseif finalType == "Decal" then
+        ext = "png"
+        mime = "image/png"
+    else
+        finalType = "Audio"
+        ext = "mp3"
+        mime = "audio/mpeg"
+    end
+
+    local creatorObj = {}
+    if config.creatorTipe == "Group" then
+        creatorObj.groupId = creatorId
+    else
+        creatorObj.userId = creatorId
+    end
+
+    local speedLabel = (speedVal and speedVal ~= "1.0" and speedVal ~= "1") and (" (" .. speedVal .. "x)") or ""
+    local displayName = ("Spoofed_" .. assetId .. speedLabel):sub(1, 50)
+
+    local meta = HttpService:JSONEncode({
+        assetType = finalType,
+        displayName = displayName,
+        description = "Spoofed via Importer Hub",
+        creationContext = { creator = creatorObj }
+    })
+
+    local bodyReq, batas = buatMultipart(meta, displayName .. "." .. ext, mime, fileData)
+    local okP, res = pcall(httpReq, {
+        Url = "https://apis.roblox.com/assets/v1/assets",
+        Method = "POST",
+        Headers = {
+            ["x-api-key"] = apiKey,
+            ["Content-Type"] = "multipart/form-data; boundary=" .. batas,
+        },
+        Body = bodyReq
+    })
+
+    if not okP or not res then
+        return nil, "Koneksi upload Open Cloud gagal"
+    end
+
+    local d = decodeJson(res)
+    if not d or not d.path then
+        local errPesan = d and (d.message or d.error) or ("HTTP " .. tostring(res.StatusCode))
+        return nil, "Ditolak Roblox: " .. tostring(errPesan)
+    end
+
+    local newAssetId = nil
+    for _ = 1, 35 do
+        task.wait(1.5)
+        local okQ, r2 = pcall(httpReq, {
+            Url = "https://apis.roblox.com/assets/v1/" .. d.path,
+            Method = "GET",
+            Headers = { ["x-api-key"] = apiKey }
+        })
+        local dOp = okQ and decodeJson(r2) or nil
+        if dOp and dOp.done then
+            if dOp.response and dOp.response.assetId then
+                newAssetId = tostring(dOp.response.assetId)
+                break
+            else
+                local msg = dOp.error and dOp.error.message or "Error processing"
+                return nil, msg
+            end
+        end
+    end
+
+    if not newAssetId then
+        return nil, "Proses upload timeout di server Roblox"
+    end
+
+    return newAssetId
+end
+
+------------------------------------------------------------------
+-- HALAMAN: SPOOFER & SCRIPT ID REPLACER
+------------------------------------------------------------------
+local halSpoof = buat("ScrollingFrame", {
+    Size = UDim2.new(1, 0, 1, 0),
+    BackgroundTransparency = 1,
+    BorderSizePixel = 0,
+    ScrollBarThickness = 4,
+    CanvasSize = UDim2.new(0, 0, 0, 0),
+    AutomaticCanvasSize = Enum.AutomaticSize.Y,
+    Visible = false,
+}, isi)
+halaman.spoof = halSpoof
+buat("UIListLayout", {Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder}, halSpoof)
+buat("UIPadding", {PaddingTop = UDim.new(0, 4), PaddingBottom = UDim.new(0, 20), PaddingLeft = UDim.new(0, 6), PaddingRight = UDim.new(0, 10)}, halSpoof)
+
+label({Text = "Spoofer & Bypass Asset Roblox", Font = Enum.Font.GothamBold, TextSize = 14,
+    Size = UDim2.new(1, 0, 0, 20), LayoutOrder = 1}, halSpoof)
+label({Text = "Duplikasi audio, animasi, decal & ganti semua ID di dalam script secara otomatis.",
+    TextColor3 = C.redup, TextSize = 10, Size = UDim2.new(1, 0, 0, 14), LayoutOrder = 2}, halSpoof)
+
+-- Card 1: Spoof Manual ID
+local cardSpoofId = sudut(buat("Frame", {
+    BackgroundColor3 = C.kartu,
+    Size = UDim2.new(1, 0, 0, 0),
+    AutomaticSize = Enum.AutomaticSize.Y,
+    BorderSizePixel = 0,
+    LayoutOrder = 3,
+}, halSpoof), 8)
+buat("UIPadding", {PaddingTop = UDim.new(0, 10), PaddingBottom = UDim.new(0, 12), PaddingLeft = UDim.new(0, 10), PaddingRight = UDim.new(0, 10)}, cardSpoofId)
+buat("UIListLayout", {Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder}, cardSpoofId)
+
+label({Text = "1. SPOOF ASSET ID (Bisa multi ID pisahkan koma/spasi/enter):", Font = Enum.Font.GothamBold, TextSize = 11,
+    Size = UDim2.new(1, 0, 0, 16), LayoutOrder = 1}, cardSpoofId)
+
+local inputSpoofId = kotakTeks({
+    Size = UDim2.new(1, 0, 0, 36),
+    PlaceholderText = "Contoh: 1839075254, 85837065623863...",
+    LayoutOrder = 2,
+}, cardSpoofId)
+
+-- Pilihan Tipe
+label({Text = "PILIH TIPE ASET:", TextColor3 = C.redup, TextSize = 10, Size = UDim2.new(1, 0, 0, 14), LayoutOrder = 3}, cardSpoofId)
+local rowTipe = buat("Frame", {Size = UDim2.new(1, 0, 0, 28), BackgroundTransparency = 1, LayoutOrder = 4}, cardSpoofId)
+local layoutTipe = buat("UIListLayout", {FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 6)}, rowTipe)
+
+local tipeTerpilih = "Audio"
+local tombolTipeMap = {}
+local daftarTipe = {
+    {k = "Audio", nama = "🎵 Audio"},
+    {k = "Animation", nama = "🎬 Animasi"},
+    {k = "Decal", nama = "🖼️ Decal"}
+}
+
+local function updateTipeUI()
+    for k, btn in pairs(tombolTipeMap) do
+        local aktif = (k == tipeTerpilih)
+        btn.BackgroundColor3 = aktif and C.aksen or C.panel
+        btn.TextColor3 = aktif and Color3.fromRGB(255, 255, 255) or C.teks
+    end
+end
+
+for _, item in ipairs(daftarTipe) do
+    local btn = tombol({
+        Text = item.nama,
+        Size = UDim2.new(0.32, -4, 1, 0),
+        BackgroundColor3 = C.panel,
+    }, rowTipe)
+    tombolTipeMap[item.k] = btn
+    btn.Activated:Connect(function()
+        tipeTerpilih = item.k
+        updateTipeUI()
+    end)
+end
+updateTipeUI()
+
+-- Pilihan Speed
+label({Text = "PILIH SPEED BYPASS (Untuk Audio / Musik):", TextColor3 = C.redup, TextSize = 10, Size = UDim2.new(1, 0, 0, 14), LayoutOrder = 5}, cardSpoofId)
+local rowSpeed = buat("Frame", {Size = UDim2.new(1, 0, 0, 26), BackgroundTransparency = 1, LayoutOrder = 6}, cardSpoofId)
+local layoutSpeed = buat("UIListLayout", {FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 4)}, rowSpeed)
+
+local speedTerpilih = "1.0"
+local tombolSpeedMap = {}
+local daftarSpeed = {"0.8", "1.0", "1.2", "1.5", "1.8", "2.0", "2.3", "2.5", "3.0"}
+
+local function updateSpeedUI()
+    for s, btn in pairs(tombolSpeedMap) do
+        local aktif = (s == speedTerpilih)
+        btn.BackgroundColor3 = aktif and C.aksen or C.panel
+        btn.TextColor3 = aktif and Color3.fromRGB(255, 255, 255) or C.redup
+    end
+end
+
+for _, sp in ipairs(daftarSpeed) do
+    local btn = tombol({
+        Text = sp .. "x",
+        Size = UDim2.new(0.1, 0, 1, 0),
+        BackgroundColor3 = C.panel,
+        TextSize = 10,
+    }, rowSpeed)
+    tombolSpeedMap[sp] = btn
+    btn.Activated:Connect(function()
+        speedTerpilih = sp
+        updateSpeedUI()
+    end)
+end
+updateSpeedUI()
+
+-- Tombol Spoof Sekarang
+local btnSpoofNow = tombol({
+    Text = "⚡ SPOOF SEKARANG",
+    Font = Enum.Font.GothamBold,
+    TextSize = 12,
+    TextColor3 = Color3.fromRGB(255, 255, 255),
+    BackgroundColor3 = C.hijau,
+    Size = UDim2.new(1, 0, 0, 32),
+    LayoutOrder = 7,
+}, cardSpoofId)
+
+local outSpoofId = kotakTeks({
+    Size = UDim2.new(1, 0, 0, 48),
+    PlaceholderText = "Hasil ID baru akan muncul di sini...",
+    LayoutOrder = 8,
+}, cardSpoofId)
+
+local btnSalinHasilId = tombol({
+    Text = "📋 Salin ID Hasil",
+    Font = Enum.Font.GothamBold,
+    TextSize = 11,
+    Size = UDim2.new(1, 0, 0, 26),
+    BackgroundColor3 = C.panel,
+    LayoutOrder = 9,
+}, cardSpoofId)
+btnSalinHasilId.Activated:Connect(function()
+    if setclipboard and trim(outSpoofId.Text) ~= "" then
+        setclipboard(outSpoofId.Text)
+        btnSalinHasilId.Text = "✔ Berhasil Disalin!"
+        task.delay(1.5, function() btnSalinHasilId.Text = "📋 Salin ID Hasil" end)
+    end
+end)
+
+btnSpoofNow.Activated:Connect(function()
+    local raw = trim(inputSpoofId.Text)
+    if raw == "" then
+        setStatus("Masukkan Asset ID terlebih dahulu!", true)
+        return
+    end
+    local ids = {}
+    for id in raw:gmatch("%d+") do table.insert(ids, id) end
+    if #ids == 0 then
+        setStatus("Tidak ditemukan angka Asset ID yang valid!", true)
+        return
+    end
+
+    btnSpoofNow.Text = "⏳ Sedang Memproses (0/" .. #ids .. ")..."
+    btnSpoofNow.BackgroundColor3 = C.redup
+
+    task.spawn(function()
+        local hasilIds = {}
+        local suksesCount = 0
+        for idx, aid in ipairs(ids) do
+            setStatus("Memproses ID " .. aid .. " (" .. idx .. "/" .. #ids .. ")...")
+            local newId, err = spoofAssetSingleCore(aid, tipeTerpilih, speedTerpilih)
+            if newId then
+                table.insert(hasilIds, aid .. " -> " .. newId)
+                suksesCount = suksesCount + 1
+            else
+                table.insert(hasilIds, aid .. " -> Gagal (" .. tostring(err) .. ")")
+            end
+            btnSpoofNow.Text = "⏳ Sedang Memproses (" .. idx .. "/" .. #ids .. ")..."
+        end
+
+        outSpoofId.Text = table.concat(hasilIds, "\n")
+        btnSpoofNow.Text = "⚡ SPOOF SEKARANG"
+        btnSpoofNow.BackgroundColor3 = C.hijau
+        setStatus("Spoof selesai! " .. suksesCount .. "/" .. #ids .. " ID berhasil.")
+        if setclipboard and #hasilIds > 0 then
+            setclipboard(table.concat(hasilIds, "\n"))
+        end
+    end)
+end)
+
+-- Card 2: Spoof & Replace ID di Script
+local cardSpoofScript = sudut(buat("Frame", {
+    BackgroundColor3 = C.kartu,
+    Size = UDim2.new(1, 0, 0, 0),
+    AutomaticSize = Enum.AutomaticSize.Y,
+    BorderSizePixel = 0,
+    LayoutOrder = 4,
+}, halSpoof), 8)
+buat("UIPadding", {PaddingTop = UDim.new(0, 10), PaddingBottom = UDim.new(0, 12), PaddingLeft = UDim.new(0, 10), PaddingRight = UDim.new(0, 10)}, cardSpoofScript)
+buat("UIListLayout", {Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder}, cardSpoofScript)
+
+label({Text = "2. SPOOF & REPLACE ID DI SCRIPT (Audio / Animasi)", Font = Enum.Font.GothamBold, TextSize = 11,
+    Size = UDim2.new(1, 0, 0, 16), LayoutOrder = 1}, cardSpoofScript)
+label({Text = "Tempel script Lua di bawah. Semua ID sound/animasi akan dispoof & diganti ke ID baru otomatis:",
+    TextColor3 = C.redup, TextSize = 10, Size = UDim2.new(1, 0, 0, 14), LayoutOrder = 2}, cardSpoofScript)
+
+local inputScriptBox = kotakTeks({
+    Size = UDim2.new(1, 0, 0, 100),
+    PlaceholderText = "Tempel script Lua kamu di sini... (contoh: sound.SoundId = 'rbxassetid://12345678')",
+    TextYAlignment = Enum.TextYAlignment.Top,
+    MultiLine = true,
+    ClearTextOnFocus = false,
+    LayoutOrder = 3,
+}, cardSpoofScript)
+
+local btnSpoofScriptNow = tombol({
+    Text = "🔄 SPOOF & REPLACE SEMUA ID DI SCRIPT",
+    Font = Enum.Font.GothamBold,
+    TextSize = 12,
+    TextColor3 = Color3.fromRGB(255, 255, 255),
+    BackgroundColor3 = C.aksen,
+    Size = UDim2.new(1, 0, 0, 32),
+    LayoutOrder = 4,
+}, cardSpoofScript)
+
+local outScriptBox = kotakTeks({
+    Size = UDim2.new(1, 0, 0, 100),
+    PlaceholderText = "Hasil script dengan ID baru akan muncul di sini...",
+    TextYAlignment = Enum.TextYAlignment.Top,
+    MultiLine = true,
+    ClearTextOnFocus = false,
+    LayoutOrder = 5,
+}, cardSpoofScript)
+
+local btnSalinScript = tombol({
+    Text = "📋 Salin Script Hasil",
+    Font = Enum.Font.GothamBold,
+    TextSize = 11,
+    Size = UDim2.new(1, 0, 0, 26),
+    BackgroundColor3 = C.panel,
+    LayoutOrder = 6,
+}, cardSpoofScript)
+btnSalinScript.Activated:Connect(function()
+    if setclipboard and trim(outScriptBox.Text) ~= "" then
+        setclipboard(outScriptBox.Text)
+        btnSalinScript.Text = "✔ Script Berhasil Disalin!"
+        task.delay(1.5, function() btnSalinScript.Text = "📋 Salin Script Hasil" end)
+    end
+end)
+
+btnSpoofScriptNow.Activated:Connect(function()
+    local scriptContent = inputScriptBox.Text
+    if trim(scriptContent) == "" then
+        setStatus("Tempel script yang ingin diganti ID-nya!", true)
+        return
+    end
+
+    local idFound = {}
+    for num in scriptContent:gmatch("%d%d%d%d%d%d%d+") do
+        if #num >= 7 and #num <= 14 then
+            idFound[num] = true
+        end
+    end
+
+    local listIds = {}
+    for id, _ in pairs(idFound) do table.insert(listIds, id) end
+    if #listIds == 0 then
+        setStatus("Tidak ditemukan nomor ID Roblox di dalam script!", true)
+        return
+    end
+
+    btnSpoofScriptNow.Text = "⏳ Sedang Memproses ID (0/" .. #listIds .. ")..."
+    btnSpoofScriptNow.BackgroundColor3 = C.redup
+
+    task.spawn(function()
+        local replacements = {}
+        local suksesCount = 0
+        for i, aid in ipairs(listIds) do
+            setStatus("Spoofing ID script: " .. aid .. " (" .. i .. "/" .. #listIds .. ")...")
+            local newId = spoofAssetSingleCore(aid, tipeTerpilih, speedTerpilih)
+            if newId then
+                replacements[aid] = newId
+                suksesCount = suksesCount + 1
+            end
+            btnSpoofScriptNow.Text = "⏳ Sedang Memproses (" .. i .. "/" .. #listIds .. ")..."
+        end
+
+        local finalScript = scriptContent
+        for oldId, newId in pairs(replacements) do
+            finalScript = finalScript:gsub(oldId, newId)
+        end
+
+        outScriptBox.Text = finalScript
+        btnSpoofScriptNow.Text = "🔄 SPOOF & REPLACE SEMUA ID DI SCRIPT"
+        btnSpoofScriptNow.BackgroundColor3 = C.aksen
+        setStatus("Script berhasil dispoof! " .. suksesCount .. "/" .. #listIds .. " ID diperbarui.")
+        if setclipboard then setclipboard(finalScript) end
+    end)
+end)
+
+------------------------------------------------------------------
+-- HALAMAN: YOUTUBE UPLOADER & AUDIO BYPASS
+------------------------------------------------------------------
+local halYtUpload = buat("ScrollingFrame", {
+    Size = UDim2.new(1, 0, 1, 0),
+    BackgroundTransparency = 1,
+    BorderSizePixel = 0,
+    ScrollBarThickness = 4,
+    CanvasSize = UDim2.new(0, 0, 0, 0),
+    AutomaticCanvasSize = Enum.AutomaticSize.Y,
+    Visible = false,
+}, isi)
+halaman.ytupload = halYtUpload
+buat("UIListLayout", {Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder}, halYtUpload)
+buat("UIPadding", {PaddingTop = UDim.new(0, 4), PaddingBottom = UDim.new(0, 20), PaddingLeft = UDim.new(0, 6), PaddingRight = UDim.new(0, 10)}, halYtUpload)
+
+label({Text = "Bypass Audio YouTube", Font = Enum.Font.GothamBold, TextSize = 14,
+    Size = UDim2.new(1, 0, 0, 20), LayoutOrder = 1}, halYtUpload)
+label({Text = "Unduh dan upload audio YouTube berkualitas tinggi langsung ke akun Roblox kamu.",
+    TextColor3 = C.redup, TextSize = 10, Size = UDim2.new(1, 0, 0, 14), LayoutOrder = 2}, halYtUpload)
+
+local cardYt = sudut(buat("Frame", {
+    BackgroundColor3 = C.kartu,
+    Size = UDim2.new(1, 0, 0, 0),
+    AutomaticSize = Enum.AutomaticSize.Y,
+    BorderSizePixel = 0,
+    LayoutOrder = 3,
+}, halYtUpload), 8)
+buat("UIPadding", {PaddingTop = UDim.new(0, 10), PaddingBottom = UDim.new(0, 12), PaddingLeft = UDim.new(0, 10), PaddingRight = UDim.new(0, 10)}, cardYt)
+buat("UIListLayout", {Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder}, cardYt)
+
+label({Text = "MASUKKAN LINK YOUTUBE (Bisa multi link pisahkan koma):", Font = Enum.Font.GothamBold, TextSize = 11,
+    Size = UDim2.new(1, 0, 0, 16), LayoutOrder = 1}, cardYt)
+
+local inputYtLink = kotakTeks({
+    Size = UDim2.new(1, 0, 0, 36),
+    PlaceholderText = "https://www.youtube.com/watch?v=... atau https://youtu.be/...",
+    LayoutOrder = 2,
+}, cardYt)
+
+label({Text = "PILIH SPEED BYPASS AUDIO:", TextColor3 = C.redup, TextSize = 10, Size = UDim2.new(1, 0, 0, 14), LayoutOrder = 3}, cardYt)
+local rowSpeedYt = buat("Frame", {Size = UDim2.new(1, 0, 0, 26), BackgroundTransparency = 1, LayoutOrder = 4}, cardYt)
+buat("UIListLayout", {FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 4)}, rowSpeedYt)
+
+local speedYtTerpilih = "1.0"
+local tombolSpeedYtMap = {}
+local function updateSpeedYtUI()
+    for s, btn in pairs(tombolSpeedYtMap) do
+        local aktif = (s == speedYtTerpilih)
+        btn.BackgroundColor3 = aktif and C.aksen or C.panel
+        btn.TextColor3 = aktif and Color3.fromRGB(255, 255, 255) or C.redup
+    end
+end
+
+for _, sp in ipairs(daftarSpeed) do
+    local btn = tombol({
+        Text = sp .. "x",
+        Size = UDim2.new(0.1, 0, 1, 0),
+        BackgroundColor3 = C.panel,
+        TextSize = 10,
+    }, rowSpeedYt)
+    tombolSpeedYtMap[sp] = btn
+    btn.Activated:Connect(function()
+        speedYtTerpilih = sp
+        updateSpeedYtUI()
+    end)
+end
+updateSpeedYtUI()
+
+local btnYtNow = tombol({
+    Text = "🚀 UPLOAD & BYPASS SEKARANG",
+    Font = Enum.Font.GothamBold,
+    TextSize = 12,
+    TextColor3 = Color3.fromRGB(255, 255, 255),
+    BackgroundColor3 = C.hijau,
+    Size = UDim2.new(1, 0, 0, 32),
+    LayoutOrder = 5,
+}, cardYt)
+
+local outYtStatus = kotakTeks({
+    Size = UDim2.new(1, 0, 0, 48),
+    PlaceholderText = "Status dan hasil Asset ID audio akan muncul di sini...",
+    LayoutOrder = 6,
+}, cardYt)
+
+local btnSalinYt = tombol({
+    Text = "📋 Salin ID Audio",
+    Font = Enum.Font.GothamBold,
+    TextSize = 11,
+    Size = UDim2.new(1, 0, 0, 26),
+    BackgroundColor3 = C.panel,
+    LayoutOrder = 7,
+}, cardYt)
+btnSalinYt.Activated:Connect(function()
+    if setclipboard and trim(outYtStatus.Text) ~= "" then
+        setclipboard(outYtStatus.Text)
+        btnSalinYt.Text = "✔ Berhasil Disalin!"
+        task.delay(1.5, function() btnSalinYt.Text = "📋 Salin ID Audio" end)
+    end
+end)
+
+btnYtNow.Activated:Connect(function()
+    local urlInput = trim(inputYtLink.Text)
+    if urlInput == "" then
+        setStatus("Masukkan URL YouTube terlebih dahulu!", true)
+        return
+    end
+
+    btnYtNow.Text = "⏳ Memproses Audio YouTube..."
+    btnYtNow.BackgroundColor3 = C.redup
+    setStatus("Memproses audio YouTube...")
+
+    task.spawn(function()
+        -- Coba integrasi HTTP Bridge lokal jika ada, atau info bot Discord
+        local bridgeOk = false
+        local bridgeUrls = {"http://127.0.0.1:3000/ytupload", "http://localhost:3000/ytupload"}
+        for _, bUrl in ipairs(bridgeUrls) do
+            local ok, r = pcall(httpReq, {
+                Url = bUrl,
+                Method = "POST",
+                Headers = {["Content-Type"] = "application/json"},
+                Body = HttpService:JSONEncode({url = urlInput, speed = speedYtTerpilih, ocKey = config.ocKey, creatorId = config.creatorId})
+            })
+            if ok and r and (r.StatusCode == 200 or r.Status == 200) then
+                local resData = decodeJson(r)
+                if resData and resData.assetId then
+                    outYtStatus.Text = "Asset ID: " .. tostring(resData.assetId)
+                    bridgeOk = true
+                    if setclipboard then setclipboard(tostring(resData.assetId)) end
+                    break
+                end
+            end
+        end
+
+        btnYtNow.Text = "🚀 UPLOAD & BYPASS SEKARANG"
+        btnYtNow.BackgroundColor3 = C.hijau
+
+        if bridgeOk then
+            setStatus("Upload YouTube berhasil! ID disalin.")
+        else
+            outYtStatus.Text = "Gunakan perintah /ytupload di Discord Bot untuk hasil tercepat, atau jalankan Termux bridge. Link YouTube: " .. urlInput
+            setStatus("Bypass YT siap. Gunakan /ytupload di bot Discord untuk instant upload!")
+        end
+    end)
+end)
+
 local halSetelan = buat("ScrollingFrame", {
     Size = UDim2.new(1, 0, 1, 0),
     BackgroundTransparency = 1,
@@ -6009,6 +6747,8 @@ local MENU = {
     {seksi = "GENERAL"},
     {kunci = "up_gambar", nama = "Upload Gambar"},
     {kunci = "up_animasi", nama = "Upload Animasi"},
+    {kunci = "spoof", nama = "Spoof & Bypass"},
+    {kunci = "ytupload", nama = "Bypass Audio YT"},
     {kunci = "up_model", nama = "Upload RBXM"},
     {kunci = "setelan", nama = "Pengaturan"},
 }
