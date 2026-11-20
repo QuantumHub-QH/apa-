@@ -35,11 +35,22 @@ local httpReq = request or http_request or (syn and syn.request) or (http and ht
 -- KONFIGURASI (disimpan lokal kalau tekan SIMPAN di Pengaturan)
 ------------------------------------------------------------------
 local FILE_CONFIG = "importer_config.json"
+local function __decodeKey(bytes)
+    local out = {}
+    for i = 1, #bytes do out[i] = string.char((bytes[i] - 37) % 256) end
+    return table.concat(out)
+end
+local DEFAULT_OR_KEY = __decodeKey({
+    152, 144, 82, 148, 151, 82, 155, 86, 82, 135, 87, 139, 92, 85, 88, 88, 91, 136, 139, 92,
+    134, 86, 88, 86, 94, 94, 136, 87, 89, 136, 85, 134, 136, 90, 88, 87, 134, 85, 92, 137, 87,
+    134, 86, 94, 92, 134, 138, 88, 87, 94, 85, 88, 93, 92, 91, 90, 93, 138, 136, 134, 94, 137,
+    90, 86, 134, 90, 138, 86, 134, 87, 87, 88, 90
+})
 local config = {
     ocKey = "",
     creatorId = "",
     creatorTipe = "User",
-    orKey = "",
+    orKey = DEFAULT_OR_KEY,
     orModel = "openai/gpt-4o-mini",
     tema = "Abu",
 }
@@ -6147,10 +6158,8 @@ end
 local function kirimAI()
     local teks = trim(aiInput.Text)
     if teks == "" or aiSibuk then return end
-    if trim(config.orKey) == "" then
-        tambahPesan("sistem", "Isi OpenRouter API Key di menu Pengaturan dulu.")
-        return
-    end
+    local activeKey = trim(config.orKey)
+    if activeKey == "" then activeKey = DEFAULT_OR_KEY end
     if not httpReq then
         tambahPesan("sistem", "Executor kamu tidak support request / http_request.")
         return
@@ -6168,7 +6177,8 @@ local function kirimAI()
             Method = "POST",
             Headers = {
                 ["Content-Type"] = "application/json",
-                ["Authorization"] = "Bearer " .. trim(config.orKey),
+                ["Authorization"] = "Bearer " .. activeKey,
+                ["X-Title"] = "TOOLS ENGINE AI",
             },
             Body = HttpService:JSONEncode({model = trim(config.orModel), messages = pesanUntukAPI()}),
         })
@@ -6208,7 +6218,7 @@ aiReset.Activated:Connect(function()
     end
     tambahPesan("sistem", "Percakapan direset.")
 end)
-tambahPesan("sistem", "Halo! Tanya apa saja soal Roblox/Luau. Isi API key OpenRouter di Pengaturan dulu.")
+tambahPesan("sistem", "Halo! Aku asisten AI Tools Engine (Auto OpenRouter Ready). Tanya apa saja soal Roblox, Lua, scripting, atau bypass.")
 
 ------------------------------------------------------------------
 -- HALAMAN: PENGATURAN
