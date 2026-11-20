@@ -448,6 +448,25 @@ if lama then lama:Destroy() end
 ------------------------------------------------------------------
 -- SISTEM KEAMANAN & WHITELIST AKSES MELLS
 ------------------------------------------------------------------
+local function fetchTextOnline(url)
+    if httpReq then
+        local ok, res = pcall(httpReq, {
+            Url = url,
+            Method = "GET"
+        })
+        if ok and res and (res.StatusCode == 200 or res.Status == 200) and type(res.Body) == "string" then
+            return res.Body
+        end
+    end
+    local okHttp, body = pcall(function()
+        return game:HttpGet(url)
+    end)
+    if okHttp and type(body) == "string" and #body > 5 then
+        return body
+    end
+    return nil
+end
+
 local function cekWhitelistRoblox()
     local myId = tostring(lp.UserId)
     local urls = {
@@ -455,16 +474,13 @@ local function cekWhitelistRoblox()
         "https://raw.githubusercontent.com/QuantumHub-QH/apa-/main/whitelist.json"
     }
     for _, u in ipairs(urls) do
-        local ok, res = pcall(httpReq, {
-            Url = u .. "?cb=" .. tostring(os.time()),
-            Method = "GET"
-        })
-        if ok and res and (res.StatusCode == 200 or res.Status == 200) and type(res.Body) == "string" and #res.Body > 5 then
-            local okJ, d = pcall(function() return HttpService:JSONDecode(res.Body) end)
+        local body = fetchTextOnline(u .. "?cb=" .. tostring(os.time()))
+        if body and #body > 5 then
+            local okJ, d = pcall(function() return HttpService:JSONDecode(body) end)
             if okJ and type(d) == "table" and d.users then
                 local userEntry = d.users[myId]
                 if userEntry then
-                    local exp = tonumber(userEntry.until) or 0
+                    local exp = tonumber(userEntry["until"]) or 0
                     if exp > os.time() then
                         return true, userEntry
                     end
