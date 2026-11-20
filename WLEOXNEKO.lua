@@ -2370,7 +2370,7 @@ do
 end
 
 -- ---------- main ----------
-local MAIN_W, MAIN_H = 520, 310
+local MAIN_W, MAIN_H = 540, 345
 local main = Instance.new("Frame")
 main.Name = "Main"
 main.AnchorPoint = Vector2.new(0.5, 0.5)
@@ -2429,130 +2429,169 @@ do
     corner(blobB, 90)
 end
 
--- header
-local header = Instance.new("Frame")
-header.Size = UDim2.new(1, -24, 0, 46)
-header.Position = UDim2.fromOffset(12, 8)
-header.BackgroundTransparency = 1
-header.ZIndex = 20
-header.Parent = main
+-- ---------- header ----------
+local closeBtn
+do
+    local header = Instance.new("Frame")
+    header.Size = UDim2.new(1, -24, 0, 42)
+    header.Position = UDim2.fromOffset(12, 8)
+    header.BackgroundTransparency = 1
+    header.ZIndex = 20
+    header.Parent = main
 
-local logo = Instance.new("ImageLabel")
-logo.Size = UDim2.fromOffset(36, 36)
-logo.Position = UDim2.fromOffset(0, 5)
-logo.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-logo.BackgroundTransparency = 0.85
-logo.Image = TOGGLE_ICON
-logo.ScaleType = Enum.ScaleType.Fit
-logo.ZIndex = 21
-logo.Parent = header
-corner(logo, 11)
-glassStroke(logo, 1)
+    local logo = Instance.new("ImageLabel")
+    logo.Size = UDim2.fromOffset(34, 34)
+    logo.Position = UDim2.fromOffset(0, 4)
+    logo.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    logo.BackgroundTransparency = 0.85
+    logo.Image = TOGGLE_ICON
+    logo.ScaleType = Enum.ScaleType.Fit
+    logo.ZIndex = 21
+    logo.Parent = header
+    corner(logo, 11)
+    glassStroke(logo, 1)
 
-local title = text(header, "WLEO x NEKO", 17, Enum.Font.GothamBold, C.text)
-title.Position = UDim2.fromOffset(46, 3)
-title.Size = UDim2.new(1, -120, 0, 22)
-title.ZIndex = 21
-local subtitle = text(header, "RBXM • RBXL IMPORTER", 11, Enum.Font.GothamMedium, C.accent)
-subtitle.Position = UDim2.fromOffset(46, 25)
-subtitle.Size = UDim2.new(1, -120, 0, 16)
-subtitle.ZIndex = 21
+    local title = text(header, "WLEO x NEKO", 16, Enum.Font.GothamBold, C.text)
+    title.Position = UDim2.fromOffset(44, 2)
+    title.Size = UDim2.new(1, -120, 0, 20)
+    title.ZIndex = 21
+    local subtitle = text(header, "RBXM • RBXL • TOOLBOX", 10, Enum.Font.GothamMedium, C.accent)
+    subtitle.Position = UDim2.fromOffset(44, 22)
+    subtitle.Size = UDim2.new(1, -120, 0, 14)
+    subtitle.ZIndex = 21
 
-local closeBtn = Instance.new("TextButton")
-closeBtn.Size = UDim2.fromOffset(32, 32)
-closeBtn.AnchorPoint = Vector2.new(1, 0)
-closeBtn.Position = UDim2.new(1, 0, 0, 7)
-closeBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-closeBtn.BackgroundTransparency = 0.85
-closeBtn.Text = "×"
-closeBtn.TextSize = 22
-closeBtn.Font = Enum.Font.GothamBold
-closeBtn.TextColor3 = C.text
-closeBtn.AutoButtonColor = false
-closeBtn.ZIndex = 22
-closeBtn.Parent = header
-corner(closeBtn, 10)
-glassStroke(closeBtn, 1)
+    closeBtn = Instance.new("TextButton")
+    closeBtn.Size = UDim2.fromOffset(28, 28)
+    closeBtn.AnchorPoint = Vector2.new(1, 0)
+    closeBtn.Position = UDim2.new(1, 0, 0, 5)
+    closeBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    closeBtn.BackgroundTransparency = 0.85
+    closeBtn.Text = "×"
+    closeBtn.TextSize = 20
+    closeBtn.Font = Enum.Font.GothamBold
+    closeBtn.TextColor3 = C.text
+    closeBtn.AutoButtonColor = false
+    closeBtn.ZIndex = 22
+    closeBtn.Parent = header
+    corner(closeBtn, 9)
+    glassStroke(closeBtn, 1)
+end
 
--- sidebar
+-- ---------- icon format ----------
+local ICONS = {
+    RBXM  = "rbxassetid://106962661743892",
+    RBXMX = "rbxassetid://106962661743892",
+    RBXL  = "rbxassetid://122982660526589",
+    RBXLX = "rbxassetid://122982660526589",
+}
+
+-- ---------- sidebar ----------
+local SIDE_W = 120
 local side = glassPanel(main, 0.9, 14)
-side.Position = UDim2.fromOffset(12, 62)
-side.Size = UDim2.fromOffset(122, MAIN_H - 74)
+side.Position = UDim2.fromOffset(12, 56)
+side.Size = UDim2.fromOffset(SIDE_W, MAIN_H - 68)
 side.ZIndex = 20
 
-local sideLabel = text(side, "FORMAT", 10, Enum.Font.GothamBold, C.muted)
-sideLabel.Position = UDim2.fromOffset(12, 8)
-sideLabel.Size = UDim2.new(1, -24, 0, 14)
-sideLabel.ZIndex = 21
+do
+    local sideLabel = text(side, "MENU", 10, Enum.Font.GothamBold, C.muted)
+    sideLabel.Position = UDim2.fromOffset(12, 5)
+    sideLabel.Size = UDim2.new(1, -24, 0, 14)
+    sideLabel.ZIndex = 21
+end
 
 local tabButtons = {}
 local function makeTab(name, y)
+    local isTB = (name == "TOOLBOX")
     local b = Instance.new("TextButton")
-    b.Size = UDim2.new(1, -16, 0, 42)
-    b.Position = UDim2.fromOffset(8, y)
+    b.Size = UDim2.new(1, -12, 0, 32)
+    b.Position = UDim2.fromOffset(6, y)
     b.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
     b.BackgroundTransparency = 0.9
     b.Text = ""
     b.AutoButtonColor = false
     b.ZIndex = 21
     b.Parent = side
-    corner(b, 11)
-    local st = glassStroke(b, 1)
-    local lbl = text(b, name, 14, Enum.Font.GothamBold, C.text)
-    lbl.Position = UDim2.fromOffset(12, 0)
-    lbl.Size = UDim2.new(1, -52, 1, 0)
+    corner(b, 10)
+    glassStroke(b, 1)
+
+    if isTB then
+        local ic = text(b, "TB", 9, Enum.Font.GothamBold, Color3.fromRGB(10, 20, 50), Enum.TextXAlignment.Center)
+        ic.Position = UDim2.fromOffset(6, 5)
+        ic.Size = UDim2.fromOffset(22, 22)
+        ic.BackgroundTransparency = 0.1
+        ic.BackgroundColor3 = C.ok
+        ic.ZIndex = 22
+        corner(ic, 6)
+    else
+        local ic = Instance.new("ImageLabel")
+        ic.Position = UDim2.fromOffset(6, 5)
+        ic.Size = UDim2.fromOffset(22, 22)
+        ic.BackgroundTransparency = 1
+        ic.Image = ICONS[name]
+        ic.ScaleType = Enum.ScaleType.Fit
+        ic.ZIndex = 22
+        ic.Parent = b
+    end
+
+    local lbl = text(b, name, 10, Enum.Font.GothamBold, C.text)
+    lbl.Position = UDim2.fromOffset(34, 0)
+    lbl.Size = UDim2.new(1, isTB and -36 or -62, 1, 0)
     lbl.ZIndex = 22
-    local badge = text(b, "0", 12, Enum.Font.GothamBold, C.text, Enum.TextXAlignment.Center)
-    badge.AnchorPoint = Vector2.new(1, 0.5)
-    badge.Position = UDim2.new(1, -8, 0.5, 0)
-    badge.Size = UDim2.fromOffset(28, 22)
-    badge.BackgroundTransparency = 0.7
-    badge.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-    badge.ZIndex = 22
-    corner(badge, 8)
+
+    local badge
+    if not isTB then
+        badge = text(b, "0", 10, Enum.Font.GothamBold, C.text, Enum.TextXAlignment.Center)
+        badge.AnchorPoint = Vector2.new(1, 0.5)
+        badge.Position = UDim2.new(1, -6, 0.5, 0)
+        badge.Size = UDim2.fromOffset(24, 18)
+        badge.BackgroundTransparency = 0.7
+        badge.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+        badge.ZIndex = 22
+        corner(badge, 7)
+    end
     tabButtons[name] = { btn = b, lbl = lbl, badge = badge }
-    return b
 end
-makeTab("RBXM", 28)
-makeTab("RBXL", 76)
+for i, name in ipairs({ "RBXM", "RBXMX", "RBXL", "RBXLX", "TOOLBOX" }) do
+    makeTab(name, 22 + (i - 1) * 35)
+end
 
 local scanBtn = Instance.new("TextButton")
-scanBtn.Size = UDim2.new(1, -16, 0, 38)
+scanBtn.Size = UDim2.new(1, -12, 0, 28)
 scanBtn.AnchorPoint = Vector2.new(0, 1)
-scanBtn.Position = UDim2.new(0, 8, 1, -8)
+scanBtn.Position = UDim2.new(0, 6, 1, -6)
 scanBtn.BackgroundColor3 = C.accent
 scanBtn.BackgroundTransparency = 0.15
 scanBtn.Text = "SCAN"
-scanBtn.TextSize = 14
+scanBtn.TextSize = 12
 scanBtn.Font = Enum.Font.GothamBold
 scanBtn.TextColor3 = Color3.fromRGB(10, 20, 50)
 scanBtn.AutoButtonColor = false
 scanBtn.ZIndex = 22
 scanBtn.Parent = side
-corner(scanBtn, 11)
+corner(scanBtn, 10)
 grad(scanBtn, Color3.fromRGB(150, 225, 255), Color3.fromRGB(110, 160, 255), 90)
 
--- content
+-- ---------- content ----------
 local content = glassPanel(main, 0.9, 14)
-content.Position = UDim2.fromOffset(144, 62)
-content.Size = UDim2.new(1, -156, 1, -74)
+content.Position = UDim2.fromOffset(SIDE_W + 20, 56)
+content.Size = UDim2.new(1, -(SIDE_W + 32), 1, -68)
 content.ZIndex = 20
 
-local contentTitle = text(content, "RBXM FILES", 14, Enum.Font.GothamBold, C.text)
-contentTitle.Position = UDim2.fromOffset(12, 8)
-contentTitle.Size = UDim2.new(1, -24, 0, 20)
+local contentTitle = text(content, "RBXM FILES", 13, Enum.Font.GothamBold, C.text)
+contentTitle.Position = UDim2.fromOffset(12, 5)
+contentTitle.Size = UDim2.new(1, -24, 0, 18)
 contentTitle.ZIndex = 21
 
 local searchBox = Instance.new("TextBox")
-searchBox.Position = UDim2.fromOffset(10, 32)
-searchBox.Size = UDim2.new(1, -20, 0, 30)
+searchBox.Position = UDim2.fromOffset(8, 26)
+searchBox.Size = UDim2.new(1, -16, 0, 26)
 searchBox.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
 searchBox.BackgroundTransparency = 0.82
 searchBox.Text = ""
 searchBox.PlaceholderText = "Cari file..."
 searchBox.PlaceholderColor3 = C.muted
 searchBox.TextColor3 = C.text
-searchBox.TextSize = 13
+searchBox.TextSize = 12
 searchBox.Font = Enum.Font.GothamMedium
 searchBox.ClearTextOnFocus = false
 searchBox.TextXAlignment = Enum.TextXAlignment.Left
@@ -2562,13 +2601,13 @@ corner(searchBox, 9)
 glassStroke(searchBox, 1)
 do
     local pad = Instance.new("UIPadding")
-    pad.PaddingLeft = UDim.new(0, 10)
+    pad.PaddingLeft = UDim.new(0, 8)
     pad.Parent = searchBox
 end
 
 local list = Instance.new("ScrollingFrame")
-list.Position = UDim2.fromOffset(8, 70)
-list.Size = UDim2.new(1, -16, 1, -128)
+list.Position = UDim2.fromOffset(6, 58)
+list.Size = UDim2.new(1, -12, 1, -64)
 list.BackgroundTransparency = 1
 list.BorderSizePixel = 0
 list.ScrollBarThickness = 3
@@ -2577,62 +2616,85 @@ list.AutomaticCanvasSize = Enum.AutomaticSize.Y
 list.CanvasSize = UDim2.new()
 list.ZIndex = 21
 list.Parent = content
-local listLayout = Instance.new("UIListLayout")
-listLayout.Padding = UDim.new(0, 6)
-listLayout.SortOrder = Enum.SortOrder.LayoutOrder
-listLayout.Parent = list
+do
+    local l = Instance.new("UIListLayout")
+    l.Padding = UDim.new(0, 5)
+    l.SortOrder = Enum.SortOrder.LayoutOrder
+    l.Parent = list
+end
 
-local emptyLbl = text(content, "Tekan SCAN untuk cari file", 13, Enum.Font.GothamMedium, C.soft, Enum.TextXAlignment.Center)
+local emptyLbl = text(content, "Tekan SCAN untuk cari file", 12, Enum.Font.GothamMedium, C.soft, Enum.TextXAlignment.Center)
 emptyLbl.Position = UDim2.fromOffset(10, 90)
 emptyLbl.Size = UDim2.new(1, -20, 0, 60)
 emptyLbl.TextWrapped = true
 emptyLbl.ZIndex = 22
 
--- footer: status + progress
-local footer = Instance.new("Frame")
-footer.AnchorPoint = Vector2.new(0, 1)
-footer.Position = UDim2.new(0, 10, 1, -8)
-footer.Size = UDim2.new(1, -20, 0, 46)
-footer.BackgroundTransparency = 1
-footer.ZIndex = 21
-footer.Parent = content
+-- ---------- progress pill (kanan bawah layar) ----------
+local fill, statusText, pctText, dot, halo
+do
+    local pill = Instance.new("Frame")
+    pill.Name = "ProgressPill"
+    pill.AnchorPoint = Vector2.new(1, 1)
+    pill.Position = UDim2.new(1, -10, 1, -10)
+    pill.Size = UDim2.fromOffset(190, 34)
+    pill.BackgroundColor3 = Color3.fromRGB(22, 30, 66)
+    pill.BackgroundTransparency = 0.2
+    pill.BorderSizePixel = 0
+    pill.ZIndex = 60
+    pill.Parent = gui
+    corner(pill, 10)
+    glassStroke(pill, 1)
 
-local statusDot = Instance.new("Frame")
-statusDot.Position = UDim2.fromOffset(0, 7)
-statusDot.Size = UDim2.fromOffset(8, 8)
-statusDot.BackgroundColor3 = C.ok
-statusDot.BorderSizePixel = 0
-statusDot.ZIndex = 22
-statusDot.Parent = footer
-corner(statusDot, 4)
-local statusText = text(footer, "SIAP • tekan SCAN", 12, Enum.Font.GothamMedium, C.soft)
-statusText.Position = UDim2.fromOffset(14, 0)
-statusText.Size = UDim2.new(1, -60, 0, 22)
-statusText.TextTruncate = Enum.TextTruncate.AtEnd
-statusText.ZIndex = 22
-local pctText = text(footer, "", 12, Enum.Font.GothamBold, C.accent, Enum.TextXAlignment.Right)
-pctText.AnchorPoint = Vector2.new(1, 0)
-pctText.Position = UDim2.new(1, 0, 0, 0)
-pctText.Size = UDim2.fromOffset(48, 22)
-pctText.ZIndex = 22
+    halo = Instance.new("Frame")
+    halo.Position = UDim2.fromOffset(7, 5)
+    halo.Size = UDim2.fromOffset(14, 14)
+    halo.BackgroundColor3 = C.ok
+    halo.BackgroundTransparency = 0.65
+    halo.BorderSizePixel = 0
+    halo.ZIndex = 61
+    halo.Parent = pill
+    corner(halo, 7)
 
-local track = Instance.new("Frame")
-track.Position = UDim2.fromOffset(0, 28)
-track.Size = UDim2.new(1, 0, 0, 10)
-track.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-track.BackgroundTransparency = 0.82
-track.BorderSizePixel = 0
-track.ZIndex = 22
-track.Parent = footer
-corner(track, 5)
-local fill = Instance.new("Frame")
-fill.Size = UDim2.new(0, 0, 1, 0)
-fill.BackgroundColor3 = C.accent
-fill.BorderSizePixel = 0
-fill.ZIndex = 23
-fill.Parent = track
-corner(fill, 5)
-grad(fill, Color3.fromRGB(120, 225, 255), Color3.fromRGB(165, 125, 255), 0)
+    dot = Instance.new("Frame")
+    dot.Position = UDim2.fromOffset(10, 8)
+    dot.Size = UDim2.fromOffset(8, 8)
+    dot.BackgroundColor3 = C.ok
+    dot.BorderSizePixel = 0
+    dot.ZIndex = 62
+    dot.Parent = pill
+    corner(dot, 4)
+
+    statusText = text(pill, "SIAP", 10, Enum.Font.GothamMedium, C.soft)
+    statusText.Position = UDim2.fromOffset(26, 3)
+    statusText.Size = UDim2.new(1, -66, 0, 18)
+    statusText.TextTruncate = Enum.TextTruncate.AtEnd
+    statusText.ZIndex = 62
+
+    pctText = text(pill, "", 10, Enum.Font.GothamBold, C.ok, Enum.TextXAlignment.Right)
+    pctText.AnchorPoint = Vector2.new(1, 0)
+    pctText.Position = UDim2.new(1, -8, 0, 3)
+    pctText.Size = UDim2.fromOffset(34, 18)
+    pctText.ZIndex = 62
+
+    local track = Instance.new("Frame")
+    track.Position = UDim2.fromOffset(10, 25)
+    track.Size = UDim2.new(1, -20, 0, 4)
+    track.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    track.BackgroundTransparency = 0.82
+    track.BorderSizePixel = 0
+    track.ZIndex = 62
+    track.Parent = pill
+    corner(track, 2)
+
+    fill = Instance.new("Frame")
+    fill.Size = UDim2.new(0, 0, 1, 0)
+    fill.BackgroundColor3 = C.ok
+    fill.BorderSizePixel = 0
+    fill.ZIndex = 63
+    fill.Parent = track
+    corner(fill, 2)
+    grad(fill, Color3.fromRGB(95, 235, 175), Color3.fromRGB(120, 225, 255), 0)
+end
 
 -- ---------- state ----------
 local allFiles = {}
@@ -2640,15 +2702,39 @@ local currentTab = "RBXM"
 local fileState = {}   -- path -> {label=, color=, root=}
 local scanning = false
 local statusVersion = 0
+local ind = { busy = false }   -- busy = kedip cepat, idle/selesai = kedip pelan
+local TB = {}                  -- toolbox handles
+
+-- indikator ijo: kedip cepat saat proses, kedip pelan terus kalau sudah selesai
+task.spawn(function()
+    while gui.Parent do
+        local period = ind.busy and 0.30 or 1.40
+        local info = TweenInfo.new(period / 2, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
+        TweenService:Create(dot, info, { BackgroundTransparency = 0.8 }):Play()
+        TweenService:Create(halo, info, { BackgroundTransparency = 1 }):Play()
+        task.wait(period / 2)
+        TweenService:Create(dot, info, { BackgroundTransparency = 0 }):Play()
+        TweenService:Create(halo, info, { BackgroundTransparency = 0.6 }):Play()
+        task.wait(period / 2)
+    end
+end)
 
 local function setStatus(msg, color)
     statusText.Text = tostring(msg)
-    statusDot.BackgroundColor3 = color or C.accent
+    local c = (color == C.bad) and C.bad or C.ok
+    dot.BackgroundColor3 = c
+    halo.BackgroundColor3 = c
+    if color == C.bad then
+        ind.busy = false
+        fill.Size = UDim2.new(0, 0, 1, 0)
+        pctText.Text = ""
+    end
 end
 local function setProgress(v, msg)
     v = math.clamp(tonumber(v) or 0, 0, 1)
     TweenService:Create(fill, TweenInfo.new(0.12), { Size = UDim2.new(v, 0, 1, 0) }):Play()
     pctText.Text = v > 0 and ("%d%%"):format(math.floor(v * 100 + 0.5)) or ""
+    ind.busy = (v > 0 and v < 1)
     if msg and msg ~= "" then setStatus(msg, C.warn) end
     if v >= 1 then
         statusVersion += 1
@@ -2669,14 +2755,22 @@ local function notify(titleText, body)
     end)
 end
 
+local function copyText(s)
+    local fn = setclipboard or toclipboard or set_clipboard or (Clipboard and Clipboard.set)
+    if type(fn) ~= "function" then return false end
+    return (pcall(fn, tostring(s)))
+end
+
 local renderList
 local function updateBadges()
-    local m, l = 0, 0
+    local counts = {}
     for _, f in ipairs(allFiles) do
-        if f.ftype == "RBXM" then m += 1 else l += 1 end
+        local k = f.ext:upper()
+        counts[k] = (counts[k] or 0) + 1
     end
-    tabButtons.RBXM.badge.Text = tostring(m)
-    tabButtons.RBXL.badge.Text = tostring(l)
+    for name, t in pairs(tabButtons) do
+        if t.badge then t.badge.Text = tostring(counts[name] or 0) end
+    end
 end
 local function refreshTabs()
     for name, t in pairs(tabButtons) do
@@ -2686,37 +2780,39 @@ local function refreshTabs()
             BackgroundColor3 = active and C.accent2 or Color3.fromRGB(255, 255, 255),
         }):Play()
     end
-    contentTitle.Text = currentTab .. " FILES"
+    contentTitle.Text = (currentTab == "TOOLBOX") and "TOOLBOX PC" or (currentTab .. " FILES")
 end
 
+-- ---------- kartu file ----------
 local function makeCard(info)
     local card = Instance.new("Frame")
-    card.Size = UDim2.new(1, -4, 0, 56)
+    card.Size = UDim2.new(1, -4, 0, 44)
     card.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
     card.BackgroundTransparency = 0.86
     card.BorderSizePixel = 0
     card.ZIndex = 22
     card.Parent = list
-    corner(card, 11)
+    corner(card, 10)
     glassStroke(card, 1)
 
-    local badge = text(card, info.ext:upper(), 10, Enum.Font.GothamBold, Color3.fromRGB(10, 20, 50), Enum.TextXAlignment.Center)
-    badge.Position = UDim2.fromOffset(8, 8)
-    badge.Size = UDim2.fromOffset(46, 16)
-    badge.BackgroundTransparency = 0.1
-    badge.BackgroundColor3 = info.ftype == "RBXL" and C.accent2 or C.accent
-    badge.ZIndex = 23
-    corner(badge, 6)
+    local icon = Instance.new("ImageLabel")
+    icon.Position = UDim2.fromOffset(7, 7)
+    icon.Size = UDim2.fromOffset(30, 30)
+    icon.BackgroundTransparency = 1
+    icon.Image = ICONS[info.ext:upper()] or ICONS.RBXM
+    icon.ScaleType = Enum.ScaleType.Fit
+    icon.ZIndex = 23
+    icon.Parent = card
 
-    local nameLbl = text(card, info.name, 13, Enum.Font.GothamBold, C.text)
-    nameLbl.Position = UDim2.fromOffset(62, 6)
-    nameLbl.Size = UDim2.new(1, -150, 0, 20)
+    local nameLbl = text(card, info.name, 12, Enum.Font.GothamBold, C.text)
+    nameLbl.Position = UDim2.fromOffset(44, 4)
+    nameLbl.Size = UDim2.new(1, -118, 0, 18)
     nameLbl.TextTruncate = Enum.TextTruncate.AtEnd
     nameLbl.ZIndex = 23
 
-    local pathLbl = text(card, info.path, 10, Enum.Font.Gotham, C.muted)
-    pathLbl.Position = UDim2.fromOffset(8, 32)
-    pathLbl.Size = UDim2.new(1, -90, 0, 16)
+    local pathLbl = text(card, info.path, 9, Enum.Font.Gotham, C.muted)
+    pathLbl.Position = UDim2.fromOffset(44, 23)
+    pathLbl.Size = UDim2.new(1, -118, 0, 14)
     pathLbl.TextTruncate = Enum.TextTruncate.AtEnd
     pathLbl.ZIndex = 23
 
@@ -2725,18 +2821,27 @@ local function makeCard(info)
 
     local btn = Instance.new("TextButton")
     btn.AnchorPoint = Vector2.new(1, 0.5)
-    btn.Position = UDim2.new(1, -8, 0.5, 0)
-    btn.Size = UDim2.fromOffset(74, 34)
+    btn.Position = UDim2.new(1, -6, 0.5, 0)
+    btn.Size = UDim2.fromOffset(62, 24)
     btn.BackgroundColor3 = st.color
     btn.BackgroundTransparency = 0.1
     btn.Text = st.label
-    btn.TextSize = 12
+    btn.TextScaled = true
     btn.Font = Enum.Font.GothamBold
     btn.TextColor3 = Color3.fromRGB(10, 20, 50)
     btn.AutoButtonColor = false
     btn.ZIndex = 24
     btn.Parent = card
-    corner(btn, 10)
+    corner(btn, 8)
+    do
+        local tc = Instance.new("UITextSizeConstraint")
+        tc.MaxTextSize = 10
+        tc.MinTextSize = 7
+        tc.Parent = btn
+        local pd = Instance.new("UIPadding")
+        pd.PaddingLeft = UDim.new(0, 3); pd.PaddingRight = UDim.new(0, 3)
+        pd.Parent = btn
+    end
 
     local function setBtn(label, color)
         st.label, st.color = label, color
@@ -2799,13 +2904,14 @@ local function makeCard(info)
 end
 
 renderList = function()
+    if currentTab == "TOOLBOX" then return end
     for _, c in ipairs(list:GetChildren()) do
         if c:IsA("Frame") then c:Destroy() end
     end
     local q = searchBox.Text:lower():gsub("^%s+", ""):gsub("%s+$", "")
     local shown = 0
     for _, info in ipairs(allFiles) do
-        if info.ftype == currentTab then
+        if info.ext:upper() == currentTab then
             if q == "" or info.name:lower():find(q, 1, true) or info.path:lower():find(q, 1, true) then
                 makeCard(info)
                 shown += 1
@@ -2814,24 +2920,433 @@ renderList = function()
     end
     emptyLbl.Visible = shown == 0
     if shown == 0 then
-        emptyLbl.Text = #allFiles == 0 and "Belum ada file.\nTekan SCAN untuk cari di workspace" or ("Tidak ada file " .. currentTab)
+        emptyLbl.Text = #allFiles == 0 and "Belum ada file.\nTekan SCAN untuk cari di workspace" or ("Tidak ada file ." .. currentTab:lower())
     end
 end
 
+-- =====================================================================
+--                      TOOLBOX PC (endpoint Roblox)
+-- =====================================================================
+do
+    local httpRequest = (syn and syn.request) or (http and http.request) or http_request or request or (fluxus and fluxus.request)
+
+    local function httpGetJson(url)
+        local body
+        if httpRequest then
+            local ok, res = pcall(httpRequest, { Url = url, Method = "GET", Headers = { ["Accept"] = "application/json" } })
+            if ok and type(res) == "table" and (res.Success or res.StatusCode == 200) and type(res.Body) == "string" then
+                body = res.Body
+            end
+        end
+        if not body then
+            local ok, res = pcall(function() return game:HttpGet(url) end)
+            if ok and type(res) == "string" then body = res end
+        end
+        if not body then return nil end
+        local ok, data = pcall(function() return HttpService:JSONDecode(body) end)
+        return ok and data or nil
+    end
+
+    local TB_CATS = {
+        { name = "MODEL", id = 10 },
+        { name = "MESH",  id = 4 },
+        { name = "DECAL", id = 13 },
+        { name = "AUDIO", id = 3 },
+    }
+    local tbCat = 10
+    local tbToken = 0
+
+    -- toolbox list
+    local tbList = Instance.new("ScrollingFrame")
+    tbList.Position = UDim2.fromOffset(6, 80)
+    tbList.Size = UDim2.new(1, -12, 1, -86)
+    tbList.BackgroundTransparency = 1
+    tbList.BorderSizePixel = 0
+    tbList.ScrollBarThickness = 3
+    tbList.ScrollBarImageColor3 = C.ok
+    tbList.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    tbList.CanvasSize = UDim2.new()
+    tbList.ZIndex = 21
+    tbList.Visible = false
+    tbList.Parent = content
+    do
+        local l = Instance.new("UIListLayout")
+        l.Padding = UDim.new(0, 5)
+        l.SortOrder = Enum.SortOrder.LayoutOrder
+        l.Parent = tbList
+    end
+    TB.list = tbList
+
+    -- tombol GO
+    local goBtn = Instance.new("TextButton")
+    goBtn.AnchorPoint = Vector2.new(1, 0)
+    goBtn.Position = UDim2.new(1, -8, 0, 26)
+    goBtn.Size = UDim2.fromOffset(40, 26)
+    goBtn.BackgroundColor3 = C.ok
+    goBtn.BackgroundTransparency = 0.1
+    goBtn.Text = "GO"
+    goBtn.TextSize = 11
+    goBtn.Font = Enum.Font.GothamBold
+    goBtn.TextColor3 = Color3.fromRGB(10, 20, 50)
+    goBtn.AutoButtonColor = false
+    goBtn.ZIndex = 22
+    goBtn.Visible = false
+    goBtn.Parent = content
+    corner(goBtn, 9)
+    TB.go = goBtn
+
+    -- chip kategori
+    local chipRow = Instance.new("Frame")
+    chipRow.Position = UDim2.fromOffset(8, 56)
+    chipRow.Size = UDim2.new(1, -16, 0, 20)
+    chipRow.BackgroundTransparency = 1
+    chipRow.ZIndex = 21
+    chipRow.Visible = false
+    chipRow.Parent = content
+    do
+        local l = Instance.new("UIListLayout")
+        l.FillDirection = Enum.FillDirection.Horizontal
+        l.Padding = UDim.new(0, 4)
+        l.SortOrder = Enum.SortOrder.LayoutOrder
+        l.Parent = chipRow
+    end
+    TB.chips = chipRow
+    local chipBtns = {}
+    local function refreshChips()
+        for id, b in pairs(chipBtns) do
+            local on = (id == tbCat)
+            b.BackgroundColor3 = on and C.ok or Color3.fromRGB(255, 255, 255)
+            b.BackgroundTransparency = on and 0.15 or 0.85
+            b.TextColor3 = on and Color3.fromRGB(10, 20, 50) or C.text
+        end
+    end
+    for i, cat in ipairs(TB_CATS) do
+        local b = Instance.new("TextButton")
+        b.LayoutOrder = i
+        b.Size = UDim2.fromOffset(56, 20)
+        b.Text = cat.name
+        b.TextSize = 10
+        b.Font = Enum.Font.GothamBold
+        b.AutoButtonColor = false
+        b.ZIndex = 22
+        b.Parent = chipRow
+        corner(b, 8)
+        chipBtns[cat.id] = b
+        b.MouseButton1Click:Connect(function()
+            tbCat = cat.id
+            refreshChips()
+        end)
+    end
+    refreshChips()
+
+    TB.msg = "Ketik nama aset lalu tekan GO"
+    function TB.setMsg(m)
+        TB.msg = m
+        if currentTab == "TOOLBOX" then
+            emptyLbl.Text = m
+            emptyLbl.Visible = (m ~= "")
+            emptyLbl.Position = UDim2.fromOffset(10, 110)
+        end
+    end
+
+    local function clearTb()
+        for _, c in ipairs(tbList:GetChildren()) do
+            if c:IsA("Frame") then c:Destroy() end
+        end
+    end
+
+    local function flashBtn(btn, label, color, back, backColor)
+        btn.Text = label
+        btn.BackgroundColor3 = color
+        task.delay(1.6, function()
+            if btn.Parent then btn.Text = back; btn.BackgroundColor3 = backColor end
+        end)
+    end
+
+    -- import ID langsung ke StudioLite
+    local function importAsset(id, cat)
+        ind.busy = true
+        setStatus("IMPORT ID " .. id .. " KE STUDIOLITE...", C.ok)
+        local ok, info = false, ""
+        if cat == 10 then
+            local gok, objs = pcall(function() return game:GetObjects("rbxassetid://" .. id) end)
+            if gok and type(objs) == "table" and #objs > 0 then
+                for _, o in ipairs(objs) do
+                    pcall(function() o.Parent = workspace end)
+                    spawnInFrontOfCamera(o)
+                    pcall(queueAssetsFromRBXM, o)
+                    local all = { o }
+                    for _, d in ipairs(o:GetDescendants()) do all[#all + 1] = d end
+                    for _, d in ipairs(all) do
+                        if d:IsA("LuaSourceContainer") then pcall(injectStudioLiteUI, d, {}) end
+                    end
+                end
+                flushServerLoadsAsync()
+                ok, info = true, ("MODEL %d • %d OBJECT MASUK WORKSPACE"):format(id, #objs)
+            else
+                info = "GetObjects gagal: " .. tostring(objs)
+            end
+        elseif cat == 4 then
+            local mesh, how = tryAssetServiceMesh(id)
+            triggerServerLoad(id)
+            if mesh then
+                mesh.Name = "Mesh_" .. id
+                pcall(function() mesh.Anchored = true end)
+                pcall(function() mesh.Parent = workspace end)
+                spawnInFrontOfCamera(mesh)
+                ok, info = true, ("MESH %d MASUK WORKSPACE (%s)"):format(id, tostring(how))
+            elseif getStudioLiteServerFuncs() then
+                ok, info = true, ("MESH %d DIKIRIM KE STUDIOLITE RUNTIME"):format(id)
+            else
+                info = "mesh gagal: " .. tostring(how)
+            end
+        else
+            if getStudioLiteServerFuncs() then
+                triggerServerLoad(id)
+                ok, info = true, ("ID %d DIKIRIM KE STUDIOLITE"):format(id)
+            else
+                info = "StudioLiteFolder tidak ditemukan di game ini"
+            end
+        end
+        ind.busy = false
+        setStatus(info, ok and C.ok or C.bad)
+        return ok
+    end
+
+    local function makeTbCard(order, id, meta, cat)
+        local card = Instance.new("Frame")
+        card.LayoutOrder = order
+        card.Size = UDim2.new(1, -4, 0, 52)
+        card.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+        card.BackgroundTransparency = 0.86
+        card.BorderSizePixel = 0
+        card.ZIndex = 22
+        card.Parent = tbList
+        corner(card, 10)
+        glassStroke(card, 1)
+
+        local thumb = Instance.new("ImageLabel")
+        thumb.Position = UDim2.fromOffset(6, 6)
+        thumb.Size = UDim2.fromOffset(40, 40)
+        thumb.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+        thumb.BackgroundTransparency = 0.85
+        thumb.Image = ("rbxthumb://type=Asset&id=%d&w=150&h=150"):format(id)
+        thumb.ScaleType = Enum.ScaleType.Fit
+        thumb.ZIndex = 23
+        thumb.Parent = card
+        corner(thumb, 8)
+
+        local nameBtn = Instance.new("TextButton")
+        nameBtn.BackgroundTransparency = 1
+        nameBtn.Position = UDim2.fromOffset(54, 4)
+        nameBtn.Size = UDim2.new(1, -122, 0, 16)
+        nameBtn.Text = meta.name or ("Asset " .. id)
+        nameBtn.TextSize = 11
+        nameBtn.Font = Enum.Font.GothamBold
+        nameBtn.TextColor3 = C.text
+        nameBtn.TextXAlignment = Enum.TextXAlignment.Left
+        nameBtn.TextTruncate = Enum.TextTruncate.AtEnd
+        nameBtn.AutoButtonColor = false
+        nameBtn.ZIndex = 24
+        nameBtn.Parent = card
+
+        local idBtn = Instance.new("TextButton")
+        idBtn.BackgroundTransparency = 1
+        idBtn.Position = UDim2.fromOffset(54, 21)
+        idBtn.Size = UDim2.new(1, -122, 0, 14)
+        idBtn.Text = "ID " .. id
+        idBtn.TextSize = 10
+        idBtn.Font = Enum.Font.GothamMedium
+        idBtn.TextColor3 = C.accent
+        idBtn.TextXAlignment = Enum.TextXAlignment.Left
+        idBtn.AutoButtonColor = false
+        idBtn.ZIndex = 24
+        idBtn.Parent = card
+
+        local byLbl = text(card, meta.creator and ("by " .. meta.creator) or "", 9, Enum.Font.Gotham, C.muted)
+        byLbl.Position = UDim2.fromOffset(54, 36)
+        byLbl.Size = UDim2.new(1, -122, 0, 12)
+        byLbl.TextTruncate = Enum.TextTruncate.AtEnd
+        byLbl.ZIndex = 23
+
+        local function mini(label, y, color)
+            local b = Instance.new("TextButton")
+            b.AnchorPoint = Vector2.new(1, 0)
+            b.Position = UDim2.new(1, -6, 0, y)
+            b.Size = UDim2.fromOffset(56, 20)
+            b.BackgroundColor3 = color
+            b.BackgroundTransparency = 0.1
+            b.Text = label
+            b.TextSize = 10
+            b.Font = Enum.Font.GothamBold
+            b.TextColor3 = Color3.fromRGB(10, 20, 50)
+            b.AutoButtonColor = false
+            b.ZIndex = 24
+            b.Parent = card
+            corner(b, 7)
+            return b
+        end
+        local copyBtn = mini("COPY ID", 5, C.accent)
+        local impBtn = mini("IMPORT", 27, C.ok)
+
+        local function doCopy(value, what)
+            if copyText(value) then
+                setStatus("COPIED " .. what .. " • " .. tostring(value), C.ok)
+            else
+                setStatus("CLIPBOARD TIDAK TERSEDIA DI EXECUTOR", C.bad)
+            end
+        end
+        nameBtn.MouseButton1Click:Connect(function() doCopy(nameBtn.Text, "NAMA") end)
+        idBtn.MouseButton1Click:Connect(function() doCopy(tostring(id), "ID") end)
+        copyBtn.MouseButton1Click:Connect(function()
+            doCopy(tostring(id), "ID")
+            flashBtn(copyBtn, "COPIED", C.ok, "COPY ID", C.accent)
+        end)
+
+        local busy = false
+        impBtn.MouseButton1Click:Connect(function()
+            if busy then return end
+            busy = true
+            impBtn.Text = "..."
+            impBtn.BackgroundColor3 = C.warn
+            task.spawn(function()
+                local ok = importAsset(id, cat)
+                busy = false
+                if ok then
+                    flashBtn(impBtn, "DONE", C.ok, "IMPORT", C.ok)
+                    notify("WLEO x NEKO", "ID " .. id .. " masuk StudioLite.")
+                else
+                    flashBtn(impBtn, "FAILED", C.bad, "IMPORT", C.ok)
+                end
+            end)
+        end)
+
+        if not meta.name then
+            task.spawn(function()
+                local d = httpGetJson("https://economy.roblox.com/v2/assets/" .. id .. "/details")
+                if d and nameBtn.Parent then
+                    if d.Name then nameBtn.Text = d.Name end
+                    if d.Creator and d.Creator.Name then byLbl.Text = "by " .. d.Creator.Name end
+                end
+            end)
+        end
+    end
+
+    function TB.search()
+        local q = searchBox.Text:gsub("^%s+", ""):gsub("%s+$", "")
+        if q == "" then
+            clearTb()
+            TB.setMsg("Ketik nama aset atau ID lalu tekan GO")
+            return
+        end
+        tbToken += 1
+        local my = tbToken
+        clearTb()
+        TB.setMsg("Mencari...")
+        ind.busy = true
+        setStatus("TOOLBOX • MENCARI " .. q:upper(), C.ok)
+        local cat = tbCat
+        task.spawn(function()
+            local ids = {}
+            if q:match("^%d+$") then
+                ids[1] = tonumber(q)
+            else
+                local enc = HttpService:UrlEncode(q)
+                local urls = {
+                    ("https://apis.roblox.com/toolbox-service/v1/marketplace/%d?limit=30&pageNumber=0&keyword=%s&sortType=Relevance"):format(cat, enc),
+                    ("https://apis.roblox.com/toolbox-service/v1/marketplace/%d?keyword=%s&num=30"):format(cat, enc),
+                }
+                for _, url in ipairs(urls) do
+                    local data = httpGetJson(url)
+                    if data and type(data.data) == "table" then
+                        for _, e in ipairs(data.data) do
+                            local rawId = (type(e) == "table") and (e.id or e.Id or e.assetId) or e
+                            rawId = tonumber(rawId)
+                            if rawId then ids[#ids + 1] = rawId end
+                        end
+                    end
+                    if #ids > 0 then break end
+                end
+            end
+            if my ~= tbToken then return end
+            if #ids == 0 then
+                ind.busy = false
+                if not httpRequest then
+                    TB.setMsg("Fungsi request tidak ada di executor ini")
+                    setStatus("TOOLBOX • request tidak tersedia", C.bad)
+                else
+                    TB.setMsg("Tidak ada hasil untuk \"" .. q .. "\"\n(atau endpoint tidak merespon)")
+                    setStatus("TOOLBOX • 0 HASIL", C.warn)
+                end
+                return
+            end
+            local metaById = {}
+            for i = 1, #ids, 30 do
+                local chunk = {}
+                for j = i, math.min(i + 29, #ids) do chunk[#chunk + 1] = ids[j] end
+                local det = httpGetJson("https://apis.roblox.com/toolbox-service/v1/items/details?assetIds=" .. table.concat(chunk, ","))
+                if det and type(det.data) == "table" then
+                    for _, d in ipairs(det.data) do
+                        local a = d.asset or d
+                        local aid = tonumber(a.id or a.Id)
+                        if aid then
+                            metaById[aid] = {
+                                name = a.name or a.Name,
+                                creator = d.creator and (d.creator.name or d.creator.Name) or nil,
+                            }
+                        end
+                    end
+                end
+            end
+            if my ~= tbToken then return end
+            TB.setMsg("")
+            for order, id in ipairs(ids) do
+                if my ~= tbToken then return end
+                makeTbCard(order, id, metaById[id] or {}, cat)
+                if order % 6 == 0 then task.wait() end
+            end
+            ind.busy = false
+            setStatus(("TOOLBOX • %d HASIL"):format(#ids), C.ok)
+        end)
+    end
+
+    goBtn.MouseButton1Click:Connect(function() TB.search() end)
+    searchBox.FocusLost:Connect(function(enter)
+        if enter and currentTab == "TOOLBOX" then TB.search() end
+    end)
+end
+
+-- ---------- tab ----------
 local function setTab(name)
     currentTab = name
+    local isTB = (name == "TOOLBOX")
     refreshTabs()
-    renderList()
+    list.Visible = not isTB
+    TB.list.Visible = isTB
+    TB.chips.Visible = isTB
+    TB.go.Visible = isTB
+    searchBox.Size = isTB and UDim2.new(1, -62, 0, 26) or UDim2.new(1, -16, 0, 26)
+    searchBox.PlaceholderText = isTB and "Cari aset / ketik ID..." or "Cari file..."
+    searchBox.Text = ""
+    if isTB then
+        TB.setMsg(TB.msg)
+    else
+        emptyLbl.Position = UDim2.fromOffset(10, 90)
+        renderList()
+    end
 end
 for name, t in pairs(tabButtons) do
     t.btn.MouseButton1Click:Connect(function() setTab(name) end)
 end
-searchBox:GetPropertyChangedSignal("Text"):Connect(function() renderList() end)
+searchBox:GetPropertyChangedSignal("Text"):Connect(function()
+    if currentTab ~= "TOOLBOX" then renderList() end
+end)
 
 local function scanNow()
     if scanning then return end
     scanning = true
     scanBtn.Text = "SCANNING"
+    ind.busy = true
     setStatus("SCANNING WORKSPACE...", C.warn)
     task.spawn(function()
         if type(listfiles) ~= "function" then
@@ -2852,6 +3367,7 @@ local function scanNow()
         for _, f in ipairs(results) do
             if f.ftype == "RBXM" then m += 1 else l += 1 end
         end
+        ind.busy = false
         setStatus(("SCAN SELESAI • RBXM %d • RBXL %d"):format(m, l), (#results > 0) and C.ok or C.warn)
         scanBtn.Text = "SCAN"
         scanning = false
@@ -2913,4 +3429,4 @@ refreshTabs()
 renderList()
 setOpen(true)
 task.delay(0.3, scanNow)
-print("[WLEO x NEKO] RBXL/RBXM importer (liquid glass) loaded")
+print("[WLEO x NEKO] RBXL/RBXM importer + toolbox (liquid glass) loaded")
