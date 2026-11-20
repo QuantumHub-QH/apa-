@@ -292,11 +292,28 @@ local C = {}
 
 local TEMA = {
     Abu = {
-        bg = Color3.fromRGB(26, 28, 32), panel = Color3.fromRGB(34, 37, 43),
-        kartu = Color3.fromRGB(44, 48, 56), aktif = Color3.fromRGB(72, 81, 96),
-        teks = Color3.fromRGB(242, 244, 247), redup = Color3.fromRGB(157, 166, 179),
-        aksen = Color3.fromRGB(172, 190, 207), hijau = Color3.fromRGB(58, 181, 121),
-        merah = Color3.fromRGB(197, 64, 76),
+        bg = Color3.fromRGB(11, 12, 16),
+        panel = Color3.fromRGB(17, 19, 25),
+        kartu = Color3.fromRGB(24, 27, 36),
+        aktif = Color3.fromRGB(48, 42, 28),
+        teks = Color3.fromRGB(250, 248, 242),
+        redup = Color3.fromRGB(160, 155, 140),
+        aksen = Color3.fromRGB(245, 175, 45),
+        hijau = Color3.fromRGB(46, 204, 113),
+        merah = Color3.fromRGB(235, 75, 75),
+        emas = Color3.fromRGB(255, 198, 55),
+    },
+    Luxury = {
+        bg = Color3.fromRGB(10, 11, 15),
+        panel = Color3.fromRGB(16, 18, 24),
+        kartu = Color3.fromRGB(23, 26, 35),
+        aktif = Color3.fromRGB(48, 42, 28),
+        teks = Color3.fromRGB(250, 248, 242),
+        redup = Color3.fromRGB(160, 155, 140),
+        aksen = Color3.fromRGB(245, 175, 45),
+        hijau = Color3.fromRGB(46, 204, 113),
+        merah = Color3.fromRGB(235, 75, 75),
+        emas = Color3.fromRGB(255, 198, 55),
     },
     Pink = {
         bg = Color3.fromRGB(33, 19, 29), panel = Color3.fromRGB(46, 26, 40),
@@ -716,7 +733,14 @@ local frame = sudut(buat("Frame", {
     BackgroundColor3 = C.bg,
     BorderSizePixel = 0,
     Active = true,
+    ClipsDescendants = true,
 }, gui), 12)
+buat("UIStroke", {
+    Color = Color3.fromRGB(245, 175, 45),
+    Transparency = 0.45,
+    Thickness = 1.2,
+    ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+}, frame)
 
 -- Header
 local TOGGLE_IMAGE = "rbxassetid://116910178994061"
@@ -772,17 +796,74 @@ end
 
 -- Sidebar & area isi
 local sidebar = sudut(buat("Frame", {
-    Size = UDim2.new(0, 140, 1, -44),
+    Size = UDim2.new(0, 148, 1, -44),
     Position = UDim2.new(0, 8, 0, 0),
     BackgroundColor3 = C.panel,
     BorderSizePixel = 0,
+    ClipsDescendants = true,
 }, body), 10)
-label({Text = lp.DisplayName, Font = Enum.Font.GothamBold, TextSize = 13,
-    Position = UDim2.new(0, 12, 0, 6), Size = UDim2.new(1, -24, 0, 18),
-    TextTruncate = Enum.TextTruncate.AtEnd}, sidebar)
-label({Text = "@" .. lp.Name, TextColor3 = C.redup, TextSize = 10,
-    Position = UDim2.new(0, 12, 0, 24), Size = UDim2.new(1, -24, 0, 14),
-    TextTruncate = Enum.TextTruncate.AtEnd}, sidebar)
+buat("UIStroke", {
+    Color = Color3.fromRGB(245, 175, 45),
+    Transparency = 0.85,
+    Thickness = 1,
+    ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+}, sidebar)
+
+-- Profile Card Luxury VIP
+local profileCard = sudut(buat("Frame", {
+    Size = UDim2.new(1, -12, 0, 42),
+    Position = UDim2.new(0, 6, 0, 6),
+    BackgroundColor3 = C.kartu,
+    BorderSizePixel = 0,
+}, sidebar), 8)
+buat("UIStroke", {
+    Color = Color3.fromRGB(245, 175, 45),
+    Transparency = 0.8,
+    Thickness = 1,
+    ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+}, profileCard)
+
+local avatarBox = sudut(buat("Frame", {
+    Size = UDim2.new(0, 30, 0, 30),
+    Position = UDim2.new(0, 6, 0.5, -15),
+    BackgroundColor3 = C.panel,
+    BorderSizePixel = 0,
+    ClipsDescendants = true,
+}, profileCard), 15)
+buat("ImageLabel", {
+    Size = UDim2.new(1, 0, 1, 0),
+    BackgroundTransparency = 1,
+    Image = "rbxthumb://type=AvatarHeadShot&id=" .. tostring(lp.UserId or 1) .. "&w=48&h=48",
+}, avatarBox)
+
+local statusDot = sudut(buat("Frame", {
+    Size = UDim2.new(0, 7, 0, 7),
+    Position = UDim2.new(0, 28, 0.5, 6),
+    BackgroundColor3 = Color3.fromRGB(46, 204, 113),
+    BorderSizePixel = 0,
+}, profileCard), 4)
+
+label({Text = lp.DisplayName, Font = Enum.Font.GothamBold, TextSize = 10,
+    TextColor3 = C.teks,
+    Position = UDim2.new(0, 42, 0, 6), Size = UDim2.new(1, -44, 0, 14),
+    TextTruncate = Enum.TextTruncate.AtEnd}, profileCard)
+
+local vipBadge = sudut(buat("Frame", {
+    Size = UDim2.new(0, 36, 0, 13),
+    Position = UDim2.new(0, 42, 0, 22),
+    BackgroundColor3 = Color3.fromRGB(50, 40, 20),
+    BorderSizePixel = 0,
+}, profileCard), 4)
+buat("UIStroke", {
+    Color = Color3.fromRGB(245, 175, 45),
+    Transparency = 0.5,
+    Thickness = 1,
+    ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+}, vipBadge)
+label({Text = "VIP", Font = Enum.Font.GothamBold, TextSize = 8,
+    TextColor3 = Color3.fromRGB(255, 198, 55),
+    TextXAlignment = Enum.TextXAlignment.Center,
+    Size = UDim2.new(1, 0, 1, 0)}, vipBadge)
 
 local isi = buat("Frame", {
     Size = UDim2.new(1, -164, 1, -44),
@@ -6098,12 +6179,14 @@ end
 initHalamanAI()
 
 ------------------------------------------------------------------
--- ENGINE SPOOFER & BYPASS IN-GAME (100% Mirror Bot DC Engine)
+-- ENGINE SPOOFER & BYPASS IN-GAME (Ultra-Fast 60FPS Non-Blocking Engine)
 ------------------------------------------------------------------
-local function ambilDetailAset(aid)
-    local name, creatorId, creatorType = nil, nil, nil
+local spoofCache = {}
 
-    -- 1. Economy API v2 (Endpoint Utama bot DC)
+local function ambilDetailAset(aid)
+    local name = nil
+
+    -- 1. Economy API v2 (Cepat, 1 request)
     local ok1, res1 = pcall(httpReq, {
         Url = "https://economy.roblox.com/v2/assets/" .. aid .. "/details",
         Method = "GET",
@@ -6111,17 +6194,10 @@ local function ambilDetailAset(aid)
     })
     if ok1 and res1 and (res1.StatusCode == 200 or res1.Status == 200) then
         local d = decodeJson(res1)
-        if d then
-            name = d.Name or d.TargetName
-            local c = d.Creator
-            if c then
-                creatorId = c.CreatorTargetId or c.Id
-                creatorType = c.CreatorType
-            end
-        end
+        if d then name = d.Name or d.TargetName end
     end
 
-    -- 2. Fallback: Develop API
+    -- 2. Fallback Develop API (hanya jika gagal)
     if not name then
         local ok2, res2 = pcall(httpReq, {
             Url = "https://develop.roblox.com/v1/assets?assetIds=" .. aid,
@@ -6130,20 +6206,96 @@ local function ambilDetailAset(aid)
         })
         if ok2 and res2 and (res2.StatusCode == 200 or res2.Status == 200) then
             local d = decodeJson(res2)
-            if d and d.data and d.data[1] then
-                name = d.data[1].name
-                local c = d.data[1].creator
-                if c then
-                    creatorId = c.id
-                    creatorType = c.type
-                end
-            end
+            if d and d.data and d.data[1] then name = d.data[1].name end
         end
     end
 
     local cleanName = name and name:gsub("[^%w%s%-_]", ""):sub(1, 35) or ("Asset_" .. aid)
     if cleanName == "" then cleanName = "Asset_" .. aid end
-    return cleanName, creatorId, creatorType
+    return cleanName
+end
+
+local function unduhAssetCepat(aid)
+    -- Jalur 1: v2 Langsung dengan game.PlaceId (Instan <0.1 detik untuk 95% aset)
+    local ok, r = pcall(httpReq, {
+        Url = "https://assetdelivery.roblox.com/v2/assetId/" .. aid,
+        Method = "GET",
+        Headers = {
+            ["User-Agent"] = "Roblox/WinInet",
+            ["Roblox-Place-Id"] = tostring(game.PlaceId or 6872265039)
+        }
+    })
+    if ok and r and (r.StatusCode == 200 or r.Status == 200) then
+        local d = decodeJson(r)
+        if d and d.locations and d.locations[1] and d.locations[1].location then
+            local cdnUrl = d.locations[1].location
+            local ok2, r2 = pcall(httpReq, {
+                Url = cdnUrl,
+                Method = "GET",
+                Headers = {["User-Agent"] = "Roblox/WinInet"}
+            })
+            if ok2 and r2 and (r2.StatusCode == 200 or r2.Status == 200)
+                and type(r2.Body) == "string" and #r2.Body > 80 then
+                return r2.Body
+            end
+        end
+    end
+
+    -- Jalur 2: v1 Direct bypass (Instan fallback)
+    local okV1, rV1 = pcall(httpReq, {
+        Url = "https://assetdelivery.roblox.com/v1/asset/?id=" .. aid,
+        Method = "GET",
+        Headers = {
+            ["User-Agent"] = "Roblox/WinInet",
+            ["Roblox-Place-Id"] = tostring(game.PlaceId or 6872265039)
+        }
+    })
+    if okV1 and rV1 and (rV1.StatusCode == 200 or rV1.Status == 200)
+        and type(rV1.Body) == "string" and #rV1.Body > 80 then
+        local b = rV1.Body
+        if not b:find('^{"errors"') and not b:find('^{"message"') and not b:find('^<') then
+            return b
+        end
+    end
+
+    -- Jalur 3: Top 2 bypass seed place IDs jika aset private
+    local seeds = {6872265039, 5765186170}
+    for _, pid in ipairs(seeds) do
+        local okS, rS = pcall(httpReq, {
+            Url = "https://assetdelivery.roblox.com/v2/assetId/" .. aid,
+            Method = "GET",
+            Headers = {
+                ["User-Agent"] = "Roblox/WinInet",
+                ["Roblox-Place-Id"] = tostring(pid)
+            }
+        })
+        if okS and rS and (rS.StatusCode == 200 or rS.Status == 200) then
+            local d = decodeJson(rS)
+            if d and d.locations and d.locations[1] and d.locations[1].location then
+                local okCdn, rCdn = pcall(httpReq, {
+                    Url = d.locations[1].location,
+                    Method = "GET",
+                    Headers = {["User-Agent"] = "Roblox/WinInet"}
+                })
+                if okCdn and rCdn and (rCdn.StatusCode == 200 or rCdn.Status == 200)
+                    and type(rCdn.Body) == "string" and #rCdn.Body > 80 then
+                    return rCdn.Body
+                end
+            end
+        end
+    end
+
+    -- Jalur 4: game:HttpGet client
+    if game.HttpGet then
+        local okG, bodyG = pcall(function()
+            return game:HttpGet("https://assetdelivery.roblox.com/v1/asset/?id=" .. aid)
+        end)
+        if okG and type(bodyG) == "string" and #bodyG > 80 and not bodyG:find('^{"errors"') then
+            return bodyG
+        end
+    end
+
+    return nil
 end
 
 local function spoofAssetSingleCore(assetId, targetType, speedVal)
@@ -6153,115 +6305,18 @@ local function spoofAssetSingleCore(assetId, targetType, speedVal)
         return nil, "Isi Open Cloud API Key & Creator ID di Pengaturan!"
     end
 
-    -- Ambil nama aset dan creator info
-    local assetName, srcCId, srcCType = ambilDetailAset(assetId)
-
-    -- Seed Place IDs untuk bypass (100% mirror bot DC)
-    local placeIds = {
-        game.PlaceId,
-        6872265039, 5765186170, 3271915715, 4483381587,
-        7415484388, 4924922222, 2788229376, 142823291,
-        6516141723, 987229334, 13772394625, 2753915549,
-        119031818630096, 76077593225337, 125981614068947
-    }
-
-    -- Lacak games creator asal seperti bot DC
-    if srcCId and srcCType == "User" then
-        local okG, resG = pcall(httpReq, {
-            Url = "https://games.roblox.com/v2/users/" .. srcCId .. "/games?accessFilter=Public&limit=10&sortOrder=Asc",
-            Method = "GET"
-        })
-        if okG and resG and (resG.StatusCode == 200 or resG.Status == 200) then
-            local dG = decodeJson(resG)
-            if dG and dG.data then
-                for _, g in ipairs(dG.data) do
-                    if g.rootPlace and g.rootPlace.id then
-                        table.insert(placeIds, 1, g.rootPlace.id)
-                    end
-                end
-            end
-        end
-    elseif srcCId and srcCType == "Group" then
-        local okG, resG = pcall(httpReq, {
-            Url = "https://games.roblox.com/v2/groups/" .. srcCId .. "/games?accessFilter=Public&limit=10&sortOrder=Asc",
-            Method = "GET"
-        })
-        if okG and resG and (resG.StatusCode == 200 or resG.Status == 200) then
-            local dG = decodeJson(resG)
-            if dG and dG.data then
-                for _, g in ipairs(dG.data) do
-                    if g.rootPlace and g.rootPlace.id then
-                        table.insert(placeIds, 1, g.rootPlace.id)
-                    end
-                end
-            end
-        end
+    -- Cek Cache Lokal (Instan 0ms untuk ID yang berulang di script!)
+    local cacheKey = assetId .. "_" .. tostring(speedVal or "1.0") .. "_" .. tostring(targetType or "auto")
+    if spoofCache[cacheKey] then
+        local c = spoofCache[cacheKey]
+        return c.id, c.name
     end
 
-    local fileData = nil
+    -- Ambil nama aset (1 request ringan)
+    local assetName = ambilDetailAset(assetId)
 
-    -- 1. v2 API + Place ID bypass (metode utama bot DC)
-    for _, pid in ipairs(placeIds) do
-        local ok, r = pcall(httpReq, {
-            Url = "https://assetdelivery.roblox.com/v2/assetId/" .. assetId,
-            Method = "GET",
-            Headers = {
-                ["User-Agent"] = "Roblox/WinInet",
-                ["Roblox-Place-Id"] = tostring(pid)
-            }
-        })
-        if ok and r and (r.StatusCode == 200 or r.Status == 200) then
-            local d = decodeJson(r)
-            if d and d.locations and d.locations[1] and d.locations[1].location then
-                local cdnUrl = d.locations[1].location
-                local ok2, r2 = pcall(httpReq, {
-                    Url = cdnUrl,
-                    Method = "GET",
-                    Headers = {["User-Agent"] = "Roblox/WinInet"}
-                })
-                if ok2 and r2 and (r2.StatusCode == 200 or r2.Status == 200)
-                    and type(r2.Body) == "string" and #r2.Body > 100 then
-                    fileData = r2.Body
-                    break
-                end
-            end
-        end
-        task.wait(0.05)
-    end
-
-    -- 2. Fallback v1 direct + Place ID bypass
-    if not fileData then
-        for _, pid in ipairs(placeIds) do
-            local ok, r = pcall(httpReq, {
-                Url = "https://assetdelivery.roblox.com/v1/asset/?id=" .. assetId,
-                Method = "GET",
-                Headers = {
-                    ["User-Agent"] = "Roblox/WinInet",
-                    ["Roblox-Place-Id"] = tostring(pid)
-                }
-            })
-            if ok and r and (r.StatusCode == 200 or r.Status == 200)
-                and type(r.Body) == "string" and #r.Body > 100 then
-                local b = r.Body
-                if not b:find('^{"errors"') and not b:find('^{"message"') and not b:find('^<') then
-                    fileData = b
-                    break
-                end
-            end
-            task.wait(0.05)
-        end
-    end
-
-    -- 3. Fallback game:HttpGet
-    if not fileData and game.HttpGet then
-        local okG, bodyG = pcall(function()
-            return game:HttpGet("https://assetdelivery.roblox.com/v1/asset/?id=" .. assetId)
-        end)
-        if okG and type(bodyG) == "string" and #bodyG > 100 and not bodyG:find('^{"errors"') then
-            fileData = bodyG
-        end
-    end
-
+    -- Unduh aset dengan jalur cepat
+    local fileData = unduhAssetCepat(assetId)
     if not fileData then
         return nil, "Asset tidak dapat diunduh (private/rate-limit)", assetName
     end
@@ -6324,9 +6379,10 @@ local function spoofAssetSingleCore(assetId, targetType, speedVal)
         return nil, "Ditolak Roblox: " .. tostring(errPesan), assetName
     end
 
+    -- Polling cepat (interval 0.9s, maks 12x = maks 10 detik bukan 50 detik)
     local newAssetId = nil
-    for _ = 1, 35 do
-        task.wait(1.5)
+    for _ = 1, 12 do
+        task.wait(0.9)
         local okQ, r2 = pcall(httpReq, {
             Url = "https://apis.roblox.com/assets/v1/" .. d.path,
             Method = "GET",
@@ -6347,6 +6403,9 @@ local function spoofAssetSingleCore(assetId, targetType, speedVal)
     if not newAssetId then
         return nil, "Proses upload timeout di server Roblox", assetName
     end
+
+    -- Simpan di cache untuk instan reuse
+    spoofCache[cacheKey] = {id = newAssetId, name = assetName}
 
     return newAssetId, assetName
 end
@@ -6380,6 +6439,7 @@ label({Text = "Duplikasi audio, animasi, decal & ganti semua ID di dalam script 
 -- Card 1: Spoof Manual ID
 local cardSpoofId = sudut(buat("Frame", {
     BackgroundColor3 = C.kartu,
+    BorderSizePixel = 0,
     Size = UDim2.new(1, 0, 0, 0),
     AutomaticSize = Enum.AutomaticSize.Y,
     BorderSizePixel = 0,
@@ -6558,6 +6618,7 @@ btnSpoofNow.Activated:Connect(function()
                 table.insert(hasilLines, "❌ " .. titleClean .. " | Gagal")
             end
             btnSpoofNow.Text = "⏳ Sedang Memproses (" .. idx .. "/" .. #ids .. ")..."
+            task.wait(0.08) -- Yield to keep 60 FPS on mobile Delta
         end
 
         outSpoofId.Text = table.concat(hasilLines, "\n")
@@ -6664,6 +6725,7 @@ btnSpoofScriptNow.Activated:Connect(function()
                 suksesCount = suksesCount + 1
             end
             btnSpoofScriptNow.Text = "⏳ Sedang Memproses (" .. i .. "/" .. #listIds .. ")..."
+            task.wait(0.08) -- Yield to keep 60 FPS on mobile Delta
         end
 
         local finalScript = scriptContent
@@ -7011,8 +7073,8 @@ initHalamanSetelan()
 ------------------------------------------------------------------
 local function initSidebar()
 local sideScroll = buat("ScrollingFrame", {
-    Size = UDim2.new(1, -8, 1, -48),
-    Position = UDim2.new(0, 4, 0, 44),
+    Size = UDim2.new(1, -8, 1, -56),
+    Position = UDim2.new(0, 4, 0, 52),
     BackgroundTransparency = 1,
     BorderSizePixel = 0,
     ScrollBarThickness = 3,
@@ -7070,6 +7132,14 @@ for i, m in ipairs(MENU) do
                 ScaleType = Enum.ScaleType.Fit,
             }, b)
         end
+        local pill = sudut(buat("Frame", {
+            Name = "ActivePill",
+            Size = UDim2.new(0, 3, 0, 16),
+            Position = UDim2.new(0, 2, 0.5, -8),
+            BackgroundColor3 = Color3.fromRGB(245, 175, 45),
+            BorderSizePixel = 0,
+            Visible = false,
+        }, b), 2)
         menuBtn[m.kunci] = b
         if m.badge then
             badgeMenu[m.kunci] = label({
@@ -7087,6 +7157,8 @@ sorotMenu = function(kunci)
             or (k == "toolbox" and toolboxTerbuka)
             or (k == "music" and musicTerbuka)
         b.BackgroundColor3 = aktif and C.aktif or C.kartu
+        local p = b:FindFirstChild("ActivePill")
+        if p then p.Visible = aktif end
     end
 end
 end
