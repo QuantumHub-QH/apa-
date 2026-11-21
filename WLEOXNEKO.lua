@@ -1,8 +1,9 @@
 --[[
 ============================================================
-  WLEO x NEKO  |  RBXL / RBXM IMPORTER  (Liquid Glass UI)
+  ENGINE STUDIO BYPASS  |  RBXL / RBXM IMPORTER + EXPORTER
   Engine : LANGZ RBXL core (restore source, runtime bridge,
            Studio Lite editor inject, GetScriptSource hook)
+           + MedStudio Export Engine (binary RBXM/RBXL writer)
   Toggle : rbxassetid://137771867948384
   FIX    : blok DASHBOARD, TOOLBOX, AKUN dibungkus function
            supaya tidak melewati batas local per chunk.
@@ -2330,7 +2331,7 @@ end)
 --                        LIQUID GLASS UI
 -- =====================================================================
 local TOGGLE_ICON = "rbxassetid://92844638469747"
-local GUI_NAME = "WLEO_NEKO_RBXL_IMPORTER"
+local GUI_NAME = "ENGINE_STUDIO_BYPASS"
 do
     local old = CoreDest:FindFirstChild(GUI_NAME)
     if old then old:Destroy() end
@@ -2508,11 +2509,11 @@ do
     corner(logo, 11)
     glassStroke(logo, 1)
 
-    local title = text(header, "WLEO x NEKO", 16, Enum.Font.GothamBold, C.text)
+    local title = text(header, "ENGINE STUDIO BYPASS", 16, Enum.Font.GothamBold, C.text)
     title.Position = UDim2.fromOffset(44, 2)
     title.Size = UDim2.new(1, -120, 0, 20)
     title.ZIndex = 21
-    local subtitle = text(header, "RBXM • RBXL • TOOLBOX", 10, Enum.Font.GothamMedium, C.accent)
+    local subtitle = text(header, "IMPORT • EXPORT • TOOLBOX", 10, Enum.Font.GothamMedium, C.accent)
     subtitle.Position = UDim2.fromOffset(44, 22)
     subtitle.Size = UDim2.new(1, -120, 0, 14)
     subtitle.ZIndex = 21
@@ -2556,11 +2557,14 @@ end
 
 -- ---------- icon format ----------
 local ICONS = {
-    RBXM  = "rbxassetid://106962661743892",
-    RBXMX = "rbxassetid://106962661743892",
-    RBXL  = "rbxassetid://122982660526589",
-    RBXLX = "rbxassetid://122982660526589",
+    RBXM    = "rbxassetid://106962661743892",
+    RBXMX   = "rbxassetid://106962661743892",
+    RBXL    = "rbxassetid://122982660526589",
+    RBXLX   = "rbxassetid://122982660526589",
     TOOLBOX = "rbxassetid://121323758319527",
+    HOME    = "rbxassetid://134003209888315",
+    AKUN    = "rbxassetid://135151885033456",
+    EXPORT  = "rbxassetid://106962661743892",
 }
 
 -- ---------- sidebar ----------
@@ -2578,7 +2582,7 @@ sideScroll.BackgroundTransparency = 1
 sideScroll.BorderSizePixel = 0
 sideScroll.ScrollBarThickness = 2
 sideScroll.ScrollBarImageColor3 = C.accent
-sideScroll.CanvasSize = UDim2.fromOffset(0, 252)
+sideScroll.CanvasSize = UDim2.fromOffset(0, 290)
 sideScroll.ZIndex = 20
 sideScroll.Parent = side
 
@@ -2602,12 +2606,12 @@ end
 -- state dashboard / panel (dipakai banyak bagian)
 local DASH = { mode = "dash", hooks = {}, tiles = {}, stat = {} }
 local ACCT = { connected = false, data = {} }
-local TAB_LABEL = { HOME = "HOME", TOOLBOX = "TOOLBOX PC", AKUN = "AKUN" }
+local TAB_LABEL = { HOME = "HOME", TOOLBOX = "TOOLBOX PC", AKUN = "AKUN", EXPORT = "EXPORT" }
 local function tabLabel(n) return TAB_LABEL[n] or n end
 
 local tabButtons = {}
 local function makeTab(name, y)
-    local noBadge = (name == "TOOLBOX" or name == "HOME" or name == "AKUN")
+    local noBadge = (name == "TOOLBOX" or name == "HOME" or name == "AKUN" or name == "EXPORT")
     local b = Instance.new("TextButton")
     b.Size = UDim2.new(1, -12, 0, 26)
     b.Position = UDim2.fromOffset(6, y)
@@ -2661,14 +2665,15 @@ end
 
 sideCategory("MENU", 3, false)
 makeTab("HOME", 17)
-makeTab("TOOLBOX", 45)
-sideCategory("IMPORTER", 77, true)
-makeTab("RBXM", 92)
-makeTab("RBXMX", 119)
-makeTab("RBXL", 146)
-makeTab("RBXLX", 173)
-sideCategory("GENERAL", 205, true)
-makeTab("AKUN", 220)
+makeTab("EXPORT", 45)
+makeTab("TOOLBOX", 73)
+sideCategory("IMPORTER", 105, true)
+makeTab("RBXM", 120)
+makeTab("RBXMX", 147)
+makeTab("RBXL", 174)
+makeTab("RBXLX", 201)
+sideCategory("GENERAL", 233, true)
+makeTab("AKUN", 248)
 
 local scanBtn = Instance.new("TextButton")
 scanBtn.Size = UDim2.new(1, -12, 0, 24)
@@ -3236,12 +3241,13 @@ end
         return sub
     end
 
-    homeTile(1, "TOOLBOX", "TOOLBOX PC", ICONS.TOOLBOX, C.ok, nil, function() DASH.hooks.setTab("TOOLBOX") end).Text = "Cari & spawn aset"
-    homeTile(2, "RBXM", "RBXM", ICONS.RBXM, C.accent, nil, function() DASH.hooks.setTab("RBXM") end)
-    homeTile(3, "RBXMX", "RBXMX", ICONS.RBXMX, C.accent, nil, function() DASH.hooks.setTab("RBXMX") end)
-    homeTile(4, "RBXL", "RBXL", ICONS.RBXL, C.accent2, nil, function() DASH.hooks.setTab("RBXL") end)
-    homeTile(5, "RBXLX", "RBXLX", ICONS.RBXLX, C.accent2, nil, function() DASH.hooks.setTab("RBXLX") end)
-    homeTile(6, "AKUN", "AKUN", nil, C.accent2, "A", function() DASH.hooks.setTab("AKUN") end).Text = "Belum terhubung"
+    homeTile(1, "EXPORT", "EXPORT", ICONS.EXPORT, C.ok, nil, function() DASH.hooks.setTab("EXPORT") end).Text = "Simpan RBXM/RBXL"
+    homeTile(2, "TOOLBOX", "TOOLBOX PC", ICONS.TOOLBOX, C.accent, nil, function() DASH.hooks.setTab("TOOLBOX") end).Text = "Cari & spawn aset"
+    homeTile(3, "RBXM", "RBXM", ICONS.RBXM, C.accent, nil, function() DASH.hooks.setTab("RBXM") end)
+    homeTile(4, "RBXMX", "RBXMX", ICONS.RBXMX, C.accent, nil, function() DASH.hooks.setTab("RBXMX") end)
+    homeTile(5, "RBXL", "RBXL", ICONS.RBXL, C.accent2, nil, function() DASH.hooks.setTab("RBXL") end)
+    homeTile(6, "RBXLX", "RBXLX", ICONS.RBXLX, C.accent2, nil, function() DASH.hooks.setTab("RBXLX") end)
+    homeTile(7, "AKUN", "AKUN", nil, C.accent2, "A", function() DASH.hooks.setTab("AKUN") end).Text = "Belum terhubung"
 
     -- sinkron tombol SCAN (sidebar) -> dashboard & home
     scanBtn:GetPropertyChangedSignal("Text"):Connect(function()
@@ -3298,6 +3304,8 @@ local function refreshTabs()
         contentTitle.Text = "HOME"
     elseif currentTab == "AKUN" then
         contentTitle.Text = "AKUN • GENERAL"
+    elseif currentTab == "EXPORT" then
+        contentTitle.Text = "EXPORT RBXM / RBXL"
     else
         contentTitle.Text = currentTab .. " FILES"
     end
@@ -4315,17 +4323,844 @@ end)()
     end
 end)()
 
+-- =====================================================================
+--   EXPORT ENGINE  (ported from MedStudio by wleo)
+--   Tulis file .rbxm / .rbxl biner langsung dari dalam game
+-- =====================================================================
+local Exporter = (function()
+    local CollectionService = game:GetService("CollectionService")
+    local ReplicatedStorageExp = game:GetService("ReplicatedStorage")
+
+    -- ---------- ambil source script ----------
+    local sourceRemote = nil
+    local function findSourceRemote()
+        if sourceRemote and sourceRemote.Parent then return sourceRemote end
+        pcall(function()
+            for _, d in ipairs(ReplicatedStorageExp:GetDescendants()) do
+                if d.Name == "GetScriptSourceServerFunction" and d:IsA("RemoteFunction") then
+                    sourceRemote = d; break
+                end
+            end
+        end)
+        return sourceRemote
+    end
+    local function cleanSrc(src)
+        if type(src) ~= "string" then return nil end
+        src = src:gsub("%z+$","")
+        if src == "" or src == "-- [Langz] Source tidak ditemukan." then return nil end
+        return src
+    end
+    local function scriptSource(scr)
+        local raw = _G.Langz_RAW_SOURCES and _G.Langz_RAW_SOURCES[scr]
+        if cleanSrc(raw) then return cleanSrc(raw),"import" end
+        local tb = scr:FindFirstChild("SL_CodeTextBox")
+        if tb then local ok,t=pcall(function()return tb.Text end) if ok and cleanSrc(t) then return cleanSrc(t),"editor" end end
+        local ro = scr:FindFirstChild("SL_1ReadOnly")
+        if ro then local ok,t=pcall(function()return ro.ContentText end) if ok and cleanSrc(t) then return cleanSrc(t),"editor" end end
+        local rf = findSourceRemote()
+        if rf then local ok,t=pcall(function()return rf:InvokeServer(scr.ClassName..scr.Name)end) if ok and cleanSrc(t) then return cleanSrc(t),"server" end end
+        local ok,t=pcall(function()return scr.Source end) if ok and cleanSrc(t) then return cleanSrc(t),"source" end
+        if type(gethiddenproperty)=="function" then ok,t=pcall(gethiddenproperty,scr,"Source") if ok and cleanSrc(t) then return cleanSrc(t),"source" end end
+        if type(decompile)=="function" then ok,t=pcall(decompile,scr) if ok and cleanSrc(t) and not t:find("^%-%- ?[Ff]ailed") then return cleanSrc(t),"decompile" end end
+        return nil,"kosong"
+    end
+
+    -- ---------- property defs ----------
+    local PROPS = {
+        {"BasePart",{{"CFrame"},{"Size","size"},{"Color","Color3uint8"},{"Material"},{"Transparency"},{"Reflectance"},{"Anchored"},{"CanCollide"},{"CanTouch"},{"CanQuery"},{"CastShadow"},{"Locked"},{"Massless"},{"CollisionGroup"},{"RootPriority",nil,"int"},{"CustomPhysicalProperties"},{"TopSurface"},{"BottomSurface"},{"LeftSurface"},{"RightSurface"},{"FrontSurface"},{"BackSurface"}}},
+        {"Part",{{"Shape","shape"}}},
+        {"MeshPart",{{"MeshId",nil,"content"},{"TextureID",nil,"content"},{"RenderFidelity"},{"CollisionFidelity"},{"DoubleSided"}}},
+        {"PartOperation",{{"UsePartColor"},{"RenderFidelity"},{"CollisionFidelity"},{"SmoothingAngle"}}},
+        {"Model",{{"PrimaryPart"},{"LevelOfDetail"},{"ModelStreamingMode"}}},
+        {"Decal",{{"Texture",nil,"content"},{"Face"},{"Color3"},{"Transparency"},{"ZIndex",nil,"int"}}},
+        {"Texture",{{"StudsPerTileU"},{"StudsPerTileV"}}},
+        {"SpecialMesh",{{"MeshType"},{"MeshId",nil,"content"},{"TextureId",nil,"content"}}},
+        {"DataModelMesh",{{"Scale"},{"Offset"},{"VertexColor"}}},
+        {"SurfaceAppearance",{{"ColorMap",nil,"content"},{"NormalMap",nil,"content"},{"MetalnessMap",nil,"content"},{"RoughnessMap",nil,"content"},{"AlphaMode"},{"Color"}}},
+        {"Light",{{"Brightness"},{"Color"},{"Enabled"},{"Shadows"}}},
+        {"PointLight",{{"Range"}}},
+        {"SpotLight",{{"Range"},{"Angle"},{"Face"}}},
+        {"Attachment",{{"CFrame"},{"Visible"}}},
+        {"WeldConstraint",{{"Part0"},{"Part1"},{"Enabled"}}},
+        {"JointInstance",{{"Part0"},{"Part1"},{"C0"},{"C1"},{"Enabled"}}},
+        {"Constraint",{{"Attachment0"},{"Attachment1"},{"Enabled"},{"Visible"},{"Color"}}},
+        {"ValueBase",{{"Value"}}},
+        {"LuaSourceContainer",{}},
+        {"BaseScript",{{"RunContext"}}},
+        {"Sound",{{"SoundId",nil,"content"},{"Volume"},{"Looped"},{"PlaybackSpeed"},{"Playing"}}},
+        {"ParticleEmitter",{{"Texture",nil,"content"},{"Rate"},{"Lifetime"},{"Speed"},{"Size"},{"Transparency"},{"Color"},{"LightEmission"},{"Enabled"},{"Brightness"}}},
+        {"Highlight",{{"FillColor"},{"OutlineColor"},{"FillTransparency"},{"OutlineTransparency"},{"DepthMode"},{"Enabled"}}},
+        {"ProximityPrompt",{{"ActionText"},{"ObjectText"},{"HoldDuration"},{"MaxActivationDistance"},{"Enabled"}}},
+        {"Tool",{{"CanBeDropped"},{"RequiresHandle"},{"ManualActivationOnly"},{"ToolTip"},{"Grip"},{"TextureId",nil,"content"},{"Enabled"}}},
+        {"Humanoid",{{"DisplayDistanceType"},{"HealthDisplayType"},{"MaxHealth"},{"WalkSpeed"},{"JumpPower"},{"UseJumpPower"},{"HipHeight"},{"RigType"},{"DisplayName"}}},
+        {"Animation",{{"AnimationId",nil,"content"}}},
+        {"LayerCollector",{{"Enabled"},{"ResetOnSpawn"},{"ZIndexBehavior"}}},
+        {"ScreenGui",{{"DisplayOrder",nil,"int"},{"IgnoreGuiInset"}}},
+        {"SurfaceGui",{{"CanvasSize"},{"PixelsPerStud"},{"SizingMode"},{"AlwaysOnTop"},{"LightInfluence"},{"ClipsDescendants"},{"ZOffset"}}},
+        {"GuiObject",{{"Size"},{"Position"},{"AnchorPoint"},{"BackgroundColor3"},{"BackgroundTransparency"},{"BorderColor3"},{"BorderSizePixel",nil,"int"},{"Visible"},{"ZIndex",nil,"int"},{"LayoutOrder",nil,"int"},{"Rotation"},{"ClipsDescendants"},{"AutomaticSize"},{"Active"}}},
+        {"TextLabel",{{"Text"},{"TextColor3"},{"TextSize"},{"TextScaled"},{"TextWrapped"},{"TextXAlignment"},{"TextYAlignment"},{"FontFace"},{"RichText"},{"TextTransparency"},{"LineHeight"},{"TextTruncate"}}},
+        {"TextButton",{{"Text"},{"TextColor3"},{"TextSize"},{"TextScaled"},{"TextWrapped"},{"TextXAlignment"},{"TextYAlignment"},{"FontFace"},{"RichText"},{"TextTransparency"}}},
+        {"TextBox",{{"Text"},{"PlaceholderText"},{"PlaceholderColor3"},{"TextColor3"},{"TextSize"},{"TextScaled"},{"TextWrapped"},{"FontFace"},{"RichText"},{"ClearTextOnFocus"},{"MultiLine"}}},
+        {"ImageLabel",{{"Image",nil,"content"},{"ImageColor3"},{"ImageTransparency"},{"ScaleType"},{"SliceCenter"},{"TileSize"},{"ImageRectOffset"},{"ImageRectSize"}}},
+        {"ImageButton",{{"Image",nil,"content"},{"ImageColor3"},{"ImageTransparency"},{"ScaleType"}}},
+        {"ScrollingFrame",{{"CanvasSize"},{"ScrollBarThickness",nil,"int"},{"ScrollBarImageColor3"},{"ScrollingDirection"},{"AutomaticCanvasSize"},{"ScrollingEnabled"}}},
+        {"CanvasGroup",{{"GroupColor3"},{"GroupTransparency"}}},
+        {"UICorner",{{"CornerRadius"}}},
+        {"UIStroke",{{"Color"},{"Thickness"},{"Transparency"},{"ApplyStrokeMode"},{"Enabled"}}},
+        {"UIGradient",{{"Color"},{"Transparency"},{"Rotation"},{"Offset"},{"Enabled"}}},
+        {"UIPadding",{{"PaddingTop"},{"PaddingBottom"},{"PaddingLeft"},{"PaddingRight"}}},
+        {"UIScale",{{"Scale"}}},
+        {"UIListLayout",{{"Padding"},{"FillDirection"},{"HorizontalAlignment"},{"VerticalAlignment"},{"SortOrder"}}},
+        {"UIGridLayout",{{"CellSize"},{"CellPadding"},{"SortOrder"}}},
+        {"UIAspectRatioConstraint",{{"AspectRatio"},{"AspectType"},{"DominantAxis"}}},
+        {"UISizeConstraint",{{"MinSize"},{"MaxSize"}}},
+        {"Workspace",{{"Gravity"},{"FallenPartsDestroyHeight"}}},
+        {"Lighting",{{"Ambient"},{"Brightness"},{"ClockTime"},{"ColorShift_Bottom"},{"ColorShift_Top"},{"FogColor"},{"FogEnd"},{"FogStart"},{"GlobalShadows"},{"OutdoorAmbient"},{"Technology"}}},
+        {"Sky",{{"SkyboxBk",nil,"content"},{"SkyboxDn",nil,"content"},{"SkyboxFt",nil,"content"},{"SkyboxLf",nil,"content"},{"SkyboxRt",nil,"content"},{"SkyboxUp",nil,"content"}}},
+        {"StarterPlayer",{{"CameraMaxZoomDistance"},{"CameraMinZoomDistance"},{"CharacterWalkSpeed"},{"CharacterJumpPower"},{"CharacterUseJumpPower"},{"AutoJumpEnabled"}}},
+    }
+
+    local TYPE_OF = {string="string",boolean="bool",EnumItem="token",Vector3="V3",Vector2="V2",CFrame="CF",Color3="C3",BrickColor="BC",UDim="UDim",UDim2="UDim2",Rect="Rect",NumberRange="NR",NumberSequence="NS",ColorSequence="CS",PhysicalProperties="Phys",Font="Font",Instance="Ref"}
+    local function typedValue(pname,xname,kind,v)
+        if kind=="content" then return "Content",tostring(v or "") end
+        if xname=="Color3uint8" and typeof(v)=="Color3" then return "C3u8",v end
+        local t=typeof(v)
+        if t=="nil" then
+            if pname=="CustomPhysicalProperties" then return "Phys",nil end
+            return nil
+        end
+        if t=="number" then
+            if kind=="int" then return "int",math.floor(v+0.5) end
+            if kind=="int64" then return "int64",math.floor(v+0.5) end
+            if kind=="double" then return "double",v end
+            return "float",v
+        end
+        local tt=TYPE_OF[t]
+        if not tt then return nil end
+        return tt,v
+    end
+
+    local PlayersExp = game:GetService("Players")
+    local SKIP_CLASS = {Terrain=true,Camera=true,Player=true,PlayerGui=true,Backpack=true,SelectionBox=true,SelectionSphere=true,Handles=true,ArcHandles=true}
+    local SL_SYSTEM = {Workspace={FlyCameraFocus=true,ExplorerSelectionChanged=true},ReplicatedStorage={StudioLiteFolder=true,FlyCameraFocus=true},StarterGui={StudioGui=true}}
+    local function shouldSkipExp(obj)
+        if SKIP_CLASS[obj.ClassName] then return true end
+        local okArc,arc=pcall(function()return obj.Archivable end)
+        if okArc and arc==false then return true end
+        if obj:IsA("Model") then
+            local okP,plr=pcall(function()return PlayersExp:GetPlayerFromCharacter(obj)end)
+            if okP and plr then return true end
+        end
+        local name=obj.Name
+        local parent=obj.Parent
+        if parent and parent.Parent==game then
+            local deny=SL_SYSTEM[parent.ClassName]
+            if deny and deny[name] then return true end
+        end
+        if name:sub(1,3)=="SL_" then return true end
+        if name:find("^MedStudio") or name:find("^ENGINE_STUDIO") then return true end
+        local low=name:lower()
+        if low:find("studio%s*lite") or low:find("^studiolite") then return true end
+        return false
+    end
+
+    local function packAttributes(obj)
+        local ok,attrs=pcall(function()return obj:GetAttributes()end)
+        if not ok or type(attrs)~="table" then return nil end
+        local parts,n={},0
+        for k,v in pairs(attrs) do
+            if type(k)=="string" and not k:find("^LANGZ_") and not k:find("^SL_") and k~="MSClick" and k~="MSClickRoot" then
+                local t,body=typeof(v),nil
+                if t=="string" then body=string.pack("<Bs4",0x02,v)
+                elseif t=="boolean" then body=string.pack("<BB",0x03,v and 1 or 0)
+                elseif t=="number" then body=string.pack("<Bd",0x06,v)
+                elseif t=="UDim" then body=string.pack("<Bfi4",0x09,v.Scale,v.Offset)
+                elseif t=="UDim2" then body=string.pack("<Bfi4fi4",0x0A,v.X.Scale,v.X.Offset,v.Y.Scale,v.Y.Offset)
+                elseif t=="Color3" then body=string.pack("<Bfff",0x0F,v.R,v.G,v.B)
+                elseif t=="Vector3" then body=string.pack("<Bfff",0x11,v.X,v.Y,v.Z)
+                end
+                if body then n+=1 parts[n]=string.pack("<s4",k)..body end
+            end
+        end
+        if n==0 then return nil end
+        return string.pack("<I4",n)..table.concat(parts)
+    end
+
+    local function readPropsExp(obj,withScripts,stats)
+        local out={{"Name","string",obj.Name}}
+        local used={Name=true}
+        local function add(name,t,v) if not used[name] then used[name]=true out[#out+1]={name,t,v} end end
+        local override={}
+        if obj:IsA("BasePart") then
+            pcall(function()
+                local a,c=obj:GetAttribute("SL_Anchored"),obj:GetAttribute("SL_CanCollide")
+                if type(a)=="boolean" then override.Anchored=a end
+                if type(c)=="boolean" then override.CanCollide=c end
+            end)
+        end
+        for _,entry in ipairs(PROPS) do
+            local okA,isA=pcall(function()return obj:IsA(entry[1])end)
+            if okA and isA then
+                for _,p in ipairs(entry[2]) do
+                    local pname,xname,kind=p[1],p[2],p[3]
+                    local key=xname or pname
+                    if not used[key] then
+                        local okV,v=pcall(function()return obj[pname]end)
+                        if override[pname]~=nil then okV,v=true,override[pname] end
+                        if okV then
+                            local t,val=typedValue(pname,xname,kind,v)
+                            if t then add(key,t,val) end
+                        end
+                    end
+                end
+            end
+        end
+        if obj:IsA("Model") then
+            local okP,piv=pcall(function()return obj:GetPivot()end)
+            if okP and piv then add("WorldPivotData","OptCF",piv) end
+        end
+        if obj:IsA("LuaSourceContainer") then
+            stats.scripts+=1
+            local src,from=nil,"kosong"
+            if withScripts then src,from=scriptSource(obj) end
+            if src then stats.withSource+=1 stats.from[from]=(stats.from[from] or 0)+1 end
+            add("Source","string",src or "")
+            if obj:IsA("BaseScript") then
+                local okE,en=pcall(function()return obj.Enabled end)
+                add("Disabled","bool",okE and not en or false)
+            end
+        end
+        if type(gethiddenproperty)=="function" then
+            if obj:IsA("MeshPart") then
+                local okI,init=pcall(gethiddenproperty,obj,"InitialSize")
+                if okI and typeof(init)=="Vector3" then add("InitialSize","V3",init) end
+            elseif obj:IsA("PartOperation") then
+                local okA2,aid=pcall(gethiddenproperty,obj,"AssetId")
+                if okA2 and type(aid)=="string" and aid~="" then add("AssetId","Content",aid) end
+                for _,key in ipairs({"MeshData","ChildData","PhysicsData"}) do
+                    local okD,data=pcall(gethiddenproperty,obj,key)
+                    if okD and type(data)=="string" and #data>0 then add(key,"bin",data) end
+                end
+            end
+        end
+        local attr=packAttributes(obj)
+        if attr then add("AttributesSerialize","bin",attr) end
+        local okT,tags=pcall(function()return CollectionService:GetTags(obj)end)
+        if okT and type(tags)=="table" then
+            local keep={}
+            for _,tg in ipairs(tags) do if not tostring(tg):find("^MedStudio") and not tostring(tg):find("^ENGINE") then keep[#keep+1]=tg end end
+            if #keep>0 then add("Tags","bin",table.concat(keep,"\0")) end
+        end
+        return out
+    end
+
+    -- binary writer
+    local band,bor,lshift,rshift=bit32.band,bit32.bor,bit32.lshift,bit32.rshift
+    local function zig32(x) x=math.floor(x) return x>=0 and x*2 or (-x*2-1) end
+    local function be32(u) return string.char(rshift(u,24)%256,rshift(u,16)%256,rshift(u,8)%256,u%256) end
+    local function interleaveExp(words,size)
+        local n=#words if n==0 then return "" end
+        local out={}
+        for b=1,size do
+            local col=table.create and table.create(n) or {}
+            for i=1,n do col[i]=string.sub(words[i],b,b) end
+            out[b]=table.concat(col)
+        end
+        return table.concat(out)
+    end
+    local function i32arr(vals) local w={} for i,v in ipairs(vals) do w[i]=be32(zig32(v)%4294967296) end return interleaveExp(w,4) end
+    local function u32arr(vals) local w={} for i,v in ipairs(vals) do w[i]=be32(math.floor(v)%4294967296) end return interleaveExp(w,4) end
+    local function f32bits(f) local u=string.unpack(">I4",string.pack(">f",f)) return bor(lshift(u,1),rshift(u,31)) end
+    local function f32arr(vals) local w={} for i,v in ipairs(vals) do w[i]=be32(f32bits(v)) end return interleaveExp(w,4) end
+    local function refArr(vals) local d,prev={},0 for i,v in ipairs(vals) do d[i]=v-prev prev=v end return i32arr(d) end
+    local function i64arr(vals) local w={} for i,v in ipairs(vals) do local z=zig32(v) local hi,lo=math.floor(z/4294967296),z%4294967296 w[i]=be32(hi%4294967296)..be32(lo) end return interleaveExp(w,8) end
+    local function strPack(s) return string.pack("<I4",#s)..s end
+
+    local TYPE_ID={string=0x01,bin=0x01,Content=0x01,bool=0x02,int=0x03,float=0x04,double=0x05,UDim=0x06,UDim2=0x07,BC=0x0B,C3=0x0C,V2=0x0D,V3=0x0E,CF=0x10,token=0x12,Ref=0x13,NS=0x15,CS=0x16,NR=0x17,Rect=0x18,Phys=0x19,C3u8=0x1A,int64=0x1B,OptCF=0x1E,Font=0x20}
+    local DEFAULT={string="",bin="",Content="",bool=false,int=0,float=0,double=0,int64=0,token=0,V3=Vector3.zero,V2=Vector2.zero,CF=CFrame.identity,OptCF=false,C3=Color3.new(),C3u8=Color3.new(),BC=BrickColor.new(194),UDim=UDim.new(),UDim2=UDim2.new(),Rect=Rect.new(0,0,0,0),NR=NumberRange.new(0),NS=NumberSequence.new(0),CS=ColorSequence.new(Color3.new()),Phys=false,Font=false,Ref=false}
+
+    local function cframeValues(list)
+        local head,xs,ys,zs={},{},{},{}
+        for i,cf in ipairs(list) do
+            local c={cf:GetComponents()}
+            head[i]=string.pack("<Bfffffffff",0,c[4],c[5],c[6],c[7],c[8],c[9],c[10],c[11],c[12])
+            xs[i],ys[i],zs[i]=c[1],c[2],c[3]
+        end
+        return table.concat(head)..f32arr(xs)..f32arr(ys)..f32arr(zs)
+    end
+
+    local function encodeValuesExp(t,list,refOf)
+        if t=="string" or t=="bin" or t=="Content" then
+            local o={} for i,v in ipairs(list) do o[i]=strPack(tostring(v)) end return table.concat(o)
+        elseif t=="bool" then
+            local o={} for i,v in ipairs(list) do o[i]=v and "\1" or "\0" end return table.concat(o)
+        elseif t=="int" then return i32arr(list)
+        elseif t=="float" then return f32arr(list)
+        elseif t=="double" then local o={} for i,v in ipairs(list) do o[i]=string.pack("<d",v) end return table.concat(o)
+        elseif t=="int64" then return i64arr(list)
+        elseif t=="token" then local o={} for i,v in ipairs(list) do o[i]=type(v)=="number" and v or v.Value end return u32arr(o)
+        elseif t=="UDim" then local s,of={},{} for i,v in ipairs(list) do s[i],of[i]=v.Scale,v.Offset end return f32arr(s)..i32arr(of)
+        elseif t=="UDim2" then local sx,sy,ox,oy={},{},{},{} for i,v in ipairs(list) do sx[i],sy[i],ox[i],oy[i]=v.X.Scale,v.Y.Scale,v.X.Offset,v.Y.Offset end return f32arr(sx)..f32arr(sy)..i32arr(ox)..i32arr(oy)
+        elseif t=="BC" then local o={} for i,v in ipairs(list) do o[i]=v.Number end return u32arr(o)
+        elseif t=="C3" then local r,g,b={},{},{} for i,v in ipairs(list) do r[i],g[i],b[i]=v.R,v.G,v.B end return f32arr(r)..f32arr(g)..f32arr(b)
+        elseif t=="C3u8" then local r,g,b={},{},{} local function u8c(x) return math.clamp(math.floor(x*255+0.5),0,255) end for i,v in ipairs(list) do r[i],g[i],b[i]=string.char(u8c(v.R)),string.char(u8c(v.G)),string.char(u8c(v.B)) end return table.concat(r)..table.concat(g)..table.concat(b)
+        elseif t=="V2" then local x,y={},{} for i,v in ipairs(list) do x[i],y[i]=v.X,v.Y end return f32arr(x)..f32arr(y)
+        elseif t=="V3" then local x,y,z={},{},{} for i,v in ipairs(list) do x[i],y[i],z[i]=v.X,v.Y,v.Z end return f32arr(x)..f32arr(y)..f32arr(z)
+        elseif t=="CF" then return cframeValues(list)
+        elseif t=="OptCF" then local cfs,has={},{} for i,v in ipairs(list) do cfs[i]=v or CFrame.identity has[i]=v and "\1" or "\0" end return "\16"..cframeValues(cfs).."\2"..table.concat(has)
+        elseif t=="Ref" then local o={} for i,v in ipairs(list) do o[i]=(v and refOf[v]) or -1 end return refArr(o)
+        elseif t=="NS" then local o={} for i,v in ipairs(list) do local kp=v.Keypoints local part={string.pack("<I4",#kp)} for _,k in ipairs(kp) do part[#part+1]=string.pack("<fff",k.Time,k.Value,k.Envelope) end o[i]=table.concat(part) end return table.concat(o)
+        elseif t=="CS" then local o={} for i,v in ipairs(list) do local kp=v.Keypoints local part={string.pack("<I4",#kp)} for _,k in ipairs(kp) do part[#part+1]=string.pack("<fffff",k.Time,k.Value.R,k.Value.G,k.Value.B,0) end o[i]=table.concat(part) end return table.concat(o)
+        elseif t=="NR" then local o={} for i,v in ipairs(list) do o[i]=string.pack("<ff",v.Min,v.Max) end return table.concat(o)
+        elseif t=="Rect" then local a,b,c,d={},{},{},{} for i,v in ipairs(list) do a[i],b[i],c[i],d[i]=v.Min.X,v.Min.Y,v.Max.X,v.Max.Y end return f32arr(a)..f32arr(b)..f32arr(c)..f32arr(d)
+        elseif t=="Phys" then local o={} for i,v in ipairs(list) do if v then o[i]="\1"..string.pack("<fffff",v.Density,v.Friction,v.Elasticity,v.FrictionWeight,v.ElasticityWeight) else o[i]="\0" end end return table.concat(o)
+        elseif t=="Font" then local o={} for i,v in ipairs(list) do local fam,w,style="rbxasset://fonts/families/SourceSansPro.json",400,0 if v then fam=v.Family pcall(function()w=v.Weight.Value end) pcall(function()style=v.Style==Enum.FontStyle.Italic and 1 or 0 end) end o[i]=strPack(fam)..string.pack("<I2B",w,style)..strPack("") end return table.concat(o)
+        end
+        error("tipe tidak dikenal: "..tostring(t))
+    end
+
+    local function chunkExp(name,data) return name..string.pack("<I4I4I4",0,#data,0)..data end
+
+    local function writeBinaryExp(nodes,refOf)
+        local classes,classOf={},{}
+        for _,node in ipairs(nodes) do
+            local c=classOf[node.class]
+            if not c then c={name=node.class,nodes={}} classOf[node.class]=c classes[#classes+1]=c end
+            c.nodes[#c.nodes+1]=node
+        end
+        table.sort(classes,function(a,b)return a.name<b.name end)
+        local out={"<roblox!\137\255\13\10\26\10",string.pack("<I2i4i4",0,#classes,#nodes),string.rep("\0",8)}
+        out[#out+1]=chunkExp("META",string.pack("<I4",1)..strPack("ExplicitAutoJoints")..strPack("true"))
+        for idx,c in ipairs(classes) do
+            local refs={} for i,node in ipairs(c.nodes) do refs[i]=node.ref end
+            c.index=idx-1
+            local isSvc=c.nodes[1].service==true
+            local data=string.pack("<I4",c.index)..strPack(c.name)..(isSvc and "\1" or "\0")..string.pack("<I4",#refs)..refArr(refs)
+            if isSvc then data=data..string.rep("\1",#refs) end
+            out[#out+1]=chunkExp("INST",data)
+        end
+        for _,c in ipairs(classes) do
+            local order,typeOfProp={},{}
+            for _,node in ipairs(c.nodes) do
+                node.map={}
+                for _,p in ipairs(node.props) do
+                    node.map[p[1]]=p
+                    if not typeOfProp[p[1]] then typeOfProp[p[1]]=p[2] order[#order+1]=p[1] end
+                end
+            end
+            for _,pname in ipairs(order) do
+                local t=typeOfProp[pname]
+                local list={}
+                for i,node in ipairs(c.nodes) do
+                    local p=node.map[pname]
+                    local v
+                    if p and p[2]==t then v=p[3] else v=DEFAULT[t] end
+                    if v==nil then v=DEFAULT[t] end
+                    list[i]=v
+                end
+                local okE,data=pcall(encodeValuesExp,t,list,refOf)
+                if okE then out[#out+1]=chunkExp("PROP",string.pack("<I4",c.index)..strPack(pname)..string.char(TYPE_ID[t])..data) end
+            end
+            task.wait()
+        end
+        local child,parent={},{}
+        for i,node in ipairs(nodes) do child[i],parent[i]=node.ref,node.parent end
+        out[#out+1]=chunkExp("PRNT","\0"..string.pack("<I4",#nodes)..refArr(child)..refArr(parent))
+        out[#out+1]="END\0"..string.pack("<I4I4I4",0,9,0).."</roblox>"
+        return table.concat(out)
+    end
+
+    local PLACE_SERVICES_EXP={"Workspace","Lighting","ReplicatedFirst","ReplicatedStorage","ServerScriptService","ServerStorage","StarterGui","StarterPack","StarterPlayer","SoundService","Teams"}
+    local function containerOfExp(name)
+        if name=="ServerScriptService" and typeof(_G.sss)=="Instance" and _G.sss.Parent then return _G.sss end
+        if name=="ServerStorage" and typeof(_G.ss)=="Instance" and _G.ss.Parent then return _G.ss end
+        local ok,svc=pcall(function()return game:GetService(name)end) if ok and svc then return svc end return nil
+    end
+
+    local function collectAllExp(roots,withScripts,onProgress)
+        local nodes,refOf,count={},{},0
+        local function walk(obj,parentRef)
+            if shouldSkipExp(obj) or refOf[obj] then return end
+            refOf[obj]=count count+=1
+            local node={obj=obj,ref=refOf[obj],parent=parentRef,class=obj.ClassName}
+            nodes[#nodes+1]=node
+            local ok,kids=pcall(function()return obj:GetChildren()end)
+            if ok then for _,c in ipairs(kids) do walk(c,node.ref) end end
+        end
+        if #roots==0 then return nil,"Pilih objek terlebih dahulu." end
+        local function isNested(r)
+            for _,other in ipairs(roots) do if other~=r and r:IsDescendantOf(other) then return true end end return false
+        end
+        for _,r in ipairs(roots) do if not isNested(r) then walk(r,-1) end end
+        if count==0 then return nil,"Tidak ada objek yang bisa diekspor." end
+        local stats={objects=count,scripts=0,withSource=0,from={}}
+        for i,node in ipairs(nodes) do
+            node.props=readPropsExp(node.obj,withScripts,stats)
+            if i%40==0 then
+                if onProgress then pcall(onProgress,i,count,node.obj.Name) end
+                task.wait()
+            end
+        end
+        return nodes,refOf,stats
+    end
+
+    local function exportExp(roots,withScripts,onProgress)
+        local nodes,refOf,stats=collectAllExp(roots,withScripts,onProgress)
+        if not nodes then return nil,refOf end
+        if onProgress then pcall(onProgress,stats.objects,stats.objects,"menulis file") end
+        task.wait()
+        return writeBinaryExp(nodes,refOf),stats
+    end
+
+    local function saveExp(fileName,data,ext)
+        ext=ext=="rbxl" and "rbxl" or "rbxm"
+        fileName=tostring(fileName or "Export"):gsub("[^%w%-_%. ]","_"):gsub("^%s+",""):gsub("%s+$",""):gsub("%.rbx[ml]x?$","")
+        if fileName=="" then fileName="Export" end
+        fileName=fileName.."."..ext
+        local saved={}
+        pcall(function()
+            if makefolder and isfolder then
+                if not isfolder("EngineStudio") then makefolder("EngineStudio") end
+                if not isfolder("EngineStudio/export") then makefolder("EngineStudio/export") end
+            end
+        end)
+        local okW=pcall(writefile,"EngineStudio/export/"..fileName,data)
+        if okW then saved[#saved+1]="workspace/EngineStudio/export/"..fileName end
+        for _,dir in ipairs({"/storage/emulated/0/Download/EngineStudio","/sdcard/Download/EngineStudio"}) do
+            local ok=pcall(function()
+                if makefolder then pcall(makefolder,dir) end
+                writefile(dir.."/"..fileName,data)
+            end)
+            if ok then saved[#saved+1]="Download/EngineStudio/"..fileName break end
+        end
+        return saved,fileName
+    end
+
+    return {export=exportExp,save=saveExp,shouldSkip=shouldSkipExp}
+end)()
+
+-- =====================================================================
+--   EXPORT PANEL (tab EXPORT di dalam main UI)
+-- =====================================================================
+local EXPORT_PAGE
+do
+    -- panel ditempel ke content frame yang sudah ada
+    local expPage = Instance.new("Frame")
+    expPage.Name = "ExportPage"
+    expPage.BackgroundTransparency = 1
+    expPage.Size = UDim2.fromScale(1,1)
+    expPage.Visible = false
+    expPage.ZIndex = 21
+    expPage.Parent = content
+    EXPORT_PAGE = expPage
+
+    -- scroll area
+    local expScroll = Instance.new("ScrollingFrame")
+    expScroll.Position = UDim2.fromOffset(8,34)
+    expScroll.Size = UDim2.new(1,-16,1,-44)
+    expScroll.BackgroundTransparency = 1
+    expScroll.BorderSizePixel = 0
+    expScroll.ScrollBarThickness = 3
+    expScroll.ScrollBarImageColor3 = C.accent
+    expScroll.CanvasSize = UDim2.fromOffset(0,0)
+    expScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    expScroll.ScrollingDirection = Enum.ScrollingDirection.Y
+    expScroll.ZIndex = 22
+    expScroll.Parent = expPage
+    local expList = Instance.new("UIListLayout")
+    expList.Padding = UDim.new(0,6)
+    expList.SortOrder = Enum.SortOrder.LayoutOrder
+    expList.Parent = expScroll
+
+    local function expText(parent,str,size,font,color,xa)
+        local l=Instance.new("TextLabel")
+        l.BackgroundTransparency=1
+        l.Text=str l.TextSize=size
+        l.Font=font or Enum.Font.GothamMedium
+        l.TextColor3=color or C.text
+        l.TextXAlignment=xa or Enum.TextXAlignment.Left
+        l.TextYAlignment=Enum.TextYAlignment.Center
+        l.TextWrapped=true
+        l.AutomaticSize=Enum.AutomaticSize.Y
+        l.Parent=parent
+        return l
+    end
+    local function expCard(parent,h,order)
+        local f=Instance.new("Frame")
+        f.Size=UDim2.new(1,0,0,h or 36)
+        if not h then f.AutomaticSize=Enum.AutomaticSize.Y end
+        f.BackgroundColor3=Color3.fromRGB(255,255,255)
+        f.BackgroundTransparency=0.88
+        f.BorderSizePixel=0
+        f.LayoutOrder=order or 0
+        f.ZIndex=22
+        f.Parent=parent
+        corner(f,10)
+        glassStroke(f,1)
+        return f
+    end
+
+    -- label judul
+    local lHdr=expText(expScroll,"PILIH OBJEK",10,Enum.Font.GothamBold,C.muted)
+    lHdr.Size=UDim2.new(1,0,0,14)
+    lHdr.LayoutOrder=0
+
+    -- target display card
+    local targetCard=expCard(expScroll,38,1)
+    local targetLbl=expText(targetCard,"Target: belum dipilih",10,Enum.Font.GothamMedium,C.soft)
+    targetLbl.Position=UDim2.fromOffset(10,0)
+    targetLbl.Size=UDim2.new(1,-80,1,0)
+
+    local clearBtn=Instance.new("TextButton")
+    clearBtn.AutoButtonColor=false
+    clearBtn.Size=UDim2.fromOffset(60,26)
+    clearBtn.AnchorPoint=Vector2.new(1,0.5)
+    clearBtn.Position=UDim2.new(1,-6,0.5,0)
+    clearBtn.BackgroundColor3=C.accent2
+    clearBtn.BackgroundTransparency=0.4
+    clearBtn.Text="CLEAR"
+    clearBtn.TextSize=10
+    clearBtn.Font=Enum.Font.GothamBold
+    clearBtn.TextColor3=Color3.fromRGB(10,20,50)
+    clearBtn.AutoButtonColor=false
+    clearBtn.ZIndex=23
+    clearBtn.Parent=targetCard
+    corner(clearBtn,8)
+
+    -- pilih dengan ketuk 3D
+    local tapCard=expCard(expScroll,34,2)
+    local tapBtn=Instance.new("TextButton")
+    tapBtn.AutoButtonColor=false
+    tapBtn.Size=UDim2.fromScale(1,1)
+    tapBtn.BackgroundTransparency=1
+    tapBtn.Text="[+] PILIH DENGAN KETUK DI 3D"
+    tapBtn.TextSize=11
+    tapBtn.Font=Enum.Font.GothamBold
+    tapBtn.TextColor3=C.ok
+    tapBtn.ZIndex=23
+    tapBtn.Parent=tapCard
+
+    -- box seleksi 3D (tersimpan per objek)
+    local expSelected={}
+    local expSelOrder={}
+    local expPickBoxes={}
+    local expPicking=false
+
+    local function updateTargetLbl()
+        if #expSelOrder==0 then targetLbl.Text="Target: belum dipilih" targetLbl.TextColor3=C.soft return end
+        local names={}
+        for i,o in ipairs(expSelOrder) do
+            if i>3 then names[#names+1]="+".. (#expSelOrder-3).." lagi" break end
+            names[#names+1]=o.Name.." ["..o.ClassName.."]"
+        end
+        targetLbl.Text="Target: "..table.concat(names,", ")
+        targetLbl.TextColor3=C.ok
+    end
+
+    local function expSetSelected(obj,on)
+        if on and not expSelected[obj] then
+            local box=false
+            if obj:IsA("PVInstance") then
+                box=Instance.new("SelectionBox")
+                box.Adornee=obj
+                box.Color3=C.ok
+                box.LineThickness=0.05
+                box.SurfaceColor3=C.ok
+                box.SurfaceTransparency=0.88
+                box.Parent=gui
+            end
+            expSelected[obj]=box
+            table.insert(expSelOrder,obj)
+        elseif not on and expSelected[obj]~=nil then
+            if expSelected[obj] then expSelected[obj]:Destroy() end
+            expSelected[obj]=nil
+            for i,o in ipairs(expSelOrder) do if o==obj then table.remove(expSelOrder,i) break end end
+        end
+        updateTargetLbl()
+    end
+
+    clearBtn.MouseButton1Click:Connect(function()
+        for _,o in ipairs(table.clone(expSelOrder)) do expSetSelected(o,false) end
+    end)
+
+    -- ketuk 3D untuk pilih objek
+    local expBarGui=Instance.new("ScreenGui")
+    expBarGui.Name="ESB_PickBar"
+    expBarGui.ResetOnSpawn=false
+    expBarGui.DisplayOrder=850
+    expBarGui.IgnoreGuiInset=true
+    expBarGui.Parent=CoreDest
+    local expBarFrame=glassPanel(expBarGui,0.15,14)
+    expBarFrame.AnchorPoint=Vector2.new(0.5,0)
+    expBarFrame.Position=UDim2.new(0.5,0,0,8)
+    expBarFrame.Size=UDim2.fromOffset(360,52)
+    expBarFrame.Visible=false
+    expBarFrame.ZIndex=850
+    local expBarText=Instance.new("TextLabel")
+    expBarText.BackgroundTransparency=1
+    expBarText.Position=UDim2.fromOffset(14,0)
+    expBarText.Size=UDim2.new(1,-150,1,0)
+    expBarText.Text="Ketuk objek"
+    expBarText.TextSize=12
+    expBarText.Font=Enum.Font.GothamBold
+    expBarText.TextColor3=C.text
+    expBarText.TextXAlignment=Enum.TextXAlignment.Left
+    expBarText.ZIndex=851
+    expBarText.Parent=expBarFrame
+    local expDoneBtn=Instance.new("TextButton")
+    expDoneBtn.AutoButtonColor=false
+    expDoneBtn.AnchorPoint=Vector2.new(1,0.5)
+    expDoneBtn.Position=UDim2.new(1,-10,0.5,0)
+    expDoneBtn.Size=UDim2.fromOffset(120,34)
+    expDoneBtn.BackgroundColor3=C.ok
+    expDoneBtn.BackgroundTransparency=0.25
+    expDoneBtn.Text="SELESAI"
+    expDoneBtn.TextSize=11
+    expDoneBtn.Font=Enum.Font.GothamBold
+    expDoneBtn.TextColor3=Color3.fromRGB(10,30,20)
+    expDoneBtn.ZIndex=851
+    expDoneBtn.Parent=expBarFrame
+    corner(expDoneBtn,10)
+
+    local function topContainerExp(part)
+        local best,cur=part,part.Parent
+        while cur and cur~=workspace and cur~=game do
+            if cur:IsA("Model") or cur:IsA("Folder") then best=cur end
+            cur=cur.Parent
+        end
+        return best
+    end
+
+    tapBtn.MouseButton1Click:Connect(function()
+        expPicking=true
+        expBarFrame.Visible=true
+        expBarText.Text="Ketuk objek • "..#expSelOrder.." dipilih"
+    end)
+    expDoneBtn.MouseButton1Click:Connect(function()
+        expPicking=false
+        expBarFrame.Visible=false
+    end)
+    UserInputService.InputBegan:Connect(function(input,processed)
+        if not expPicking or processed then return end
+        if input.UserInputType~=Enum.UserInputType.MouseButton1 and input.UserInputType~=Enum.UserInputType.Touch then return end
+        local cam=workspace.CurrentCamera
+        if not cam then return end
+        local ray=cam:ScreenPointToRay(input.Position.X,input.Position.Y)
+        local params=RaycastParams.new()
+        params.FilterType=Enum.RaycastFilterType.Exclude
+        local ex={}
+        if LocalPlayer.Character then table.insert(ex,LocalPlayer.Character) end
+        params.FilterDescendantsInstances=ex
+        local hit=workspace:Raycast(ray.Origin,ray.Direction*2000,params)
+        local part=hit and hit.Instance
+        if part and part:IsA("BasePart") and part.Name~="MedStudioUI" and part~=workspace:FindFirstChildOfClass("Terrain") then
+            local obj=topContainerExp(part)
+            expSetSelected(obj,not expSelected[obj])
+            expBarText.Text="Ketuk objek • "..#expSelOrder.." dipilih"
+        end
+    end)
+
+    -- format segment
+    local lFmt=expText(expScroll,"FORMAT OUTPUT",10,Enum.Font.GothamBold,C.muted)
+    lFmt.Size=UDim2.new(1,0,0,14)
+    lFmt.LayoutOrder=3
+    local fmtCard=expCard(expScroll,34,4)
+    local expFmt="rbxm"
+    local fmtBtns={}
+    for i,info in ipairs({{".RBXM","rbxm"},{".RBXL","rbxl"}}) do
+        local b=Instance.new("TextButton")
+        b.AutoButtonColor=false
+        b.Size=UDim2.new(0.5,-4,1,-6)
+        b.Position=UDim2.new((i-1)*0.5,(i==1 and 4 or 0),0,3)
+        b.BackgroundColor3=Color3.fromRGB(255,255,255)
+        b.BackgroundTransparency=i==1 and 0.65 or 0.9
+        b.Text=info[1]
+        b.TextSize=10
+        b.Font=Enum.Font.GothamBold
+        b.TextColor3=i==1 and C.text or C.muted
+        b.ZIndex=23
+        b.Parent=fmtCard
+        corner(b,8)
+        glassStroke(b,1)
+        fmtBtns[info[2]]=b
+    end
+    for fmt,btn in pairs(fmtBtns) do
+        btn.MouseButton1Click:Connect(function()
+            expFmt=fmt
+            for f2,b2 in pairs(fmtBtns) do
+                b2.BackgroundTransparency=f2==fmt and 0.65 or 0.9
+                b2.TextColor3=f2==fmt and C.text or C.muted
+            end
+        end)
+    end
+
+    -- nama file
+    local lFile=expText(expScroll,"NAMA FILE (kosong = nama objek)",10,Enum.Font.GothamBold,C.muted)
+    lFile.Size=UDim2.new(1,0,0,14)
+    lFile.LayoutOrder=5
+    local fileCard=expCard(expScroll,34,6)
+    local fileInput=Instance.new("TextBox")
+    fileInput.BackgroundTransparency=1
+    fileInput.Size=UDim2.fromScale(1,1)
+    fileInput.Text=""
+    fileInput.PlaceholderText="Nama file..."
+    fileInput.PlaceholderColor3=C.muted
+    fileInput.TextColor3=C.text
+    fileInput.TextSize=11
+    fileInput.Font=Enum.Font.GothamMedium
+    fileInput.TextXAlignment=Enum.TextXAlignment.Left
+    fileInput.ClearTextOnFocus=false
+    fileInput.ZIndex=23
+    fileInput.Parent=fileCard
+    local pad=Instance.new("UIPadding")
+    pad.PaddingLeft=UDim.new(0,10)
+    pad.Parent=fileInput
+
+    -- toggle isi script
+    local scriptTogCard=expCard(expScroll,36,7)
+    local expWithScripts=true
+    local stgLbl=expText(scriptTogCard,"Ikutkan isi script",11,Enum.Font.GothamBold,C.text)
+    stgLbl.Position=UDim2.fromOffset(10,0)
+    stgLbl.Size=UDim2.new(1,-60,1,0)
+    local stgSwitch=Instance.new("TextButton")
+    stgSwitch.AutoButtonColor=false
+    stgSwitch.AnchorPoint=Vector2.new(1,0.5)
+    stgSwitch.Position=UDim2.new(1,-8,0.5,0)
+    stgSwitch.Size=UDim2.fromOffset(44,22)
+    stgSwitch.BackgroundColor3=C.ok
+    stgSwitch.BackgroundTransparency=0.3
+    stgSwitch.Text=""
+    stgSwitch.ZIndex=23
+    stgSwitch.Parent=scriptTogCard
+    corner(stgSwitch,11)
+    local stgKnob=Instance.new("Frame")
+    stgKnob.Size=UDim2.fromOffset(16,16)
+    stgKnob.AnchorPoint=Vector2.new(1,0.5)
+    stgKnob.Position=UDim2.new(1,-3,0.5,0)
+    stgKnob.BackgroundColor3=Color3.new(1,1,1)
+    stgKnob.BorderSizePixel=0
+    stgKnob.ZIndex=24
+    stgKnob.Parent=stgSwitch
+    corner(stgKnob,8)
+    stgSwitch.MouseButton1Click:Connect(function()
+        expWithScripts=not expWithScripts
+        TweenService:Create(stgSwitch,TweenInfo.new(0.15),{BackgroundColor3=expWithScripts and C.ok or C.soft,BackgroundTransparency=0.3}):Play()
+        TweenService:Create(stgKnob,TweenInfo.new(0.15),{Position=expWithScripts and UDim2.new(1,-3,0.5,0) or UDim2.new(0,3,0.5,0)}):Play()
+    end)
+
+    -- tombol SIMPAN
+    local goBtn=Instance.new("TextButton")
+    goBtn.AutoButtonColor=false
+    goBtn.Size=UDim2.new(1,0,0,36)
+    goBtn.BackgroundColor3=C.accent2
+    goBtn.BackgroundTransparency=0.25
+    goBtn.Text="SIMPAN FILE"
+    goBtn.TextSize=12
+    goBtn.Font=Enum.Font.GothamBold
+    goBtn.TextColor3=Color3.fromRGB(255,255,255)
+    goBtn.ZIndex=23
+    goBtn.LayoutOrder=8
+    goBtn.Parent=expScroll
+    corner(goBtn,10)
+    glassStroke(goBtn,1.2,true)
+
+    -- status card
+    local statusCard=expCard(expScroll,nil,9)
+    statusCard.AutomaticSize=Enum.AutomaticSize.Y
+    local expStatusLbl=expText(statusCard,"Pilih objek lalu tekan SIMPAN FILE.",11,Enum.Font.GothamMedium,C.muted)
+    expStatusLbl.Size=UDim2.new(1,-16,0,0)
+    expStatusLbl.Position=UDim2.fromOffset(8,8)
+
+    -- progress bar
+    local expProgTrack=Instance.new("Frame")
+    expProgTrack.Size=UDim2.new(1,-16,0,5)
+    expProgTrack.Position=UDim2.fromOffset(8,0)
+    expProgTrack.BackgroundColor3=Color3.fromRGB(255,255,255)
+    expProgTrack.BackgroundTransparency=0.85
+    expProgTrack.BorderSizePixel=0
+    expProgTrack.ZIndex=23
+    expProgTrack.Parent=statusCard
+    corner(expProgTrack,3)
+    local expProgFill=Instance.new("Frame")
+    expProgFill.Size=UDim2.fromScale(0,1)
+    expProgFill.BackgroundColor3=C.ok
+    expProgFill.BackgroundTransparency=0.2
+    expProgFill.BorderSizePixel=0
+    expProgFill.ZIndex=24
+    expProgFill.Parent=expProgTrack
+    corner(expProgFill,3)
+    local function setExpProg(v)
+        TweenService:Create(expProgFill,TweenInfo.new(0.2),{Size=UDim2.fromScale(math.clamp(v,0,1),1)}):Play()
+    end
+    local function setExpStatus(msg,color)
+        expStatusLbl.Text=tostring(msg)
+        expStatusLbl.TextColor3=color or C.muted
+    end
+
+    -- result label
+    local expResultLbl=expText(expScroll,"",10,Enum.Font.GothamMedium,C.ok)
+    expResultLbl.Size=UDim2.new(1,0,0,0)
+    expResultLbl.LayoutOrder=10
+    expResultLbl.Visible=false
+
+    local expRunning=false
+    goBtn.MouseButton1Click:Connect(function()
+        if expRunning then return end
+        local roots={}
+        for _,o in ipairs(expSelOrder) do if o.Parent then roots[#roots+1]=o end end
+        if #roots==0 then setExpStatus("Belum ada yang dipilih!",C.bad) return end
+        expRunning=true
+        goBtn.Text="MENYIMPAN..."
+        goBtn.BackgroundTransparency=0.55
+        expResultLbl.Visible=false
+        setExpProg(0)
+        setExpStatus("Membaca objek & script...")
+        task.spawn(function()
+            local ok,data,stats=pcall(Exporter.export,roots,expWithScripts,function(done,total,name)
+                setExpProg(done/math.max(total,1)*0.9)
+                setExpStatus("Membaca "..done.." / "..total.." • "..tostring(name))
+            end)
+            if not ok or not data then
+                setExpStatus("Gagal: "..tostring(ok and stats or data),C.bad)
+            else
+                local fname=fileInput.Text~="" and fileInput.Text
+                    or (#roots==1 and roots[1].Name or "Export")
+                setExpStatus("Menulis file...")
+                local saved,finalName=Exporter.save(fname,data,expFmt)
+                setExpProg(1)
+                if #saved==0 then
+                    setExpStatus("Gagal menulis — writefile tidak tersedia.",C.bad)
+                else
+                    local kb=math.floor(#data/102.4+0.5)/10
+                    setExpStatus("Tersimpan: "..finalName.." ("..kb.." KB)",C.ok)
+                    local lines={"Lokasi: "..table.concat(saved," | "),"Objek: "..stats.objects}
+                    if stats.scripts>0 then
+                        lines[#lines+1]="Script: "..stats.withSource.." / "..stats.scripts.." berisi source"
+                    end
+                    expResultLbl.Text=table.concat(lines,"\n")
+                    expResultLbl.Visible=true
+                end
+            end
+            expRunning=false
+            goBtn.Text="SIMPAN FILE"
+            goBtn.BackgroundTransparency=0.25
+        end)
+    end)
+end
+
 -- ---------- tab ----------
 local function setTab(name)
     currentTab = name
-    local isTB = (name == "TOOLBOX")
+    local isTB   = (name == "TOOLBOX")
     local isHome = (name == "HOME")
     local isAcct = (name == "AKUN")
+    local isExp  = (name == "EXPORT")
     refreshTabs()
     DASH.home.Visible = isHome
     if ACCT.page then ACCT.page.Visible = isAcct end
-    searchBox.Visible = not (isHome or isAcct)
-    if isHome or isAcct then
+    if EXPORT_PAGE then EXPORT_PAGE.Visible = isExp end
+    searchBox.Visible = not (isHome or isAcct or isExp)
+    if isHome or isAcct or isExp then
         list.Visible = false
         TB.list.Visible = false
         TB.chips.Visible = false
@@ -4477,4 +5312,4 @@ renderList()
 showDashboard()
 setOpen(true)
 task.delay(0.3, scanNow)
-print("[WLEO x NEKO] RBXL/RBXM importer + toolbox (liquid glass) loaded")
+print("[ENGINE STUDIO BYPASS] RBXL/RBXM importer + exporter + toolbox loaded")
