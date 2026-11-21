@@ -2191,4 +2191,2290 @@ local function activateImportRoot(importRoot)
         end
     end
     restoreEditorForService(SSSvc, "SSS"); restoreEditorForService(SSvc, "SS")
-    restoreEditorForService(ReplicatedStorageSvc, "RS"); restoreEditorForS
+    restoreEditorForService(ReplicatedStorageSvc, "RS"); restoreEditorForService(ReplicatedFirstSvc, "RF")
+    restoreEditorForService(StarterGuiSvc, "SG"); restoreEditorForService(StarterPlayerSvc, "SP")
+    restoreEditorForService(StarterPackSvc, "STP"); restoreEditorForService(WorkspaceService, "WS")
+    for _, service in pairs(destinationByKey) do
+        if service then
+            for _, obj in ipairs(service:GetDescendants()) do
+                if obj:GetAttribute("LANGZ_ImportedObject") == true then
+                    if obj:IsA("LuaSourceContainer") then
+                        setScriptEnabledState(obj, importedScriptShouldRun(obj))
+                    elseif obj:IsA("BasePart") then
+                        pcall(function() obj.Anchored = true; obj:SetAttribute("LANGZ_AutoAnchored", true) end)
+                    end
+                end
+            end
+        end
+    end
+    importRoot:SetAttribute("LANGZ_Activated", true)
+    local remaining = 0
+    for _, f in ipairs(importRoot:GetChildren()) do
+        if f:IsA("Folder") then remaining += #f:GetChildren() end
+    end
+    if remaining == 0 then pcall(function() importRoot:Destroy() end) end
+    reportImportProgress(1.00, "RBXL GENERATION COMPLETE")
+    return true, ("ACTIVE • moved:%d • scripts:%d on:%d • src:%d/%d • SSS:%d SS:%d • editor:%d/%d • svc reuse:%d new:%d fail:%d"):format(
+        moved, runtimeStats.scripts, activatedScripts, runtimeStats.scriptSourceOK, runtimeStats.scripts,
+        sssN, ssN, editorInjected, sourceVisible, reused, created, failed)
+end
+
+-- ============ FILE SCAN ============
+local function safeListFiles(path)
+    if type(listfiles) ~= "function" then return nil end
+    local ok, result = pcall(listfiles, path)
+    return ok and result or nil
+end
+local function getFileName(path) return path:match("([^/\\]+)$") or path end
+local function looksFolder(path) return not getFileName(path):match("%.[%a%d]+$") end
+local SCAN_PATHS = {
+    "workspace", "Delta/workspace", "delta/workspace", "Android/Delta/workspace",
+    "/sdcard/Delta/workspace", "/sdcard/Android/Delta/workspace", "../workspace", ".", ""
+}
+local function normalizeFsPath(path)
+    local p = tostring(path or ""):gsub("\\", "/"):lower()
+    p = p:gsub("/+", "/"):gsub("^%./", ""):gsub("^%.%./", ""):gsub("/$", "")
+    return p
+end
+local function canonicalWorkspacePath(path)
+    local p = normalizeFsPath(path)
+    local last
+    local from = 1
+    while true do
+        local s, e = p:find("workspace/", from, true)
+        if not s then break end
+        last = e + 1
+        from = e + 1
+    end
+    if last then return p:sub(last) end
+    if p == "workspace" then return "" end
+    return p
+end
+local function scanDeep(folder, depth, results, seenFolders, seenFiles)
+    if depth > 4 then return end
+    local folderKey = canonicalWorkspacePath(folder)
+    if folderKey == "" then folderKey = "__workspace_root__" end
+    if seenFolders[folderKey] then return end
+    seenFolders[folderKey] = true
+    local list = safeListFiles(folder)
+    if not list then return end
+    for _, path in ipairs(list) do
+        local name = getFileName(path)
+        local lower = name:lower()
+        local ftype, ext
+        if lower:match("%.rbxlx$") then ftype, ext = "RBXL", "rbxlx"
+        elseif lower:match("%.rbxl$") then ftype, ext = "RBXL", "rbxl"
+        elseif lower:match("%.rbxmx$") then ftype, ext = "RBXM", "rbxmx"
+        elseif lower:match("%.rbxm$") then ftype, ext = "RBXM", "rbxm" end
+        if ftype then
+            local fileKey = canonicalWorkspacePath(path)
+            if fileKey == "" then fileKey = lower end
+            if not seenFiles[fileKey] then
+                seenFiles[fileKey] = true
+                table.insert(results, { name = name, path = path, folder = folder, ftype = ftype, ext = ext, canonicalKey = fileKey })
+            end
+        elseif looksFolder(path) then
+            scanDeep(path, depth + 1, results, seenFolders, seenFiles)
+        end
+    end
+end
+local function scanAllSupported()
+    local results, seenFolders, seenFiles = {}, {}, {}
+    for _, path in ipairs(SCAN_PATHS) do
+        if safeListFiles(path) then scanDeep(path, 0, results, seenFolders, seenFiles) end
+    end
+    table.sort(results, function(a, b)
+        local an, bn = a.name:lower(), b.name:lower()
+        if an == bn then return tostring(a.canonicalKey or a.path) < tostring(b.canonicalKey or b.path) end
+        return an < bn
+    end)
+    return results
+end
+
+-- ============ GetScriptSource hook (dipasang awal supaya editor SL tidak "not found") ============
+task.spawn(function()
+    pcall(function()
+        if type(hookmetamethod) ~= "function" or type(getnamecallmethod) ~= "function" or type(checkcaller) ~= "function" then return end
+        if _G.WN_SRC_HOOKED then return end
+        _G.WN_SRC_HOOKED = true
+        local oldNamecall
+        oldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
+            local method = getnamecallmethod()
+            if not checkcaller() and method == "InvokeServer" then
+                local nm = ""
+                pcall(function() nm = self.Name end)
+                if nm == "GetScriptSourceServerFunction" then
+                    local target = tostring((...))
+                    for obj, source in pairs(_G.Langz_RAW_SOURCES) do
+                        if typeof(obj) == "Instance" and (obj.ClassName .. obj.Name) == target and source and source ~= "" then
+                            return source
+                        end
+                    end
+                elseif nm == "SaveScriptSourceServerFunction" then
+                    local args = {...}
+                    local target, newSource = tostring(args[1]), tostring(args[2])
+                    for obj in pairs(_G.Langz_RAW_SOURCES) do
+                        if typeof(obj) == "Instance" and (obj.ClassName .. obj.Name) == target then
+                            _G.Langz_RAW_SOURCES[obj] = newSource
+                            break
+                        end
+                    end
+                end
+            end
+            return oldNamecall(self, ...)
+        end)
+    end)
+end)
+
+-- =====================================================================
+--                        LIQUID GLASS UI
+-- =====================================================================
+local TOGGLE_ICON = "rbxassetid://92844638469747"
+local GUI_NAME = "WLEO_NEKO_RBXL_IMPORTER"
+do
+    local old = CoreDest:FindFirstChild(GUI_NAME)
+    if old then old:Destroy() end
+end
+
+local C = {
+    text    = Color3.fromRGB(255, 255, 255),
+    soft    = Color3.fromRGB(214, 224, 250),
+    muted   = Color3.fromRGB(165, 180, 222),
+    accent  = Color3.fromRGB(105, 205, 255),
+    accent2 = Color3.fromRGB(160, 125, 255),
+    ok      = Color3.fromRGB(95, 235, 175),
+    warn    = Color3.fromRGB(255, 205, 100),
+    bad     = Color3.fromRGB(255, 115, 140),
+}
+
+local gui = Instance.new("ScreenGui")
+gui.Name = GUI_NAME
+gui.ResetOnSpawn = false
+gui.IgnoreGuiInset = true
+gui.DisplayOrder = 800
+gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+gui.Parent = CoreDest
+
+local function corner(o, r) local c = Instance.new("UICorner"); c.CornerRadius = UDim.new(0, r or 10); c.Parent = o; return c end
+local function grad(o, c0, c1, rot)
+    local g = Instance.new("UIGradient")
+    g.Color = ColorSequence.new(c0, c1)
+    g.Rotation = rot or 90
+    g.Parent = o
+    return g
+end
+local function glassStroke(o, thick, strong)
+    local s = Instance.new("UIStroke")
+    s.Thickness = thick or 1.2
+    s.Color = Color3.fromRGB(255, 255, 255)
+    s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    s.Transparency = 0
+    s.Parent = o
+    local g = Instance.new("UIGradient")
+    g.Rotation = 90
+    local a = strong and 0.15 or 0.35
+    g.Transparency = NumberSequence.new({
+        NumberSequenceKeypoint.new(0, a),
+        NumberSequenceKeypoint.new(0.5, 0.85),
+        NumberSequenceKeypoint.new(1, 0.6),
+    })
+    g.Parent = s
+    return s
+end
+local function text(parent, str, size, font, color, xa)
+    local l = Instance.new("TextLabel")
+    l.BackgroundTransparency = 1
+    l.Text = str
+    l.TextSize = size
+    l.Font = font or Enum.Font.GothamMedium
+    l.TextColor3 = color or C.text
+    l.TextXAlignment = xa or Enum.TextXAlignment.Left
+    l.TextYAlignment = Enum.TextYAlignment.Center
+    l.Parent = parent
+    return l
+end
+-- kartu kaca: dasar terang transparan + kilau atas
+local function glassPanel(parent, alpha, r)
+    local f = Instance.new("Frame")
+    f.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    f.BackgroundTransparency = alpha or 0.88
+    f.BorderSizePixel = 0
+    f.Parent = parent
+    corner(f, r or 12)
+    glassStroke(f, 1)
+    return f
+end
+
+-- ---------- toggle ----------
+local toggle = Instance.new("ImageButton")
+toggle.Name = "Toggle"
+toggle.Size = UDim2.fromOffset(46, 46)
+toggle.Position = UDim2.new(0, 10, 0, 70)
+toggle.BackgroundColor3 = Color3.fromRGB(40, 55, 110)
+toggle.BackgroundTransparency = 0.25
+toggle.Image = TOGGLE_ICON
+toggle.ScaleType = Enum.ScaleType.Fit
+toggle.AutoButtonColor = false
+toggle.ZIndex = 50
+toggle.Parent = gui
+corner(toggle, 14)
+glassStroke(toggle, 1.5, true)
+do
+    local pad = Instance.new("UIPadding")
+    pad.PaddingTop = UDim.new(0, 5); pad.PaddingBottom = UDim.new(0, 5)
+    pad.PaddingLeft = UDim.new(0, 5); pad.PaddingRight = UDim.new(0, 5)
+    pad.Parent = toggle
+end
+
+-- ---------- main ----------
+local MAIN_W, MAIN_H = 540, 345
+local main = Instance.new("Frame")
+main.Name = "Main"
+main.AnchorPoint = Vector2.new(0.5, 0.5)
+main.Position = UDim2.fromScale(0.5, 0.5)
+main.Size = UDim2.fromOffset(MAIN_W, MAIN_H)
+main.BackgroundColor3 = Color3.fromRGB(34, 46, 92)
+main.BackgroundTransparency = 0.12
+main.BorderSizePixel = 0
+main.ClipsDescendants = true
+main.Visible = false
+main.ZIndex = 10
+main.Parent = gui
+corner(main, 20)
+grad(main, Color3.fromRGB(78, 96, 190), Color3.fromRGB(26, 34, 74), 55)
+glassStroke(main, 1.8, true)
+
+local mainScale = Instance.new("UIScale")
+mainScale.Parent = main
+local function fitScale()
+    local v = gui.AbsoluteSize
+    if v.X <= 0 then v = Vector2.new(800, 400) end
+    return math.clamp(math.min((v.X - 24) / MAIN_W, (v.Y - 24) / MAIN_H), 0.5, 1.15)
+end
+mainScale.Scale = fitScale()
+
+-- kilau kaca di atas
+do
+    local shine = Instance.new("Frame")
+    shine.Size = UDim2.new(1, 0, 0, 120)
+    shine.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    shine.BackgroundTransparency = 0.9
+    shine.BorderSizePixel = 0
+    shine.ZIndex = 10
+    shine.Parent = main
+    local g = Instance.new("UIGradient")
+    g.Rotation = 90
+    g.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.55), NumberSequenceKeypoint.new(1, 1) })
+    g.Parent = shine
+    local blobA = Instance.new("Frame")
+    blobA.Size = UDim2.fromOffset(220, 220)
+    blobA.Position = UDim2.new(1, -120, 1, -110)
+    blobA.BackgroundColor3 = C.accent2
+    blobA.BackgroundTransparency = 0.8
+    blobA.BorderSizePixel = 0
+    blobA.ZIndex = 10
+    blobA.Parent = main
+    corner(blobA, 110)
+    local blobB = Instance.new("Frame")
+    blobB.Size = UDim2.fromOffset(180, 180)
+    blobB.Position = UDim2.new(0, -70, 1, -90)
+    blobB.BackgroundColor3 = C.accent
+    blobB.BackgroundTransparency = 0.82
+    blobB.BorderSizePixel = 0
+    blobB.ZIndex = 10
+    blobB.Parent = main
+    corner(blobB, 90)
+end
+
+-- ---------- header ----------
+local closeBtn, backBtn, hdrTitle, hdrSub
+do
+    local header = Instance.new("Frame")
+    header.Size = UDim2.new(1, -24, 0, 42)
+    header.Position = UDim2.fromOffset(12, 8)
+    header.BackgroundTransparency = 1
+    header.ZIndex = 20
+    header.Parent = main
+
+    local logo = Instance.new("ImageLabel")
+    logo.Size = UDim2.fromOffset(34, 34)
+    logo.Position = UDim2.fromOffset(0, 4)
+    logo.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    logo.BackgroundTransparency = 0.85
+    logo.Image = TOGGLE_ICON
+    logo.ScaleType = Enum.ScaleType.Fit
+    logo.ZIndex = 21
+    logo.Parent = header
+    corner(logo, 11)
+    glassStroke(logo, 1)
+
+    local title = text(header, "WLEO x NEKO", 16, Enum.Font.GothamBold, C.text)
+    title.Position = UDim2.fromOffset(44, 2)
+    title.Size = UDim2.new(1, -120, 0, 20)
+    title.ZIndex = 21
+    local subtitle = text(header, "RBXM • RBXL • TOOLBOX", 10, Enum.Font.GothamMedium, C.accent)
+    subtitle.Position = UDim2.fromOffset(44, 22)
+    subtitle.Size = UDim2.new(1, -120, 0, 14)
+    subtitle.ZIndex = 21
+
+    closeBtn = Instance.new("TextButton")
+    closeBtn.Size = UDim2.fromOffset(28, 28)
+    closeBtn.AnchorPoint = Vector2.new(1, 0)
+    closeBtn.Position = UDim2.new(1, 0, 0, 5)
+    closeBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    closeBtn.BackgroundTransparency = 0.85
+    closeBtn.Text = "×"
+    closeBtn.TextSize = 20
+    closeBtn.Font = Enum.Font.GothamBold
+    closeBtn.TextColor3 = C.text
+    closeBtn.AutoButtonColor = false
+    closeBtn.ZIndex = 22
+    closeBtn.Parent = header
+    corner(closeBtn, 9)
+    glassStroke(closeBtn, 1)
+
+    hdrTitle, hdrSub = title, subtitle
+
+    backBtn = Instance.new("TextButton")
+    backBtn.Name = "BackBtn"
+    backBtn.AnchorPoint = Vector2.new(1, 0)
+    backBtn.Size = UDim2.fromOffset(66, 28)
+    backBtn.Position = UDim2.new(1, -36, 0, 5)
+    backBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    backBtn.BackgroundTransparency = 0.85
+    backBtn.Text = "< BACK"
+    backBtn.TextSize = 11
+    backBtn.Font = Enum.Font.GothamBold
+    backBtn.TextColor3 = C.accent
+    backBtn.AutoButtonColor = false
+    backBtn.Visible = false
+    backBtn.ZIndex = 22
+    backBtn.Parent = header
+    corner(backBtn, 9)
+    glassStroke(backBtn, 1)
+end
+
+-- ---------- icon format ----------
+local ICONS = {
+    RBXM  = "rbxassetid://106962661743892",
+    RBXMX = "rbxassetid://106962661743892",
+    RBXL  = "rbxassetid://122982660526589",
+    RBXLX = "rbxassetid://122982660526589",
+    TOOLBOX = "rbxassetid://121323758319527",
+}
+
+-- ---------- sidebar ----------
+local SIDE_W = 120
+local side = glassPanel(main, 0.9, 14)
+side.Position = UDim2.fromOffset(12, 56)
+side.Size = UDim2.fromOffset(SIDE_W, MAIN_H - 68)
+side.ZIndex = 20
+
+local sideScroll = Instance.new("ScrollingFrame")
+sideScroll.Name = "SideScroll"
+sideScroll.Position = UDim2.fromOffset(0, 2)
+sideScroll.Size = UDim2.new(1, 0, 1, -36)
+sideScroll.BackgroundTransparency = 1
+sideScroll.BorderSizePixel = 0
+sideScroll.ScrollBarThickness = 2
+sideScroll.ScrollBarImageColor3 = C.accent
+sideScroll.CanvasSize = UDim2.fromOffset(0, 252)
+sideScroll.ZIndex = 20
+sideScroll.Parent = side
+
+local function sideCategory(labelText, y, withDivider)
+    if withDivider then
+        local div = Instance.new("Frame")
+        div.Position = UDim2.fromOffset(10, y - 3)
+        div.Size = UDim2.new(1, -20, 0, 1)
+        div.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+        div.BackgroundTransparency = 0.85
+        div.BorderSizePixel = 0
+        div.ZIndex = 21
+        div.Parent = sideScroll
+    end
+    local l = text(sideScroll, labelText, 10, Enum.Font.GothamBold, C.muted)
+    l.Position = UDim2.fromOffset(12, y)
+    l.Size = UDim2.new(1, -24, 0, 14)
+    l.ZIndex = 21
+end
+
+-- state dashboard / panel (dipakai banyak bagian)
+local DASH = { mode = "dash", hooks = {}, tiles = {}, stat = {} }
+local ACCT = { connected = false, data = {} }
+local TAB_LABEL = { HOME = "HOME", TOOLBOX = "TOOLBOX PC", AKUN = "AKUN" }
+local function tabLabel(n) return TAB_LABEL[n] or n end
+
+local tabButtons = {}
+local function makeTab(name, y)
+    local noBadge = (name == "TOOLBOX" or name == "HOME" or name == "AKUN")
+    local b = Instance.new("TextButton")
+    b.Size = UDim2.new(1, -12, 0, 26)
+    b.Position = UDim2.fromOffset(6, y)
+    b.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    b.BackgroundTransparency = 0.9
+    b.Text = ""
+    b.AutoButtonColor = false
+    b.ZIndex = 21
+    b.Parent = sideScroll
+    corner(b, 10)
+    glassStroke(b, 1)
+
+    if ICONS[name] then
+        local ic = Instance.new("ImageLabel")
+        ic.Position = UDim2.fromOffset(6, 3)
+        ic.Size = UDim2.fromOffset(20, 20)
+        ic.BackgroundTransparency = 1
+        ic.Image = ICONS[name]
+        ic.ScaleType = Enum.ScaleType.Fit
+        ic.ZIndex = 22
+        ic.Parent = b
+    else
+        local ic = text(b, name:sub(1, 1), 10, Enum.Font.GothamBold, Color3.fromRGB(10, 20, 50), Enum.TextXAlignment.Center)
+        ic.Position = UDim2.fromOffset(6, 3)
+        ic.Size = UDim2.fromOffset(20, 20)
+        ic.BackgroundTransparency = 0.1
+        ic.BackgroundColor3 = (name == "AKUN") and C.accent2 or C.accent
+        ic.ZIndex = 22
+        corner(ic, 6)
+    end
+
+    local lbl = text(b, tabLabel(name), 10, Enum.Font.GothamBold, C.text)
+    lbl.Position = UDim2.fromOffset(32, 0)
+    lbl.Size = UDim2.new(1, noBadge and -36 or -62, 1, 0)
+    lbl.TextTruncate = Enum.TextTruncate.AtEnd
+    lbl.ZIndex = 22
+
+    local badge
+    if not noBadge then
+        badge = text(b, "0", 10, Enum.Font.GothamBold, C.text, Enum.TextXAlignment.Center)
+        badge.AnchorPoint = Vector2.new(1, 0.5)
+        badge.Position = UDim2.new(1, -6, 0.5, 0)
+        badge.Size = UDim2.fromOffset(24, 16)
+        badge.BackgroundTransparency = 0.7
+        badge.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+        badge.ZIndex = 22
+        corner(badge, 7)
+    end
+    tabButtons[name] = { btn = b, lbl = lbl, badge = badge }
+end
+
+sideCategory("MENU", 3, false)
+makeTab("HOME", 17)
+makeTab("TOOLBOX", 45)
+sideCategory("IMPORTER", 77, true)
+makeTab("RBXM", 92)
+makeTab("RBXMX", 119)
+makeTab("RBXL", 146)
+makeTab("RBXLX", 173)
+sideCategory("GENERAL", 205, true)
+makeTab("AKUN", 220)
+
+local scanBtn = Instance.new("TextButton")
+scanBtn.Size = UDim2.new(1, -12, 0, 24)
+scanBtn.AnchorPoint = Vector2.new(0, 1)
+scanBtn.Position = UDim2.new(0, 6, 1, -6)
+scanBtn.BackgroundColor3 = C.accent
+scanBtn.BackgroundTransparency = 0.15
+scanBtn.Text = "SCAN"
+scanBtn.TextSize = 11
+scanBtn.Font = Enum.Font.GothamBold
+scanBtn.TextColor3 = Color3.fromRGB(10, 20, 50)
+scanBtn.AutoButtonColor = false
+scanBtn.ZIndex = 22
+scanBtn.Parent = side
+corner(scanBtn, 10)
+grad(scanBtn, Color3.fromRGB(150, 225, 255), Color3.fromRGB(110, 160, 255), 90)
+
+-- ---------- content ----------
+local content = glassPanel(main, 0.9, 14)
+content.Position = UDim2.fromOffset(SIDE_W + 20, 56)
+content.Size = UDim2.new(1, -(SIDE_W + 32), 1, -68)
+content.ZIndex = 20
+
+local contentTitle = text(content, "RBXM FILES", 13, Enum.Font.GothamBold, C.text)
+contentTitle.Position = UDim2.fromOffset(12, 5)
+contentTitle.Size = UDim2.new(1, -24, 0, 18)
+contentTitle.ZIndex = 21
+
+local searchBox = Instance.new("TextBox")
+searchBox.Position = UDim2.fromOffset(8, 26)
+searchBox.Size = UDim2.new(1, -16, 0, 26)
+searchBox.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+searchBox.BackgroundTransparency = 0.82
+searchBox.Text = ""
+searchBox.PlaceholderText = "Cari file..."
+searchBox.PlaceholderColor3 = C.muted
+searchBox.TextColor3 = C.text
+searchBox.TextSize = 12
+searchBox.Font = Enum.Font.GothamMedium
+searchBox.ClearTextOnFocus = false
+searchBox.TextXAlignment = Enum.TextXAlignment.Left
+searchBox.ZIndex = 21
+searchBox.Parent = content
+corner(searchBox, 9)
+glassStroke(searchBox, 1)
+do
+    local pad = Instance.new("UIPadding")
+    pad.PaddingLeft = UDim.new(0, 8)
+    pad.Parent = searchBox
+end
+
+local list = Instance.new("ScrollingFrame")
+list.Position = UDim2.fromOffset(6, 58)
+list.Size = UDim2.new(1, -12, 1, -64)
+list.BackgroundTransparency = 1
+list.BorderSizePixel = 0
+list.ScrollBarThickness = 3
+list.ScrollBarImageColor3 = C.accent
+list.AutomaticCanvasSize = Enum.AutomaticSize.Y
+list.CanvasSize = UDim2.new()
+list.ZIndex = 21
+list.Parent = content
+do
+    local l = Instance.new("UIListLayout")
+    l.Padding = UDim.new(0, 5)
+    l.SortOrder = Enum.SortOrder.LayoutOrder
+    l.Parent = list
+end
+
+local emptyLbl = text(content, "Tekan SCAN untuk cari file", 12, Enum.Font.GothamMedium, C.soft, Enum.TextXAlignment.Center)
+emptyLbl.Position = UDim2.fromOffset(10, 90)
+emptyLbl.Size = UDim2.new(1, -20, 0, 60)
+emptyLbl.TextWrapped = true
+emptyLbl.ZIndex = 22
+
+-- ---------- progress pill (kiri bawah layar) ----------
+local fill, statusText, pctText, dot, halo
+do
+    local pill = Instance.new("Frame")
+    pill.Name = "ProgressPill"
+    pill.AnchorPoint = Vector2.new(0, 1)
+    pill.Position = UDim2.new(0, 10, 1, -10)
+    pill.Size = UDim2.fromOffset(190, 34)
+    pill.BackgroundColor3 = Color3.fromRGB(22, 30, 66)
+    pill.BackgroundTransparency = 0.2
+    pill.BorderSizePixel = 0
+    pill.ZIndex = 60
+    pill.Parent = gui
+    corner(pill, 10)
+    glassStroke(pill, 1)
+
+    halo = Instance.new("Frame")
+    halo.Position = UDim2.fromOffset(7, 5)
+    halo.Size = UDim2.fromOffset(14, 14)
+    halo.BackgroundColor3 = C.ok
+    halo.BackgroundTransparency = 0.65
+    halo.BorderSizePixel = 0
+    halo.ZIndex = 61
+    halo.Parent = pill
+    corner(halo, 7)
+
+    dot = Instance.new("Frame")
+    dot.Position = UDim2.fromOffset(10, 8)
+    dot.Size = UDim2.fromOffset(8, 8)
+    dot.BackgroundColor3 = C.ok
+    dot.BorderSizePixel = 0
+    dot.ZIndex = 62
+    dot.Parent = pill
+    corner(dot, 4)
+
+    statusText = text(pill, "SIAP", 10, Enum.Font.GothamMedium, C.soft)
+    statusText.Position = UDim2.fromOffset(26, 3)
+    statusText.Size = UDim2.new(1, -66, 0, 18)
+    statusText.TextTruncate = Enum.TextTruncate.AtEnd
+    statusText.ZIndex = 62
+
+    pctText = text(pill, "", 10, Enum.Font.GothamBold, C.ok, Enum.TextXAlignment.Right)
+    pctText.AnchorPoint = Vector2.new(1, 0)
+    pctText.Position = UDim2.new(1, -8, 0, 3)
+    pctText.Size = UDim2.fromOffset(34, 18)
+    pctText.ZIndex = 62
+
+    local track = Instance.new("Frame")
+    track.Position = UDim2.fromOffset(10, 25)
+    track.Size = UDim2.new(1, -20, 0, 4)
+    track.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    track.BackgroundTransparency = 0.82
+    track.BorderSizePixel = 0
+    track.ZIndex = 62
+    track.Parent = pill
+    corner(track, 2)
+
+    fill = Instance.new("Frame")
+    fill.Size = UDim2.new(0, 0, 1, 0)
+    fill.BackgroundColor3 = C.ok
+    fill.BorderSizePixel = 0
+    fill.ZIndex = 63
+    fill.Parent = track
+    corner(fill, 2)
+    grad(fill, Color3.fromRGB(95, 235, 175), Color3.fromRGB(120, 225, 255), 0)
+end
+
+-- ---------- state ----------
+local allFiles = {}
+local currentTab = "RBXM"
+local fileState = {}   -- path -> {label=, color=, root=}
+local scanning = false
+local statusVersion = 0
+local ind = { busy = false }   -- busy = kedip cepat, idle/selesai = kedip pelan
+local TB = {}                  -- toolbox handles
+
+-- indikator ijo: kedip cepat saat proses, kedip pelan terus kalau sudah selesai
+task.spawn(function()
+    while gui.Parent do
+        local period = ind.busy and 0.30 or 1.40
+        local info = TweenInfo.new(period / 2, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
+        TweenService:Create(dot, info, { BackgroundTransparency = 0.8 }):Play()
+        TweenService:Create(halo, info, { BackgroundTransparency = 1 }):Play()
+        task.wait(period / 2)
+        TweenService:Create(dot, info, { BackgroundTransparency = 0 }):Play()
+        TweenService:Create(halo, info, { BackgroundTransparency = 0.6 }):Play()
+        task.wait(period / 2)
+    end
+end)
+
+local function setStatus(msg, color)
+    statusText.Text = tostring(msg)
+    local c = (color == C.bad) and C.bad or C.ok
+    dot.BackgroundColor3 = c
+    halo.BackgroundColor3 = c
+    if color == C.bad then
+        ind.busy = false
+        fill.Size = UDim2.new(0, 0, 1, 0)
+        pctText.Text = ""
+    end
+end
+local function setProgress(v, msg)
+    v = math.clamp(tonumber(v) or 0, 0, 1)
+    TweenService:Create(fill, TweenInfo.new(0.12), { Size = UDim2.new(v, 0, 1, 0) }):Play()
+    pctText.Text = v > 0 and ("%d%%"):format(math.floor(v * 100 + 0.5)) or ""
+    ind.busy = (v > 0 and v < 1)
+    if msg and msg ~= "" then setStatus(msg, C.warn) end
+    if v >= 1 then
+        statusVersion += 1
+        local myV = statusVersion
+        task.delay(2, function()
+            if myV == statusVersion and fill.Parent then
+                fill.Size = UDim2.new(0, 0, 1, 0)
+                pctText.Text = ""
+            end
+        end)
+    end
+end
+_G.WN_IMPORT_PROGRESS_CB = setProgress
+
+local function notify(titleText, body)
+    pcall(function()
+        game:GetService("StarterGui"):SetCore("SendNotification", { Title = tostring(titleText), Text = tostring(body), Duration = 5 })
+    end)
+end
+
+local function copyText(s)
+    local fn = setclipboard or toclipboard or set_clipboard or (Clipboard and Clipboard.set)
+    if type(fn) ~= "function" then return false end
+    return (pcall(fn, tostring(s)))
+end
+
+-- =====================================================================
+--                DASHBOARD  +  HOME (semua tombol jadi satu)
+-- =====================================================================
+;(function()
+    local WHITE = Color3.fromRGB(255, 255, 255)
+    local DARK = Color3.fromRGB(10, 20, 50)
+
+    local function pressFx(btn, base)
+        btn.MouseButton1Down:Connect(function()
+            TweenService:Create(btn, TweenInfo.new(0.08), { BackgroundTransparency = math.max(base - 0.12, 0) }):Play()
+        end)
+        local function release()
+            TweenService:Create(btn, TweenInfo.new(0.15), { BackgroundTransparency = base }):Play()
+        end
+        btn.MouseButton1Up:Connect(release)
+        btn.MouseLeave:Connect(release)
+    end
+
+    local function glassButton(parent, base)
+        local b = Instance.new("TextButton")
+        b.BackgroundColor3 = WHITE
+        b.BackgroundTransparency = base
+        b.BorderSizePixel = 0
+        b.Text = ""
+        b.AutoButtonColor = false
+        b.ZIndex = 23
+        b.Parent = parent
+        corner(b, 12)
+        glassStroke(b, 1)
+        pressFx(b, base)
+        return b
+    end
+
+    -- ================= DASHBOARD (sebelum panel utama) =================
+    local dash = Instance.new("Frame")
+    dash.Name = "Dashboard"
+    dash.Position = UDim2.fromOffset(12, 56)
+    dash.Size = UDim2.new(1, -24, 1, -68)
+    dash.BackgroundTransparency = 1
+    dash.BorderSizePixel = 0
+    dash.ZIndex = 20
+    dash.Parent = main
+    DASH.dash = dash
+
+    -- kartu kiri (hero)
+    local hero = glassPanel(dash, 0.9, 16)
+    hero.Position = UDim2.fromOffset(0, 0)
+    hero.Size = UDim2.new(0, 272, 1, 0)
+    hero.ZIndex = 21
+
+    local badge = glassPanel(hero, 0.82, 11)
+    badge.Position = UDim2.fromOffset(14, 14)
+    badge.Size = UDim2.fromOffset(128, 22)
+    badge.ZIndex = 22
+    local bdot = Instance.new("Frame")
+    bdot.Position = UDim2.fromOffset(10, 7)
+    bdot.Size = UDim2.fromOffset(8, 8)
+    bdot.BackgroundColor3 = C.ok
+    bdot.BorderSizePixel = 0
+    bdot.ZIndex = 23
+    bdot.Parent = badge
+    corner(bdot, 4)
+    local btxt = text(badge, "Importer Ready", 10, Enum.Font.GothamMedium, C.soft)
+    btxt.Position = UDim2.fromOffset(24, 0)
+    btxt.Size = UDim2.new(1, -28, 1, 0)
+    btxt.ZIndex = 23
+    btxt.TextTruncate = Enum.TextTruncate.AtEnd
+    DASH.badgeText = btxt
+
+    local t1 = text(hero, "IMPORTER", 26, Enum.Font.GothamBold, C.text)
+    t1.Position = UDim2.fromOffset(14, 44)
+    t1.Size = UDim2.new(1, -28, 0, 28)
+    t1.ZIndex = 22
+    local t2 = text(hero, "DASHBOARD", 26, Enum.Font.GothamBold, C.accent)
+    t2.Position = UDim2.fromOffset(14, 70)
+    t2.Size = UDim2.new(1, -28, 0, 28)
+    t2.ZIndex = 22
+
+    local desc = text(hero, "Pilih file RBXM, RBXMX, RBXL & RBXLX langsung masuk ke game. Toolbox PC siap pakai, hasil spawn auto anchored.", 11, Enum.Font.GothamMedium, C.soft)
+    desc.Position = UDim2.fromOffset(14, 106)
+    desc.Size = UDim2.new(1, -28, 0, 50)
+    desc.TextWrapped = true
+    desc.TextYAlignment = Enum.TextYAlignment.Top
+    desc.ZIndex = 22
+
+    -- dua pill info: TOTAL & DIIMPOR
+    local function infoPill(x, labelText, color)
+        local p = glassPanel(hero, 0.86, 11)
+        p.Position = UDim2.fromOffset(x, 164)
+        p.Size = UDim2.fromOffset(118, 40)
+        p.ZIndex = 22
+        local l = text(p, labelText, 9, Enum.Font.GothamBold, C.muted)
+        l.Position = UDim2.fromOffset(10, 5)
+        l.Size = UDim2.new(1, -20, 0, 12)
+        l.ZIndex = 23
+        local v = text(p, "0", 16, Enum.Font.GothamBold, color)
+        v.Position = UDim2.fromOffset(10, 17)
+        v.Size = UDim2.new(1, -20, 0, 20)
+        v.ZIndex = 23
+        return v
+    end
+    local pillTotal = infoPill(14, "TOTAL FILE", C.accent)
+    local pillImp = infoPill(140, "DIIMPOR", C.ok)
+
+    local openBtn = Instance.new("TextButton")
+    openBtn.Position = UDim2.fromOffset(14, 222)
+    openBtn.Size = UDim2.fromOffset(150, 38)
+    openBtn.BackgroundColor3 = C.accent
+    openBtn.BackgroundTransparency = 0.15
+    openBtn.BorderSizePixel = 0
+    openBtn.Text = "OPEN PANEL"
+    openBtn.TextSize = 12
+    openBtn.Font = Enum.Font.GothamBold
+    openBtn.TextColor3 = DARK
+    openBtn.AutoButtonColor = false
+    openBtn.ZIndex = 23
+    openBtn.Parent = hero
+    corner(openBtn, 11)
+    grad(openBtn, Color3.fromRGB(150, 225, 255), Color3.fromRGB(110, 160, 255), 90)
+    pressFx(openBtn, 0.15)
+    openBtn.MouseButton1Click:Connect(function() DASH.hooks.openTab("HOME") end)
+
+    local dScan = glassButton(hero, 0.84)
+    dScan.Position = UDim2.fromOffset(172, 222)
+    dScan.Size = UDim2.fromOffset(86, 38)
+    dScan.Text = "SCAN ULANG"
+    dScan.TextSize = 10
+    dScan.Font = Enum.Font.GothamBold
+    dScan.TextColor3 = C.text
+    dScan.MouseButton1Click:Connect(function() DASH.hooks.scan() end)
+
+    -- kartu kanan atas: statistik file (hanya tampilan, tidak bisa diklik)
+    local stats = glassPanel(dash, 0.9, 16)
+    stats.Position = UDim2.new(0, 282, 0, 0)
+    stats.Size = UDim2.new(1, -282, 0, 150)
+    stats.ZIndex = 21
+    local sl = text(stats, "FILE TERDETEKSI", 10, Enum.Font.GothamBold, C.muted)
+    sl.Position = UDim2.fromOffset(14, 8)
+    sl.Size = UDim2.new(0.6, -14, 0, 16)
+    sl.ZIndex = 22
+    local statTotal = text(stats, "0 file", 10, Enum.Font.GothamMedium, C.soft, Enum.TextXAlignment.Right)
+    statTotal.Position = UDim2.new(0.5, 0, 0, 8)
+    statTotal.Size = UDim2.new(0.5, -14, 0, 16)
+    statTotal.ZIndex = 22
+
+    for _, spec in ipairs({
+        { "RBXM", C.accent, 10, 28 }, { "RBXMX", C.accent, 118, 28 },
+        { "RBXL", C.accent2, 10, 86 }, { "RBXLX", C.accent2, 118, 86 },
+    }) do
+        local name, col, x, y = spec[1], spec[2], spec[3], spec[4]
+        local tile = glassPanel(stats, 0.86, 12)
+        tile.Position = UDim2.fromOffset(x, y)
+        tile.Size = UDim2.fromOffset(106, 52)
+        tile.ZIndex = 22
+        local nl = text(tile, name, 10, Enum.Font.GothamBold, C.muted)
+        nl.Position = UDim2.fromOffset(10, 6)
+        nl.Size = UDim2.new(1, -44, 0, 14)
+        nl.ZIndex = 23
+        local cl = text(tile, "0", 20, Enum.Font.GothamBold, col)
+        cl.Position = UDim2.fromOffset(10, 20)
+        cl.Size = UDim2.new(1, -44, 0, 26)
+        cl.ZIndex = 23
+        local ic = Instance.new("ImageLabel")
+        ic.AnchorPoint = Vector2.new(1, 0.5)
+        ic.Position = UDim2.new(1, -8, 0.5, 0)
+        ic.Size = UDim2.fromOffset(24, 24)
+        ic.BackgroundTransparency = 1
+        ic.Image = ICONS[name]
+        ic.ScaleType = Enum.ScaleType.Fit
+        ic.ZIndex = 23
+        ic.Parent = tile
+        DASH.stat[name] = cl
+    end
+
+    -- kartu kanan bawah: status device live
+    local quick = glassPanel(dash, 0.9, 16)
+    quick.Position = UDim2.new(0, 282, 0, 160)
+    quick.Size = UDim2.new(1, -282, 1, -160)
+    quick.ZIndex = 21
+    local ql = text(quick, "STATUS DEVICE", 10, Enum.Font.GothamBold, C.muted)
+    ql.Position = UDim2.fromOffset(14, 6)
+    ql.Size = UDim2.new(0.6, -14, 0, 16)
+    ql.ZIndex = 22
+    local liveTag = text(quick, "LIVE", 9, Enum.Font.GothamBold, C.ok, Enum.TextXAlignment.Right)
+    liveTag.Position = UDim2.new(0.5, 0, 0, 6)
+    liveTag.Size = UDim2.new(0.5, -14, 0, 16)
+    liveTag.ZIndex = 22
+
+    local function devTile(x, labelText, unitText)
+        local t = glassPanel(quick, 0.86, 12)
+        t.Position = UDim2.fromOffset(x, 26)
+        t.Size = UDim2.fromOffset(68, 80)
+        t.ZIndex = 22
+
+        local l = text(t, labelText, 9, Enum.Font.GothamBold, C.muted)
+        l.Position = UDim2.fromOffset(8, 7)
+        l.Size = UDim2.new(1, -12, 0, 12)
+        l.TextScaled = true
+        l.ZIndex = 23
+        local lc = Instance.new("UITextSizeConstraint")
+        lc.MaxTextSize = 9; lc.MinTextSize = 6; lc.Parent = l
+
+        local v = text(t, "--", 20, Enum.Font.GothamBold, C.ok)
+        v.Position = UDim2.fromOffset(8, 21)
+        v.Size = UDim2.new(1, -12, 0, 26)
+        v.TextScaled = true
+        v.ZIndex = 23
+        local vc = Instance.new("UITextSizeConstraint")
+        vc.MaxTextSize = 20; vc.MinTextSize = 11; vc.Parent = v
+
+        local u = text(t, unitText, 9, Enum.Font.GothamMedium, C.muted)
+        u.Position = UDim2.fromOffset(8, 48)
+        u.Size = UDim2.new(1, -12, 0, 12)
+        u.ZIndex = 23
+
+        local track = Instance.new("Frame")
+        track.Position = UDim2.fromOffset(8, 67)
+        track.Size = UDim2.new(1, -16, 0, 4)
+        track.BackgroundColor3 = WHITE
+        track.BackgroundTransparency = 0.8
+        track.BorderSizePixel = 0
+        track.ZIndex = 23
+        track.Parent = t
+        corner(track, 2)
+        local fillBar = Instance.new("Frame")
+        fillBar.Size = UDim2.new(0, 0, 1, 0)
+        fillBar.BackgroundColor3 = C.ok
+        fillBar.BorderSizePixel = 0
+        fillBar.ZIndex = 24
+        fillBar.Parent = track
+        corner(fillBar, 2)
+        return { val = v, unit = u, fill = fillBar }
+    end
+    local devFps = devTile(10, "FPS", "frame/detik")
+    local devPing = devTile(83, "SINYAL", "ms ping")
+    local devSpeed = devTile(156, "KECEPATAN", "KB/s")
+
+    local Stats = game:GetService("Stats")
+    local function setDev(ref, valueText, color, ratio)
+        ref.val.Text = valueText
+        ref.val.TextColor3 = color
+        ref.fill.BackgroundColor3 = color
+        TweenService:Create(ref.fill, TweenInfo.new(0.3), { Size = UDim2.new(math.clamp(ratio, 0, 1), 0, 1, 0) }):Play()
+    end
+    local function readPing()
+        local ok, v = pcall(function() return Stats.Network.ServerStatsItem["Data Ping"]:GetValue() end)
+        if ok and type(v) == "number" and v > 0 then return v end
+        local ok2, p = pcall(function() return LocalPlayer:GetNetworkPing() * 1000 end)
+        if ok2 and type(p) == "number" and p > 0 then return p end
+        return nil
+    end
+    local function readSpeed()
+        local ok, v = pcall(function() return Stats.DataReceiveKbps end)
+        if ok and type(v) == "number" then return v end
+        return nil
+    end
+
+    local frames = 0
+    RunService.RenderStepped:Connect(function() frames += 1 end)
+    task.spawn(function()
+        local last = os.clock()
+        while gui.Parent do
+            task.wait(0.5)
+            local now = os.clock()
+            local fps = frames / math.max(now - last, 0.001)
+            frames = 0
+            last = now
+            if main.Visible and DASH.mode == "dash" then
+                local fc = (fps >= 50 and C.ok) or (fps >= 30 and C.warn) or C.bad
+                setDev(devFps, tostring(math.floor(fps + 0.5)), fc, fps / 60)
+
+                local ping = readPing()
+                if ping then
+                    local pc = (ping < 100 and C.ok) or (ping < 200 and C.warn) or C.bad
+                    setDev(devPing, tostring(math.floor(ping + 0.5)), pc, 1 - ping / 300)
+                else
+                    setDev(devPing, "--", C.muted, 0)
+                end
+
+                local sp = readSpeed()
+                if sp then
+                    if sp >= 1024 then
+                        setDev(devSpeed, ("%.1f"):format(sp / 1024), C.accent, sp / 4096)
+                        devSpeed.unit.Text = "MB/s"
+                    else
+                        setDev(devSpeed, tostring(math.floor(sp + 0.5)), C.accent, sp / 512)
+                        devSpeed.unit.Text = "KB/s"
+                    end
+                else
+                    setDev(devSpeed, "--", C.muted, 0)
+                end
+            end
+        end
+    end)
+
+    -- ================= HOME (di dalam panel, kategori MENU) =================
+    local home = Instance.new("Frame")
+    home.Name = "HomePage"
+    home.BackgroundTransparency = 1
+    home.Position = UDim2.fromOffset(6, 28)
+    home.Size = UDim2.new(1, -12, 1, -34)
+    home.ZIndex = 21
+    home.Visible = false
+    home.Parent = content
+    DASH.home = home
+
+    local grid = Instance.new("UIGridLayout")
+    grid.CellSize = UDim2.fromOffset(118, 108)
+    grid.CellPadding = UDim2.fromOffset(8, 8)
+    grid.SortOrder = Enum.SortOrder.LayoutOrder
+    grid.Parent = home
+
+    local function homeTile(order, key, title, iconId, accent, glyph, onClick)
+        local t = Instance.new("TextButton")
+        t.LayoutOrder = order
+        t.Text = ""
+        t.AutoButtonColor = false
+        t.BackgroundColor3 = WHITE
+        t.BackgroundTransparency = 0.86
+        t.BorderSizePixel = 0
+        t.ZIndex = 22
+        t.Parent = home
+        corner(t, 14)
+        glassStroke(t, 1)
+        pressFx(t, 0.86)
+
+        if iconId then
+            local ic = Instance.new("ImageLabel")
+            ic.AnchorPoint = Vector2.new(0.5, 0)
+            ic.Position = UDim2.new(0.5, 0, 0, 14)
+            ic.Size = UDim2.fromOffset(38, 38)
+            ic.BackgroundTransparency = 1
+            ic.Image = iconId
+            ic.ScaleType = Enum.ScaleType.Fit
+            ic.ZIndex = 23
+            ic.Parent = t
+        else
+            local ic = text(t, glyph, 11, Enum.Font.GothamBold, DARK, Enum.TextXAlignment.Center)
+            ic.AnchorPoint = Vector2.new(0.5, 0)
+            ic.Position = UDim2.new(0.5, 0, 0, 14)
+            ic.Size = UDim2.fromOffset(38, 38)
+            ic.BackgroundTransparency = 0.1
+            ic.BackgroundColor3 = accent
+            ic.ZIndex = 23
+            corner(ic, 11)
+        end
+
+        local ttl = text(t, title, 11, Enum.Font.GothamBold, C.text, Enum.TextXAlignment.Center)
+        ttl.Position = UDim2.fromOffset(0, 60)
+        ttl.Size = UDim2.new(1, 0, 0, 16)
+        ttl.ZIndex = 23
+        local sub = text(t, "", 9, Enum.Font.GothamMedium, accent, Enum.TextXAlignment.Center)
+        sub.Position = UDim2.fromOffset(0, 78)
+        sub.Size = UDim2.new(1, 0, 0, 14)
+        sub.ZIndex = 23
+        DASH.tiles[key] = sub
+        t.MouseButton1Click:Connect(onClick)
+        return sub
+    end
+
+    homeTile(1, "TOOLBOX", "TOOLBOX PC", ICONS.TOOLBOX, C.ok, nil, function() DASH.hooks.setTab("TOOLBOX") end).Text = "Cari & spawn aset"
+    homeTile(2, "RBXM", "RBXM", ICONS.RBXM, C.accent, nil, function() DASH.hooks.setTab("RBXM") end)
+    homeTile(3, "RBXMX", "RBXMX", ICONS.RBXMX, C.accent, nil, function() DASH.hooks.setTab("RBXMX") end)
+    homeTile(4, "RBXL", "RBXL", ICONS.RBXL, C.accent2, nil, function() DASH.hooks.setTab("RBXL") end)
+    homeTile(5, "RBXLX", "RBXLX", ICONS.RBXLX, C.accent2, nil, function() DASH.hooks.setTab("RBXLX") end)
+    homeTile(6, "AKUN", "AKUN", nil, C.accent2, "A", function() DASH.hooks.setTab("AKUN") end).Text = "Belum terhubung"
+
+    -- sinkron tombol SCAN (sidebar) -> dashboard & home
+    scanBtn:GetPropertyChangedSignal("Text"):Connect(function()
+        local idle = (scanBtn.Text == "SCAN")
+        dScan.Text = idle and "SCAN ULANG" or scanBtn.Text
+        if DASH.tiles.SCAN then DASH.tiles.SCAN.Text = idle and "Cari ulang file" or scanBtn.Text end
+    end)
+
+    function DASH.refresh()
+        local counts, total = {}, 0
+        for _, f in ipairs(allFiles) do
+            local k = f.ext:upper()
+            counts[k] = (counts[k] or 0) + 1
+            total += 1
+        end
+        local imported = 0
+        for _, st in pairs(fileState) do
+            if st.label == "DONE" or st.label == "ACTIVE" then imported += 1 end
+        end
+        for name, lbl in pairs(DASH.stat) do lbl.Text = tostring(counts[name] or 0) end
+        for _, name in ipairs({ "RBXM", "RBXMX", "RBXL", "RBXLX" }) do
+            local sub = DASH.tiles[name]
+            if sub then sub.Text = (counts[name] or 0) .. " file" end
+        end
+        pillTotal.Text = tostring(total)
+        pillImp.Text = tostring(imported)
+        statTotal.Text = total .. " file"
+    end
+end)()
+
+local renderList
+local function updateBadges()
+    local counts = {}
+    for _, f in ipairs(allFiles) do
+        local k = f.ext:upper()
+        counts[k] = (counts[k] or 0) + 1
+    end
+    for name, t in pairs(tabButtons) do
+        if t.badge then t.badge.Text = tostring(counts[name] or 0) end
+    end
+    if DASH.refresh then DASH.refresh() end
+end
+local function refreshTabs()
+    for name, t in pairs(tabButtons) do
+        local active = (name == currentTab)
+        TweenService:Create(t.btn, TweenInfo.new(0.15), {
+            BackgroundTransparency = active and 0.55 or 0.9,
+            BackgroundColor3 = active and C.accent2 or Color3.fromRGB(255, 255, 255),
+        }):Play()
+    end
+    if currentTab == "TOOLBOX" then
+        contentTitle.Text = "TOOLBOX PC"
+    elseif currentTab == "HOME" then
+        contentTitle.Text = "HOME"
+    elseif currentTab == "AKUN" then
+        contentTitle.Text = "AKUN • GENERAL"
+    else
+        contentTitle.Text = currentTab .. " FILES"
+    end
+    if DASH.mode == "panel" and hdrSub then hdrSub.Text = "PANEL • " .. tabLabel(currentTab) end
+end
+
+-- ---------- kartu file ----------
+local function makeCard(info)
+    local card = Instance.new("Frame")
+    card.Size = UDim2.new(1, -4, 0, 44)
+    card.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    card.BackgroundTransparency = 0.86
+    card.BorderSizePixel = 0
+    card.ZIndex = 22
+    card.Parent = list
+    corner(card, 10)
+    glassStroke(card, 1)
+
+    local icon = Instance.new("ImageLabel")
+    icon.Position = UDim2.fromOffset(7, 7)
+    icon.Size = UDim2.fromOffset(30, 30)
+    icon.BackgroundTransparency = 1
+    icon.Image = ICONS[info.ext:upper()] or ICONS.RBXM
+    icon.ScaleType = Enum.ScaleType.Fit
+    icon.ZIndex = 23
+    icon.Parent = card
+
+    local nameLbl = text(card, info.name, 12, Enum.Font.GothamBold, C.text)
+    nameLbl.Position = UDim2.fromOffset(44, 4)
+    nameLbl.Size = UDim2.new(1, -118, 0, 18)
+    nameLbl.TextTruncate = Enum.TextTruncate.AtEnd
+    nameLbl.ZIndex = 23
+
+    local pathLbl = text(card, info.path, 9, Enum.Font.Gotham, C.muted)
+    pathLbl.Position = UDim2.fromOffset(44, 23)
+    pathLbl.Size = UDim2.new(1, -118, 0, 14)
+    pathLbl.TextTruncate = Enum.TextTruncate.AtEnd
+    pathLbl.ZIndex = 23
+
+    local st = fileState[info.path]
+    if not st then st = { label = "IMPORT", color = C.accent }; fileState[info.path] = st end
+
+    local btn = Instance.new("TextButton")
+    btn.AnchorPoint = Vector2.new(1, 0.5)
+    btn.Position = UDim2.new(1, -6, 0.5, 0)
+    btn.Size = UDim2.fromOffset(62, 24)
+    btn.BackgroundColor3 = st.color
+    btn.BackgroundTransparency = 0.1
+    btn.Text = st.label
+    btn.TextScaled = true
+    btn.Font = Enum.Font.GothamBold
+    btn.TextColor3 = Color3.fromRGB(10, 20, 50)
+    btn.AutoButtonColor = false
+    btn.ZIndex = 24
+    btn.Parent = card
+    corner(btn, 8)
+    do
+        local tc = Instance.new("UITextSizeConstraint")
+        tc.MaxTextSize = 10
+        tc.MinTextSize = 7
+        tc.Parent = btn
+        local pd = Instance.new("UIPadding")
+        pd.PaddingLeft = UDim.new(0, 3); pd.PaddingRight = UDim.new(0, 3)
+        pd.Parent = btn
+    end
+
+    local function setBtn(label, color)
+        st.label, st.color = label, color
+        if btn.Parent then btn.Text = label; btn.BackgroundColor3 = color end
+    end
+
+    btn.MouseButton1Click:Connect(function()
+        if st.label == "IMPORTING" or st.label == "ACTIVATING" then return end
+        if st.label == "ACTIVE" or st.label == "DONE" then
+            setStatus("SUDAH DI-IMPORT • " .. info.name, C.ok)
+            return
+        end
+        if st.label == "ACTIVATE" and st.root then
+            setBtn("ACTIVATING", C.warn)
+            task.spawn(function()
+                local ok, msg = activateImportRoot(st.root)
+                if ok then
+                    setBtn("ACTIVE", C.ok); setStatus(msg, C.ok)
+                    notify("WLEO x NEKO", info.name .. " berhasil digenerate 100%.")
+                else
+                    setBtn("ACTIVATE", C.accent2); setStatus("ACTIVATE ERROR: " .. tostring(msg), C.bad)
+                end
+            end)
+            return
+        end
+        setBtn("IMPORTING", C.warn)
+        setProgress(0.01, "MULAI IMPORT • " .. info.name)
+        task.spawn(function()
+            local ok, msg, root
+            if info.ftype == "RBXM" then
+                ok, msg, root = importRBXM(info)
+            else
+                ok, msg, root = importRBXL(info)
+            end
+            if not ok then
+                setBtn("FAILED", C.bad); setStatus(msg, C.bad)
+                notify("IMPORT GAGAL", tostring(msg))
+                task.wait(2.2)
+                setBtn("IMPORT", C.accent)
+                return
+            end
+            st.root = root
+            if info.ftype == "RBXM" then
+                setBtn("DONE", C.ok); setProgress(1, "RBXM GENERATION COMPLETE"); setStatus(msg, C.ok)
+                notify("WLEO x NEKO", info.name .. " berhasil digenerate 100%.")
+                return
+            end
+            setBtn("ACTIVATING", C.warn)
+            setStatus(msg .. " • AUTO ACTIVATING", C.warn)
+            local aok, amsg = activateImportRoot(root)
+            if aok then
+                setBtn("ACTIVE", C.ok); setProgress(1, "RBXL GENERATION COMPLETE"); setStatus(amsg, C.ok)
+                notify("WLEO x NEKO", info.name .. " berhasil digenerate 100%.")
+            else
+                setBtn("ACTIVATE", C.accent2); setStatus("AUTO ACTIVATE ERROR: " .. tostring(amsg), C.bad)
+                notify("ACTIVATE GAGAL", tostring(amsg))
+            end
+        end)
+    end)
+end
+
+renderList = function()
+    if currentTab == "TOOLBOX" or currentTab == "HOME" or currentTab == "AKUN" then return end
+    for _, c in ipairs(list:GetChildren()) do
+        if c:IsA("Frame") then c:Destroy() end
+    end
+    local q = searchBox.Text:lower():gsub("^%s+", ""):gsub("%s+$", "")
+    local shown = 0
+    for _, info in ipairs(allFiles) do
+        if info.ext:upper() == currentTab then
+            if q == "" or info.name:lower():find(q, 1, true) or info.path:lower():find(q, 1, true) then
+                makeCard(info)
+                shown += 1
+            end
+        end
+    end
+    emptyLbl.Visible = shown == 0
+    if shown == 0 then
+        emptyLbl.Text = #allFiles == 0 and "Belum ada file.\nTekan SCAN untuk cari di workspace" or ("Tidak ada file ." .. currentTab:lower())
+    end
+end
+
+-- =====================================================================
+--                      TOOLBOX PC (endpoint Roblox)
+-- =====================================================================
+;(function()
+    local httpRequest = (syn and syn.request) or (http and http.request) or http_request or request or (fluxus and fluxus.request)
+
+    local function rawGet(url, withKey)
+        local body
+        if httpRequest then
+            local headers = { ["Accept"] = "application/json" }
+            if withKey and ACCT.apiKey then headers["x-api-key"] = ACCT.apiKey end
+            local ok, res = pcall(httpRequest, { Url = url, Method = "GET", Headers = headers })
+            if ok and type(res) == "table" and (res.Success or res.StatusCode == 200) and type(res.Body) == "string" then
+                body = res.Body
+            end
+        end
+        if not body and not withKey then
+            local ok, res = pcall(function() return game:HttpGet(url) end)
+            if ok and type(res) == "string" then body = res end
+        end
+        if not body then return nil end
+        local ok, data = pcall(function() return HttpService:JSONDecode(body) end)
+        return ok and data or nil
+    end
+
+    local function httpGetJson(url)
+        local data = rawGet(url, false)
+        -- kalau gagal & ada API key tersimpan: coba lagi sekali dengan x-api-key (hanya ke apis.roblox.com)
+        if data == nil and ACCT.apiKey and httpRequest and url:find("^https://apis%.roblox%.com/") then
+            data = rawGet(url, true)
+        end
+        return data
+    end
+    TB.httpGetJson = httpGetJson
+
+    local TB_CATS = {
+        { name = "MODEL", id = 10 },
+        { name = "MESH",  id = 4 },
+        { name = "DECAL", id = 13 },
+        { name = "AUDIO", id = 3 },
+    }
+    local tbCat = 10
+    local tbToken = 0
+
+    -- toolbox list
+    local tbList = Instance.new("ScrollingFrame")
+    tbList.Position = UDim2.fromOffset(6, 80)
+    tbList.Size = UDim2.new(1, -12, 1, -86)
+    tbList.BackgroundTransparency = 1
+    tbList.BorderSizePixel = 0
+    tbList.ScrollBarThickness = 3
+    tbList.ScrollBarImageColor3 = C.ok
+    tbList.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    tbList.CanvasSize = UDim2.new()
+    tbList.ZIndex = 21
+    tbList.Visible = false
+    tbList.Parent = content
+    do
+        local l = Instance.new("UIListLayout")
+        l.Padding = UDim.new(0, 5)
+        l.SortOrder = Enum.SortOrder.LayoutOrder
+        l.Parent = tbList
+    end
+    TB.list = tbList
+
+    -- tombol GO
+    local goBtn = Instance.new("TextButton")
+    goBtn.AnchorPoint = Vector2.new(1, 0)
+    goBtn.Position = UDim2.new(1, -8, 0, 26)
+    goBtn.Size = UDim2.fromOffset(40, 26)
+    goBtn.BackgroundColor3 = C.ok
+    goBtn.BackgroundTransparency = 0.1
+    goBtn.Text = "GO"
+    goBtn.TextSize = 11
+    goBtn.Font = Enum.Font.GothamBold
+    goBtn.TextColor3 = Color3.fromRGB(10, 20, 50)
+    goBtn.AutoButtonColor = false
+    goBtn.ZIndex = 22
+    goBtn.Visible = false
+    goBtn.Parent = content
+    corner(goBtn, 9)
+    TB.go = goBtn
+
+    -- chip kategori
+    local chipRow = Instance.new("Frame")
+    chipRow.Position = UDim2.fromOffset(8, 56)
+    chipRow.Size = UDim2.new(1, -16, 0, 20)
+    chipRow.BackgroundTransparency = 1
+    chipRow.ZIndex = 21
+    chipRow.Visible = false
+    chipRow.Parent = content
+    do
+        local l = Instance.new("UIListLayout")
+        l.FillDirection = Enum.FillDirection.Horizontal
+        l.Padding = UDim.new(0, 4)
+        l.SortOrder = Enum.SortOrder.LayoutOrder
+        l.Parent = chipRow
+    end
+    TB.chips = chipRow
+    local chipBtns = {}
+    local function refreshChips()
+        for id, b in pairs(chipBtns) do
+            local on = (id == tbCat)
+            b.BackgroundColor3 = on and C.ok or Color3.fromRGB(255, 255, 255)
+            b.BackgroundTransparency = on and 0.15 or 0.85
+            b.TextColor3 = on and Color3.fromRGB(10, 20, 50) or C.text
+        end
+    end
+    for i, cat in ipairs(TB_CATS) do
+        local b = Instance.new("TextButton")
+        b.LayoutOrder = i
+        b.Size = UDim2.fromOffset(56, 20)
+        b.Text = cat.name
+        b.TextSize = 10
+        b.Font = Enum.Font.GothamBold
+        b.AutoButtonColor = false
+        b.ZIndex = 22
+        b.Parent = chipRow
+        corner(b, 8)
+        chipBtns[cat.id] = b
+        b.MouseButton1Click:Connect(function()
+            tbCat = cat.id
+            refreshChips()
+        end)
+    end
+    refreshChips()
+
+    TB.msg = "Ketik nama aset lalu tekan GO"
+    function TB.setMsg(m)
+        TB.msg = m
+        if currentTab == "TOOLBOX" then
+            emptyLbl.Text = m
+            emptyLbl.Visible = (m ~= "")
+            emptyLbl.Position = UDim2.fromOffset(10, 110)
+        end
+    end
+
+    local function clearTb()
+        for _, c in ipairs(tbList:GetChildren()) do
+            if c:IsA("Frame") then c:Destroy() end
+        end
+    end
+
+    local function flashBtn(btn, label, color, back, backColor)
+        btn.Text = label
+        btn.BackgroundColor3 = color
+        task.delay(1.6, function()
+            if btn.Parent then btn.Text = back; btn.BackgroundColor3 = backColor end
+        end)
+    end
+
+    -- import ID langsung ke StudioLite
+    local function importAsset(id, cat)
+        ind.busy = true
+        setStatus("IMPORT ID " .. id .. " KE STUDIOLITE...", C.ok)
+        local ok, info = false, ""
+        if cat == 10 then
+            local gok, objs = pcall(function() return game:GetObjects("rbxassetid://" .. id) end)
+            if gok and type(objs) == "table" and #objs > 0 then
+                for _, o in ipairs(objs) do
+                    pcall(function() o.Parent = workspace end)
+                    anchorTree(o)
+                    spawnInFrontOfCamera(o)
+                    lockAnchored(o)
+                    pcall(queueAssetsFromRBXM, o)
+                    local all = { o }
+                    for _, d in ipairs(o:GetDescendants()) do all[#all + 1] = d end
+                    for _, d in ipairs(all) do
+                        if d:IsA("LuaSourceContainer") then pcall(injectStudioLiteUI, d, {}) end
+                    end
+                end
+                flushServerLoadsAsync()
+                ok, info = true, ("MODEL %d • %d OBJECT MASUK WORKSPACE"):format(id, #objs)
+            else
+                info = "GetObjects gagal: " .. tostring(objs)
+            end
+        elseif cat == 4 then
+            local mesh, how = tryAssetServiceMesh(id)
+            triggerServerLoad(id)
+            if mesh then
+                mesh.Name = "Mesh_" .. id
+                anchorPart(mesh)
+                pcall(function() mesh.Parent = workspace end)
+                spawnInFrontOfCamera(mesh)
+                lockAnchored(mesh)
+                ok, info = true, ("MESH %d MASUK WORKSPACE (%s)"):format(id, tostring(how))
+            elseif getStudioLiteServerFuncs() then
+                ok, info = true, ("MESH %d DIKIRIM KE STUDIOLITE RUNTIME"):format(id)
+            else
+                info = "mesh gagal: " .. tostring(how)
+            end
+        else
+            if getStudioLiteServerFuncs() then
+                triggerServerLoad(id)
+                ok, info = true, ("ID %d DIKIRIM KE STUDIOLITE"):format(id)
+            else
+                info = "StudioLiteFolder tidak ditemukan di game ini"
+            end
+        end
+        ind.busy = false
+        setStatus(info, ok and C.ok or C.bad)
+        return ok
+    end
+
+    local function makeTbCard(order, id, meta, cat)
+        local card = Instance.new("Frame")
+        card.LayoutOrder = order
+        card.Size = UDim2.new(1, -4, 0, 52)
+        card.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+        card.BackgroundTransparency = 0.86
+        card.BorderSizePixel = 0
+        card.ZIndex = 22
+        card.Parent = tbList
+        corner(card, 10)
+        glassStroke(card, 1)
+
+        local thumb = Instance.new("ImageLabel")
+        thumb.Position = UDim2.fromOffset(6, 6)
+        thumb.Size = UDim2.fromOffset(40, 40)
+        thumb.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+        thumb.BackgroundTransparency = 0.85
+        thumb.Image = ("rbxthumb://type=Asset&id=%d&w=150&h=150"):format(id)
+        thumb.ScaleType = Enum.ScaleType.Fit
+        thumb.ZIndex = 23
+        thumb.Parent = card
+        corner(thumb, 8)
+
+        local nameBtn = Instance.new("TextButton")
+        nameBtn.BackgroundTransparency = 1
+        nameBtn.Position = UDim2.fromOffset(54, 4)
+        nameBtn.Size = UDim2.new(1, -122, 0, 16)
+        nameBtn.Text = meta.name or ("Asset " .. id)
+        nameBtn.TextSize = 11
+        nameBtn.Font = Enum.Font.GothamBold
+        nameBtn.TextColor3 = C.text
+        nameBtn.TextXAlignment = Enum.TextXAlignment.Left
+        nameBtn.TextTruncate = Enum.TextTruncate.AtEnd
+        nameBtn.AutoButtonColor = false
+        nameBtn.ZIndex = 24
+        nameBtn.Parent = card
+
+        local idBtn = Instance.new("TextButton")
+        idBtn.BackgroundTransparency = 1
+        idBtn.Position = UDim2.fromOffset(54, 21)
+        idBtn.Size = UDim2.new(1, -122, 0, 14)
+        idBtn.Text = "ID " .. id
+        idBtn.TextSize = 10
+        idBtn.Font = Enum.Font.GothamMedium
+        idBtn.TextColor3 = C.accent
+        idBtn.TextXAlignment = Enum.TextXAlignment.Left
+        idBtn.AutoButtonColor = false
+        idBtn.ZIndex = 24
+        idBtn.Parent = card
+
+        local byLbl = text(card, meta.creator and ("by " .. meta.creator) or "", 9, Enum.Font.Gotham, C.muted)
+        byLbl.Position = UDim2.fromOffset(54, 36)
+        byLbl.Size = UDim2.new(1, -122, 0, 12)
+        byLbl.TextTruncate = Enum.TextTruncate.AtEnd
+        byLbl.ZIndex = 23
+
+        local function mini(label, y, color)
+            local b = Instance.new("TextButton")
+            b.AnchorPoint = Vector2.new(1, 0)
+            b.Position = UDim2.new(1, -6, 0, y)
+            b.Size = UDim2.fromOffset(56, 20)
+            b.BackgroundColor3 = color
+            b.BackgroundTransparency = 0.1
+            b.Text = label
+            b.TextSize = 10
+            b.Font = Enum.Font.GothamBold
+            b.TextColor3 = Color3.fromRGB(10, 20, 50)
+            b.AutoButtonColor = false
+            b.ZIndex = 24
+            b.Parent = card
+            corner(b, 7)
+            return b
+        end
+        local copyBtn = mini("COPY ID", 5, C.accent)
+        local impBtn = mini("IMPORT", 27, C.ok)
+
+        local function doCopy(value, what)
+            if copyText(value) then
+                setStatus("COPIED " .. what .. " • " .. tostring(value), C.ok)
+            else
+                setStatus("CLIPBOARD TIDAK TERSEDIA DI EXECUTOR", C.bad)
+            end
+        end
+        nameBtn.MouseButton1Click:Connect(function() doCopy(nameBtn.Text, "NAMA") end)
+        idBtn.MouseButton1Click:Connect(function() doCopy(tostring(id), "ID") end)
+        copyBtn.MouseButton1Click:Connect(function()
+            doCopy(tostring(id), "ID")
+            flashBtn(copyBtn, "COPIED", C.ok, "COPY ID", C.accent)
+        end)
+
+        local busy = false
+        impBtn.MouseButton1Click:Connect(function()
+            if busy then return end
+            busy = true
+            impBtn.Text = "..."
+            impBtn.BackgroundColor3 = C.warn
+            task.spawn(function()
+                local ok = importAsset(id, cat)
+                busy = false
+                if ok then
+                    flashBtn(impBtn, "DONE", C.ok, "IMPORT", C.ok)
+                    notify("WLEO x NEKO", "ID " .. id .. " masuk StudioLite.")
+                else
+                    flashBtn(impBtn, "FAILED", C.bad, "IMPORT", C.ok)
+                end
+            end)
+        end)
+
+        if not meta.name then
+            task.spawn(function()
+                local d = httpGetJson("https://economy.roblox.com/v2/assets/" .. id .. "/details")
+                if d and nameBtn.Parent then
+                    if d.Name then nameBtn.Text = d.Name end
+                    if d.Creator and d.Creator.Name then byLbl.Text = "by " .. d.Creator.Name end
+                end
+            end)
+        end
+    end
+
+    -- ================= paging: muat terus sampai habis =================
+    local TB_PAGE = 30
+    local tbS = { q = nil, cat = 10, page = 0, loading = false, done = true, single = false, count = 0, seen = {} }
+
+    local footer = Instance.new("TextButton")
+    footer.Name = "TbFooter"
+    footer.LayoutOrder = 1000000
+    footer.Size = UDim2.new(1, -4, 0, 30)
+    footer.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    footer.BackgroundTransparency = 0.86
+    footer.Text = ""
+    footer.TextSize = 10
+    footer.Font = Enum.Font.GothamBold
+    footer.TextColor3 = C.text
+    footer.AutoButtonColor = false
+    footer.Visible = false
+    footer.ZIndex = 22
+    footer.Parent = tbList
+    corner(footer, 10)
+    glassStroke(footer, 1)
+
+    local function setFooter()
+        if tbS.q == nil or tbS.single or (tbS.count == 0 and not tbS.loading) then
+            footer.Visible = false
+            return
+        end
+        footer.Visible = true
+        if tbS.loading then
+            footer.Text = ("MEMUAT... • %d ASET"):format(tbS.count)
+        elseif tbS.done then
+            footer.Text = ("SEMUA HASIL DIMUAT • %d ASET"):format(tbS.count)
+        else
+            footer.Text = ("MUAT LAGI • %d ASET SEKARANG"):format(tbS.count)
+        end
+    end
+
+    local function fetchIds(q, cat, page)
+        local ids, total = {}, nil
+        local enc = HttpService:UrlEncode(q)
+        local urls = {
+            ("https://apis.roblox.com/toolbox-service/v1/marketplace/%d?limit=%d&pageNumber=%d&keyword=%s&sortType=Relevance"):format(cat, TB_PAGE, page, enc),
+            ("https://apis.roblox.com/toolbox-service/v1/marketplace/%d?keyword=%s&num=%d&pageNumber=%d"):format(cat, enc, TB_PAGE, page),
+        }
+        for _, url in ipairs(urls) do
+            local data = httpGetJson(url)
+            if data and type(data.data) == "table" then
+                total = tonumber(data.totalResults) or total
+                for _, e in ipairs(data.data) do
+                    local rawId = (type(e) == "table") and (e.id or e.Id or e.assetId) or e
+                    rawId = tonumber(rawId)
+                    if rawId then ids[#ids + 1] = rawId end
+                end
+            end
+            if #ids > 0 then break end
+        end
+        return ids, total
+    end
+
+    local function fetchMeta(ids)
+        local metaById = {}
+        for i = 1, #ids, 30 do
+            local chunk = {}
+            for j = i, math.min(i + 29, #ids) do chunk[#chunk + 1] = ids[j] end
+            local det = httpGetJson("https://apis.roblox.com/toolbox-service/v1/items/details?assetIds=" .. table.concat(chunk, ","))
+            if det and type(det.data) == "table" then
+                for _, d in ipairs(det.data) do
+                    local a = d.asset or d
+                    local aid = tonumber(a.id or a.Id)
+                    if aid then
+                        metaById[aid] = {
+                            name = a.name or a.Name,
+                            creator = d.creator and (d.creator.name or d.creator.Name) or nil,
+                        }
+                    end
+                end
+            end
+        end
+        return metaById
+    end
+
+    local function loadPage()
+        if tbS.loading or tbS.done or not tbS.q then return end
+        tbS.loading = true
+        local my = tbToken
+        local q, cat, page = tbS.q, tbS.cat, tbS.page
+        ind.busy = true
+        setStatus(("TOOLBOX • MEMUAT HALAMAN %d..."):format(page + 1), C.ok)
+        setFooter()
+        task.spawn(function()
+            local ids, total = fetchIds(q, cat, page)
+            if my ~= tbToken then return end
+            local fresh = {}
+            for _, id in ipairs(ids) do
+                if not tbS.seen[id] then
+                    tbS.seen[id] = true
+                    fresh[#fresh + 1] = id
+                end
+            end
+            if #fresh == 0 then
+                tbS.loading = false
+                tbS.done = true
+                ind.busy = false
+                if tbS.count == 0 then
+                    if not httpRequest then
+                        TB.setMsg("Fungsi request tidak ada di executor ini")
+                        setStatus("TOOLBOX • request tidak tersedia", C.bad)
+                    else
+                        TB.setMsg("Tidak ada hasil untuk \"" .. q .. "\"\n(atau endpoint tidak merespon)")
+                        setStatus("TOOLBOX • 0 HASIL", C.warn)
+                    end
+                else
+                    setStatus(("TOOLBOX • SELESAI • %d ASET"):format(tbS.count), C.ok)
+                end
+                setFooter()
+                return
+            end
+            local meta = fetchMeta(fresh)
+            if my ~= tbToken then return end
+            TB.setMsg("")
+            for _, id in ipairs(fresh) do
+                if my ~= tbToken then return end
+                tbS.count += 1
+                makeTbCard(tbS.count, id, meta[id] or {}, cat)
+                if tbS.count % 6 == 0 then task.wait() end
+            end
+            tbS.page = page + 1
+            tbS.loading = false
+            ind.busy = false
+            if total and tbS.count >= total then tbS.done = true end
+            setStatus(("TOOLBOX • %d ASET%s"):format(tbS.count, tbS.done and "" or " • scroll untuk muat lagi"), C.ok)
+            setFooter()
+        end)
+    end
+
+    function TB.search()
+        local q = searchBox.Text:gsub("^%s+", ""):gsub("%s+$", "")
+        tbToken += 1
+        local my = tbToken
+        clearTb()
+        tbS.q, tbS.cat, tbS.page = nil, tbCat, 0
+        tbS.loading, tbS.done, tbS.single, tbS.count, tbS.seen = false, true, false, 0, {}
+        setFooter()
+        if q == "" then
+            TB.setMsg("Ketik nama aset atau ID lalu tekan GO")
+            return
+        end
+        pcall(function() tbList.CanvasPosition = Vector2.new(0, 0) end)
+        TB.setMsg("Mencari...")
+        ind.busy = true
+        setStatus("TOOLBOX • MENCARI " .. q:upper(), C.ok)
+        if q:match("^%d+$") then
+            local id = tonumber(q)
+            tbS.single = true
+            tbS.seen[id] = true
+            task.spawn(function()
+                local meta = fetchMeta({ id })
+                if my ~= tbToken then return end
+                TB.setMsg("")
+                tbS.count = 1
+                makeTbCard(1, id, meta[id] or {}, tbCat)
+                ind.busy = false
+                setStatus("TOOLBOX • ID " .. id, C.ok)
+                setFooter()
+            end)
+            return
+        end
+        tbS.q, tbS.done = q, false
+        loadPage()
+    end
+
+    -- scroll sampai dekat bawah = muat halaman berikutnya otomatis
+    tbList:GetPropertyChangedSignal("CanvasPosition"):Connect(function()
+        if tbS.loading or tbS.done or not tbS.q then return end
+        local remain = tbList.AbsoluteCanvasSize.Y - (tbList.CanvasPosition.Y + tbList.AbsoluteWindowSize.Y)
+        if remain < 140 then loadPage() end
+    end)
+    footer.MouseButton1Click:Connect(function() loadPage() end)
+
+    goBtn.MouseButton1Click:Connect(function() TB.search() end)
+    searchBox.FocusLost:Connect(function(enter)
+        if enter and currentTab == "TOOLBOX" then TB.search() end
+    end)
+end)()
+
+-- =====================================================================
+--                GENERAL • AKUN (API key, User ID, Group ID)
+-- =====================================================================
+;(function()
+    local WHITE = Color3.fromRGB(255, 255, 255)
+    local DARK = Color3.fromRGB(10, 20, 50)
+    local ACCT_FILE = "WLEO_NEKO_ACCOUNT.json"   -- nama tetap, jangan diganti supaya akun aman saat script di-update
+    local genv = (type(getgenv) == "function" and getgenv()) or _G
+    local canFile = type(writefile) == "function" and type(readfile) == "function" and type(isfile) == "function"
+
+    local function loadSaved()
+        if canFile then
+            local ok, t = pcall(function()
+                if isfile(ACCT_FILE) then return HttpService:JSONDecode(readfile(ACCT_FILE)) end
+            end)
+            if ok and type(t) == "table" and tonumber(t.userId) then return t end
+        end
+        local g = genv.WLEO_NEKO_ACCOUNT
+        if type(g) == "table" and tonumber(g.userId) then return g end
+        return nil
+    end
+    local function saveSaved(t)
+        genv.WLEO_NEKO_ACCOUNT = t
+        if canFile then
+            pcall(function() writefile(ACCT_FILE, HttpService:JSONEncode(t)) end)
+        end
+    end
+    local function clearSaved()
+        genv.WLEO_NEKO_ACCOUNT = nil
+        if canFile then
+            local removed = false
+            if type(delfile) == "function" then
+                removed = pcall(function() if isfile(ACCT_FILE) then delfile(ACCT_FILE) end end)
+            end
+            if not removed then pcall(function() writefile(ACCT_FILE, "{}") end) end
+        end
+    end
+
+    local page = Instance.new("Frame")
+    page.Name = "AccountPage"
+    page.BackgroundTransparency = 1
+    page.Position = UDim2.fromOffset(6, 28)
+    page.Size = UDim2.new(1, -12, 1, -34)
+    page.ZIndex = 21
+    page.Visible = false
+    page.Parent = content
+    ACCT.page = page
+
+    -- ---------- form (belum konek) ----------
+    local form = Instance.new("Frame")
+    form.BackgroundTransparency = 1
+    form.Size = UDim2.new(1, 0, 1, -44)
+    form.ZIndex = 21
+    form.Parent = page
+
+    local function field(y, labelText, placeholder)
+        local l = text(form, labelText, 9, Enum.Font.GothamBold, C.muted)
+        l.Position = UDim2.fromOffset(2, y)
+        l.Size = UDim2.new(1, -4, 0, 12)
+        l.ZIndex = 22
+        local tb = Instance.new("TextBox")
+        tb.Position = UDim2.fromOffset(0, y + 14)
+        tb.Size = UDim2.new(1, 0, 0, 26)
+        tb.BackgroundColor3 = WHITE
+        tb.BackgroundTransparency = 0.82
+        tb.Text = ""
+        tb.PlaceholderText = placeholder
+        tb.PlaceholderColor3 = C.muted
+        tb.TextColor3 = C.text
+        tb.TextSize = 11
+        tb.Font = Enum.Font.GothamMedium
+        tb.ClearTextOnFocus = false
+        tb.TextXAlignment = Enum.TextXAlignment.Left
+        tb.ZIndex = 22
+        tb.Parent = form
+        corner(tb, 9)
+        glassStroke(tb, 1)
+        local pad = Instance.new("UIPadding")
+        pad.PaddingLeft = UDim.new(0, 8)
+        pad.PaddingRight = UDim.new(0, 8)
+        pad.Parent = tb
+        return tb
+    end
+    local apiBox = field(0, "API KEY (Open Cloud) • opsional", "Tempel API key...")
+    local uidBox = field(46, "USER ID", "Kosong = pakai akun yang sedang bermain")
+    local gidBox = field(92, "GROUP ID • untuk menautkan komunitas (opsional)", "Contoh: 1234567")
+
+    local hint = text(form, "Data tersimpan di device ini dan tetap ada saat script di-update. Hanya hilang kalau kamu tekan DISCONNECT.", 9, Enum.Font.GothamMedium, C.muted)
+    hint.Position = UDim2.fromOffset(2, 140)
+    hint.Size = UDim2.new(1, -4, 0, 26)
+    hint.TextWrapped = true
+    hint.TextYAlignment = Enum.TextYAlignment.Top
+    hint.ZIndex = 22
+
+    local msg = text(form, "", 10, Enum.Font.GothamBold, C.muted)
+    msg.Position = UDim2.fromOffset(2, 170)
+    msg.Size = UDim2.new(1, -4, 0, 24)
+    msg.TextWrapped = true
+    msg.TextYAlignment = Enum.TextYAlignment.Top
+    msg.ZIndex = 22
+    local function setMsg(m, color)
+        msg.Text = m or ""
+        msg.TextColor3 = color or C.muted
+    end
+
+    -- ---------- kartu profil (sudah konek) ----------
+    local card = Instance.new("Frame")
+    card.BackgroundTransparency = 1
+    card.Size = UDim2.new(1, 0, 1, -44)
+    card.ZIndex = 21
+    card.Visible = false
+    card.Parent = page
+
+    local prof = glassPanel(card, 0.86, 14)
+    prof.Size = UDim2.new(1, 0, 0, 92)
+    prof.ZIndex = 22
+    local avatar = Instance.new("ImageLabel")
+    avatar.Position = UDim2.fromOffset(12, 10)
+    avatar.Size = UDim2.fromOffset(72, 72)
+    avatar.BackgroundColor3 = WHITE
+    avatar.BackgroundTransparency = 0.85
+    avatar.ScaleType = Enum.ScaleType.Crop
+    avatar.ZIndex = 23
+    avatar.Parent = prof
+    corner(avatar, 36)
+    glassStroke(avatar, 1.5, true)
+    local dispLbl = text(prof, "", 16, Enum.Font.GothamBold, C.text)
+    dispLbl.Position = UDim2.fromOffset(96, 12)
+    dispLbl.Size = UDim2.new(1, -108, 0, 22)
+    dispLbl.TextTruncate = Enum.TextTruncate.AtEnd
+    dispLbl.ZIndex = 23
+    local userLbl = text(prof, "", 11, Enum.Font.GothamMedium, C.accent)
+    userLbl.Position = UDim2.fromOffset(96, 35)
+    userLbl.Size = UDim2.new(1, -108, 0, 16)
+    userLbl.TextTruncate = Enum.TextTruncate.AtEnd
+    userLbl.ZIndex = 23
+    local idLbl = text(prof, "", 10, Enum.Font.GothamMedium, C.muted)
+    idLbl.Position = UDim2.fromOffset(96, 53)
+    idLbl.Size = UDim2.new(1, -108, 0, 14)
+    idLbl.ZIndex = 23
+    local stLbl = text(prof, "• TERHUBUNG", 9, Enum.Font.GothamBold, C.ok)
+    stLbl.Position = UDim2.fromOffset(96, 68)
+    stLbl.Size = UDim2.new(1, -108, 0, 14)
+    stLbl.ZIndex = 23
+
+    local grp = glassPanel(card, 0.86, 14)
+    grp.Position = UDim2.fromOffset(0, 100)
+    grp.Size = UDim2.new(1, 0, 0, 52)
+    grp.ZIndex = 22
+    local groupIcon = Instance.new("ImageLabel")
+    groupIcon.Position = UDim2.fromOffset(10, 8)
+    groupIcon.Size = UDim2.fromOffset(36, 36)
+    groupIcon.BackgroundColor3 = WHITE
+    groupIcon.BackgroundTransparency = 0.85
+    groupIcon.ScaleType = Enum.ScaleType.Crop
+    groupIcon.ZIndex = 23
+    groupIcon.Visible = false
+    groupIcon.Parent = grp
+    corner(groupIcon, 9)
+    local groupGlyph = text(grp, "G", 12, Enum.Font.GothamBold, DARK, Enum.TextXAlignment.Center)
+    groupGlyph.Position = UDim2.fromOffset(10, 8)
+    groupGlyph.Size = UDim2.fromOffset(36, 36)
+    groupGlyph.BackgroundTransparency = 0.1
+    groupGlyph.BackgroundColor3 = C.accent2
+    groupGlyph.ZIndex = 23
+    corner(groupGlyph, 9)
+    local groupName = text(grp, "", 12, Enum.Font.GothamBold, C.text)
+    groupName.Position = UDim2.fromOffset(56, 8)
+    groupName.Size = UDim2.new(1, -66, 0, 18)
+    groupName.TextTruncate = Enum.TextTruncate.AtEnd
+    groupName.ZIndex = 23
+    local groupSub = text(grp, "", 10, Enum.Font.GothamMedium, C.muted)
+    groupSub.Position = UDim2.fromOffset(56, 27)
+    groupSub.Size = UDim2.new(1, -66, 0, 14)
+    groupSub.ZIndex = 23
+
+    local api = glassPanel(card, 0.86, 12)
+    api.Position = UDim2.fromOffset(0, 160)
+    api.Size = UDim2.new(1, 0, 0, 30)
+    api.ZIndex = 22
+    local apiLbl = text(api, "", 10, Enum.Font.GothamMedium, C.soft)
+    apiLbl.Position = UDim2.fromOffset(12, 0)
+    apiLbl.Size = UDim2.new(1, -24, 1, 0)
+    apiLbl.ZIndex = 23
+
+    -- ---------- tombol KONEK / DISCONNECT ----------
+    local acctBtn = Instance.new("TextButton")
+    acctBtn.AnchorPoint = Vector2.new(0, 1)
+    acctBtn.Position = UDim2.new(0, 0, 1, 0)
+    acctBtn.Size = UDim2.new(1, 0, 0, 34)
+    acctBtn.BackgroundColor3 = C.accent
+    acctBtn.BackgroundTransparency = 0.15
+    acctBtn.BorderSizePixel = 0
+    acctBtn.Text = "KONEK"
+    acctBtn.TextSize = 12
+    acctBtn.Font = Enum.Font.GothamBold
+    acctBtn.TextColor3 = DARK
+    acctBtn.AutoButtonColor = false
+    acctBtn.ZIndex = 23
+    acctBtn.Parent = page
+    corner(acctBtn, 11)
+    local btnGrad = grad(acctBtn, Color3.fromRGB(150, 225, 255), Color3.fromRGB(110, 160, 255), 90)
+
+    local function mask(k)
+        if type(k) ~= "string" or k == "" then return "tidak diisi" end
+        return "••••••••" .. (#k > 4 and k:sub(-4) or "")
+    end
+
+    local function render()
+        local d = ACCT.data or {}
+        local on = ACCT.connected
+        form.Visible = not on
+        card.Visible = on
+        if on then
+            local uid = math.floor(tonumber(d.userId) or 0)
+            avatar.Image = ("rbxthumb://type=AvatarHeadShot&id=%d&w=150&h=150"):format(uid)
+            dispLbl.Text = d.displayName or d.name or ("User " .. uid)
+            userLbl.Text = "@" .. (d.name or "?")
+            idLbl.Text = "User ID " .. uid
+            local gid = tonumber(d.groupId)
+            if gid then
+                gid = math.floor(gid)
+                groupIcon.Image = ("rbxthumb://type=GroupIcon&id=%d&w=150&h=150"):format(gid)
+                groupIcon.Visible = true
+                groupGlyph.Visible = false
+                groupName.Text = d.groupName or ("Group " .. gid)
+                groupSub.Text = "Komunitas tertaut • ID " .. gid
+            else
+                groupIcon.Visible = false
+                groupGlyph.Visible = true
+                groupName.Text = "Komunitas"
+                groupSub.Text = "Belum ditautkan"
+            end
+            apiLbl.Text = "API KEY    " .. mask(d.apiKey)
+            acctBtn.Text = "DISCONNECT"
+            btnGrad.Color = ColorSequence.new(Color3.fromRGB(255, 150, 170), Color3.fromRGB(255, 105, 135))
+        else
+            acctBtn.Text = "KONEK"
+            btnGrad.Color = ColorSequence.new(Color3.fromRGB(150, 225, 255), Color3.fromRGB(110, 160, 255))
+        end
+        if DASH.tiles.AKUN then
+            DASH.tiles.AKUN.Text = on and ("@" .. (d.name or "?")) or "Belum terhubung"
+        end
+        if DASH.badgeText then
+            DASH.badgeText.Text = on and (d.displayName or d.name or "Terhubung") or "Importer Ready"
+        end
+    end
+
+    local function fetchProfile(userId, groupId)
+        local u = TB.httpGetJson("https://users.roblox.com/v1/users/" .. userId)
+        if not (type(u) == "table" and u.name) then
+            return nil, "User ID tidak ditemukan atau jaringan bermasalah"
+        end
+        local g
+        if groupId then
+            g = TB.httpGetJson("https://groups.roblox.com/v1/groups/" .. groupId)
+            if not (type(g) == "table" and g.name) then
+                return nil, "Group ID tidak ditemukan"
+            end
+        end
+        return { name = u.name, displayName = u.displayName or u.name, groupName = g and g.name or nil }
+    end
+
+    local connecting = false
+    local function doConnect()
+        if connecting then return end
+        local key = apiBox.Text:gsub("^%s+", ""):gsub("%s+$", "")
+        local uidText = uidBox.Text:gsub("%s", "")
+        local gidText = gidBox.Text:gsub("%s", "")
+        local uid = (uidText == "") and LocalPlayer.UserId or tonumber(uidText)
+        if not uid or uid <= 0 or uid ~= math.floor(uid) then
+            setMsg("User ID harus berupa angka", C.bad)
+            return
+        end
+        local gid
+        if gidText ~= "" then
+            gid = tonumber(gidText)
+            if not gid or gid <= 0 or gid ~= math.floor(gid) then
+                setMsg("Group ID harus berupa angka", C.bad)
+                return
+            end
+        end
+        connecting = true
+        acctBtn.Text = "MENGHUBUNGKAN..."
+        setMsg("Mengambil profil Roblox...", C.warn)
+        task.spawn(function()
+            local p, err = fetchProfile(uid, gid)
+            connecting = false
+            if not p then
+                setMsg(err, C.bad)
+                render()
+                return
+            end
+            ACCT.data = {
+                userId = uid, groupId = gid, apiKey = (key ~= "") and key or nil,
+                name = p.name, displayName = p.displayName, groupName = p.groupName,
+            }
+            ACCT.apiKey = ACCT.data.apiKey
+            ACCT.connected = true
+            saveSaved(ACCT.data)
+            apiBox.Text = ""
+            setMsg(canFile and "" or "Penyimpanan file tidak tersedia, akun hanya tersimpan selama sesi ini", C.warn)
+            render()
+            setStatus(("AKUN TERHUBUNG • @%s"):format(p.name), C.ok)
+            notify("WLEO x NEKO", "Akun terhubung: " .. p.displayName)
+        end)
+    end
+
+    local function doDisconnect()
+        ACCT.connected = false
+        ACCT.data = {}
+        ACCT.apiKey = nil
+        clearSaved()
+        apiBox.Text, uidBox.Text, gidBox.Text = "", "", ""
+        setMsg("Akun diputuskan dan data dihapus dari device", C.ok)
+        render()
+        setStatus("AKUN DIPUTUSKAN", C.warn)
+    end
+
+    local confirmAt = 0
+    acctBtn.MouseButton1Click:Connect(function()
+        if ACCT.connected then
+            if os.clock() - confirmAt < 3 then
+                confirmAt = 0
+                doDisconnect()
+            else
+                confirmAt = os.clock()
+                acctBtn.Text = "TAP LAGI UNTUK DISCONNECT"
+                task.delay(3.1, function()
+                    if ACCT.connected and confirmAt ~= 0 and os.clock() - confirmAt >= 3 then
+                        confirmAt = 0
+                        acctBtn.Text = "DISCONNECT"
+                    end
+                end)
+            end
+        else
+            doConnect()
+        end
+    end)
+
+    -- ---------- auto-konek dari data tersimpan ----------
+    local saved = loadSaved()
+    if saved then
+        saved.userId = math.floor(tonumber(saved.userId))
+        if tonumber(saved.groupId) then saved.groupId = math.floor(tonumber(saved.groupId)) else saved.groupId = nil end
+        ACCT.data = saved
+        ACCT.apiKey = saved.apiKey
+        ACCT.connected = true
+        render()
+        task.spawn(function()
+            local p = fetchProfile(saved.userId, saved.groupId)
+            if p and ACCT.connected and ACCT.data == saved then
+                saved.name, saved.displayName = p.name, p.displayName
+                saved.groupName = p.groupName or saved.groupName
+                saveSaved(saved)
+                render()
+            end
+        end)
+    else
+        render()
+    end
+end)()
+
+-- ---------- tab ----------
+local function setTab(name)
+    currentTab = name
+    local isTB = (name == "TOOLBOX")
+    local isHome = (name == "HOME")
+    local isAcct = (name == "AKUN")
+    refreshTabs()
+    DASH.home.Visible = isHome
+    if ACCT.page then ACCT.page.Visible = isAcct end
+    searchBox.Visible = not (isHome or isAcct)
+    if isHome or isAcct then
+        list.Visible = false
+        TB.list.Visible = false
+        TB.chips.Visible = false
+        TB.go.Visible = false
+        emptyLbl.Visible = false
+        if isHome then DASH.refresh() end
+        return
+    end
+    list.Visible = not isTB
+    TB.list.Visible = isTB
+    TB.chips.Visible = isTB
+    TB.go.Visible = isTB
+    searchBox.Size = isTB and UDim2.new(1, -62, 0, 26) or UDim2.new(1, -16, 0, 26)
+    searchBox.PlaceholderText = isTB and "Cari aset / ketik ID..." or "Cari file..."
+    searchBox.Text = ""
+    if isTB then
+        TB.setMsg(TB.msg)
+    else
+        emptyLbl.Position = UDim2.fromOffset(10, 90)
+        renderList()
+    end
+end
+for name, t in pairs(tabButtons) do
+    t.btn.MouseButton1Click:Connect(function() setTab(name) end)
+end
+searchBox:GetPropertyChangedSignal("Text"):Connect(function()
+    if currentTab ~= "TOOLBOX" then renderList() end
+end)
+
+local function scanNow()
+    if scanning then return end
+    scanning = true
+    scanBtn.Text = "SCANNING"
+    ind.busy = true
+    setStatus("SCANNING WORKSPACE...", C.warn)
+    task.spawn(function()
+        if type(listfiles) ~= "function" then
+            setStatus("ERROR: listfiles tidak tersedia", C.bad)
+            scanBtn.Text = "SCAN"; scanning = false
+            return
+        end
+        local ok, results = pcall(scanAllSupported)
+        if not ok then
+            setStatus("SCAN ERROR: " .. tostring(results), C.bad)
+            scanBtn.Text = "SCAN"; scanning = false
+            return
+        end
+        allFiles = results
+        updateBadges()
+        renderList()
+        local m, l = 0, 0
+        for _, f in ipairs(results) do
+            if f.ftype == "RBXM" then m += 1 else l += 1 end
+        end
+        ind.busy = false
+        setStatus(("SCAN SELESAI • RBXM %d • RBXL %d"):format(m, l), (#results > 0) and C.ok or C.warn)
+        scanBtn.Text = "SCAN"
+        scanning = false
+    end)
+end
+scanBtn.MouseButton1Click:Connect(scanNow)
+
+-- ---------- dashboard <-> panel ----------
+local function setHeaderMode(panel)
+    backBtn.Visible = panel
+end
+
+local function showDashboard()
+    DASH.mode = "dash"
+    setHeaderMode(false)
+    hdrSub.Text = "IMPORTER DASHBOARD"
+    side.Visible = false
+    content.Visible = false
+    DASH.refresh()
+    local d = DASH.dash
+    d.Visible = true
+    d.Position = UDim2.fromOffset(12, 66)
+    TweenService:Create(d, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+        Position = UDim2.fromOffset(12, 56),
+    }):Play()
+end
+
+local function showPanel(tab)
+    DASH.mode = "panel"
+    setHeaderMode(true)
+    DASH.dash.Visible = false
+    side.Visible = true
+    content.Visible = true
+    setTab(tab or "HOME")
+end
+
+DASH.hooks.scan = scanNow
+DASH.hooks.setTab = setTab
+DASH.hooks.openTab = showPanel
+backBtn.MouseButton1Click:Connect(showDashboard)
+
+-- ---------- buka / tutup ----------
+local isOpen = false
+local function setOpen(v)
+    if v == isOpen then return end
+    isOpen = v
+    local target = fitScale()
+    if v then
+        main.Visible = true
+        mainScale.Scale = target * 0.85
+        TweenService:Create(mainScale, TweenInfo.new(0.22, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = target }):Play()
+    else
+        local tw = TweenService:Create(mainScale, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { Scale = target * 0.85 })
+        tw:Play()
+        tw.Completed:Connect(function()
+            if not isOpen then main.Visible = false end
+        end)
+    end
+end
+closeBtn.MouseButton1Click:Connect(function() setOpen(false) end)
+
+-- toggle bisa digeser, tap = buka/tutup
+do
+    local dragging, moved, ds, sp = false, false, nil, nil
+    toggle.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging, moved, ds, sp = true, false, input.Position, toggle.Position
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    dragging = false
+                    if not moved then setOpen(not isOpen) end
+                end
+            end)
+        end
+    end)
+    UserInputService.InputChanged:Connect(function(input)
+        if not dragging then return end
+        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+            local d = input.Position - ds
+            if math.abs(d.X) > 6 or math.abs(d.Y) > 6 then moved = true end
+            if moved then
+                toggle.Position = UDim2.new(sp.X.Scale, sp.X.Offset + d.X, sp.Y.Scale, sp.Y.Offset + d.Y)
+            end
+        end
+    end)
+end
+
+gui:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
+    if isOpen then mainScale.Scale = fitScale() end
+end)
+
+refreshTabs()
+renderList()
+showDashboard()
+setOpen(true)
+task.delay(0.3, scanNow)
+print("[WLEO x NEKO] RBXL/RBXM importer + toolbox (liquid glass) loaded")
