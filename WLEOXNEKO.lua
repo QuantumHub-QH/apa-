@@ -1,6 +1,8 @@
 --[[
 ============================================================
-  WLEO x NEKO  |  RBXL / RBXM IMPORTER  (Liquid Glass UI)
+  Melss x Medi  |  STUDIO LITE TOOLS  (Liquid Glass UI)
+  Fitur  : Panel (Spoof, Audio YT/TikTok, Decal->Mesh, Part->Mesh),
+           Import & Export RBXM/RBXL, Toolbox PC, Akun
   Engine : Importer Langz NewFix (versi MedStudio) — PHYSICS FIX,
            DOWNLOAD PATH, SCRIPT FIX, restore source, runtime bridge,
            Studio Lite editor inject, GetScriptSource hook
@@ -32,6 +34,78 @@ end)
 
 _G.Langz_RAW_SOURCES = _G.Langz_RAW_SOURCES or {}
 _G.Langz_RAW_SOURCE_BY_REF = _G.Langz_RAW_SOURCE_BY_REF or {}
+
+-- =====================================================================
+--   SERVER PANEL MEDSTUDIO (spoof, audio, decal/part -> mesh) + WHITELIST
+-- =====================================================================
+local PANEL_URL  = "http://38.49.212.88:4309"   -- alamat server panel
+local SCRIPT_KEY = ""                           -- isi kalau SCRIPT_KEY di .env panel diisi
+
+local Panel = { License = {} }
+local panelRequest = (syn and syn.request) or (http and http.request) or http_request
+    or (fluxus and fluxus.request) or request
+function Panel.call(method, path, body)
+    if type(panelRequest) ~= "function" then return false, "Executor tidak punya fungsi request().", 0 end
+    local headers = { ["Content-Type"] = "application/json", ["X-Roblox-Id"] = tostring(LocalPlayer.UserId) }
+    if SCRIPT_KEY ~= "" then headers["X-Script-Key"] = SCRIPT_KEY end
+    local ok, res = pcall(panelRequest, {
+        Url = PANEL_URL .. path, Method = method, Headers = headers,
+        Body = body and HttpService:JSONEncode(body) or nil,
+    })
+    if not ok or type(res) ~= "table" then return false, "Tidak bisa terhubung ke server.", 0 end
+    local code = tonumber(res.StatusCode) or 0
+    local data
+    pcall(function() data = HttpService:JSONDecode(res.Body or "") end)
+    if code >= 200 and code < 300 and type(data) == "table" then return true, data, code end
+    if type(data) == "table" and data.error then
+        return false, (tostring(data.error):gsub("%.env panel", "setting"):gsub("[Pp]anel", "Server")), code
+    end
+    if code == 0 then return false, "Tidak bisa terhubung ke server.", 0 end
+    return false, "Gagal (kode " .. code .. ").", code
+end
+function Panel.wait(jobId, onUpdate, timeout)
+    local t0 = os.clock()
+    timeout = timeout or 900
+    while os.clock() - t0 < timeout do
+        local ok, job = Panel.call("GET", "/job/" .. tostring(jobId))
+        if not ok then return false, job end
+        if onUpdate then pcall(onUpdate, job) end
+        if job.status ~= "running" then
+            if job.status == "error" then return false, job.error or "Proses gagal." end
+            return true, job
+        end
+        task.wait(1.5)
+    end
+    return false, "Waktu tunggu habis."
+end
+
+-- ===== whitelist (dicek ke server sebelum UI dibuat) =====
+do
+    local allowed, reason = false, "offline"
+    for _ = 1, 2 do
+        local ok, data, code = Panel.call("GET", "/auth")
+        if type(data) == "table" and data.allowed ~= nil then
+            allowed, reason = data.allowed == true, tostring(data.reason or "")
+            Panel.License = { expires = data.expires, left = data.left }
+            break
+        elseif code == 403 then
+            reason = "not_listed"
+            break
+        end
+        task.wait(1.5)
+    end
+    if not allowed then
+        local why = reason == "expired" and "Masa aktif akun ini sudah habis."
+            or reason == "offline" and "Server tidak bisa dihubungi, coba lagi sebentar."
+            or ("UserID " .. LocalPlayer.UserId .. " tidak ada di whitelist.")
+        if reason ~= "offline" and setclipboard then pcall(setclipboard, tostring(LocalPlayer.UserId)) end
+        pcall(function()
+            game:GetService("StarterGui"):SetCore("SendNotification", { Title = "Melss x Medi • AKSES DITOLAK", Text = why, Duration = 10 })
+        end)
+        warn("[Melss x Medi] AKSES DITOLAK — " .. why)
+        return
+    end
+end
 
 -- =====================================================================
 --   HELPER TOOLBOX (spawn aset, anchor, kirim mesh ke Studio Lite)
@@ -3496,7 +3570,7 @@ end
 --                        LIQUID GLASS UI
 -- =====================================================================
 local TOGGLE_ICON = "rbxassetid://92844638469747"
-local GUI_NAME = "WLEO_NEKO_RBXL_IMPORTER"
+local GUI_NAME = "MELSS_MEDI_STUDIO"
 do
     local old = CoreDest:FindFirstChild(GUI_NAME)
     if old then old:Destroy() end
@@ -3674,11 +3748,11 @@ do
     corner(logo, 11)
     glassStroke(logo, 1)
 
-    local title = text(header, "WLEO x NEKO", 16, Enum.Font.GothamBold, C.text)
+    local title = text(header, "Melss x Medi", 16, Enum.Font.GothamBold, C.text)
     title.Position = UDim2.fromOffset(44, 2)
     title.Size = UDim2.new(1, -120, 0, 20)
     title.ZIndex = 21
-    local subtitle = text(header, "RBXM • RBXL • TOOLBOX", 10, Enum.Font.GothamMedium, C.accent)
+    local subtitle = text(header, "PANEL • IMPORT • EXPORT • TOOLBOX", 10, Enum.Font.GothamMedium, C.accent)
     subtitle.Position = UDim2.fromOffset(44, 22)
     subtitle.Size = UDim2.new(1, -120, 0, 14)
     subtitle.ZIndex = 21
@@ -3744,7 +3818,7 @@ sideScroll.BackgroundTransparency = 1
 sideScroll.BorderSizePixel = 0
 sideScroll.ScrollBarThickness = 2
 sideScroll.ScrollBarImageColor3 = C.accent
-sideScroll.CanvasSize = UDim2.fromOffset(0, 300)
+sideScroll.CanvasSize = UDim2.fromOffset(0, 430)
 sideScroll.ZIndex = 20
 sideScroll.Parent = side
 
@@ -3768,12 +3842,14 @@ end
 -- state dashboard / panel (dipakai banyak bagian)
 local DASH = { mode = "dash", hooks = {}, tiles = {}, stat = {} }
 local ACCT = { connected = false, data = {} }
-local TAB_LABEL = { HOME = "HOME", TOOLBOX = "TOOLBOX PC", AKUN = "AKUN", EXPORT = "RBXM / RBXL" }
+local TAB_LABEL = { HOME = "HOME", TOOLBOX = "TOOLBOX PC", AKUN = "AKUN", EXPORT = "RBXM / RBXL",
+    SPOOF = "SPOOF", AUDIO = "AUDIO YT/TT", DMESH = "DECAL > MESH", PMESH = "PART > MESH" }
+local PAGE_TABS = { EXPORT = true, SPOOF = true, AUDIO = true, DMESH = true, PMESH = true }
 local function tabLabel(n) return TAB_LABEL[n] or n end
 
 local tabButtons = {}
 local function makeTab(name, y)
-    local noBadge = (name == "TOOLBOX" or name == "HOME" or name == "AKUN" or name == "EXPORT")
+    local noBadge = (name == "TOOLBOX" or name == "HOME" or name == "AKUN" or PAGE_TABS[name] == true)
     local b = Instance.new("TextButton")
     b.Size = UDim2.new(1, -12, 0, 26)
     b.Position = UDim2.fromOffset(6, y)
@@ -3800,7 +3876,7 @@ local function makeTab(name, y)
         ic.Position = UDim2.fromOffset(6, 3)
         ic.Size = UDim2.fromOffset(20, 20)
         ic.BackgroundTransparency = 0.1
-        ic.BackgroundColor3 = (name == "AKUN") and C.accent2 or (name == "EXPORT" and C.ok or C.accent)
+        ic.BackgroundColor3 = (name == "AKUN") and C.accent2 or ((name == "EXPORT" or PAGE_TABS[name]) and C.ok or C.accent)
         ic.ZIndex = 22
         corner(ic, 6)
     end
@@ -3835,8 +3911,13 @@ makeTab("RBXL", 146)
 makeTab("RBXLX", 173)
 sideCategory("EXPORTER", 205, true)
 makeTab("EXPORT", 220)
-sideCategory("GENERAL", 252, true)
-makeTab("AKUN", 267)
+sideCategory("PANEL", 252, true)
+makeTab("SPOOF", 267)
+makeTab("AUDIO", 294)
+makeTab("DMESH", 321)
+makeTab("PMESH", 348)
+sideCategory("GENERAL", 380, true)
+makeTab("AKUN", 395)
 
 local scanBtn = Instance.new("TextButton")
 scanBtn.Size = UDim2.new(1, -12, 0, 24)
@@ -4469,6 +4550,8 @@ local function refreshTabs()
         contentTitle.Text = "AKUN • GENERAL"
     elseif currentTab == "EXPORT" then
         contentTitle.Text = "EXPORT • RBXM / RBXL"
+    elseif PAGE_TABS[currentTab] then
+        contentTitle.Text = "PANEL • " .. tabLabel(currentTab)
     else
         contentTitle.Text = currentTab .. " FILES"
     end
@@ -4552,7 +4635,7 @@ local function makeCard(info)
                 local ok, msg = activateImportRoot(st.root)
                 if ok then
                     setBtn("ACTIVE", C.ok); setStatus(msg, C.ok)
-                    notify("WLEO x NEKO", info.name .. " berhasil digenerate 100%.")
+                    notify("Melss x Medi", info.name .. " berhasil digenerate 100%.")
                 else
                     setBtn("ACTIVATE", C.accent2); setStatus("ACTIVATE ERROR: " .. tostring(msg), C.bad)
                 end
@@ -4578,7 +4661,7 @@ local function makeCard(info)
             st.root = root
             if info.ftype == "RBXM" then
                 setBtn("DONE", C.ok); setProgress(1, "RBXM GENERATION COMPLETE"); setStatus(msg, C.ok)
-                notify("WLEO x NEKO", info.name .. " berhasil digenerate 100%.")
+                notify("Melss x Medi", info.name .. " berhasil digenerate 100%.")
                 return
             end
             setBtn("ACTIVATING", C.warn)
@@ -4586,7 +4669,7 @@ local function makeCard(info)
             local aok, amsg = activateImportRoot(root)
             if aok then
                 setBtn("ACTIVE", C.ok); setProgress(1, "RBXL GENERATION COMPLETE"); setStatus(amsg, C.ok)
-                notify("WLEO x NEKO", info.name .. " berhasil digenerate 100%.")
+                notify("Melss x Medi", info.name .. " berhasil digenerate 100%.")
             else
                 setBtn("ACTIVATE", C.accent2); setStatus("AUTO ACTIVATE ERROR: " .. tostring(amsg), C.bad)
                 notify("ACTIVATE GAGAL", tostring(amsg))
@@ -4596,7 +4679,7 @@ local function makeCard(info)
 end
 
 renderList = function()
-    if currentTab == "TOOLBOX" or currentTab == "HOME" or currentTab == "AKUN" or currentTab == "EXPORT" then return end
+    if currentTab == "TOOLBOX" or currentTab == "HOME" or currentTab == "AKUN" or PAGE_TABS[currentTab] then return end
     for _, c in ipairs(list:GetChildren()) do
         if c:IsA("Frame") then c:Destroy() end
     end
@@ -4921,7 +5004,7 @@ end
                 busy = false
                 if ok then
                     flashBtn(impBtn, "DONE", C.ok, "IMPORT", C.ok)
-                    notify("WLEO x NEKO", "ID " .. id .. " masuk StudioLite.")
+                    notify("Melss x Medi", "ID " .. id .. " masuk StudioLite.")
                 else
                     flashBtn(impBtn, "FAILED", C.bad, "IMPORT", C.ok)
                 end
@@ -5427,7 +5510,7 @@ end)()
             setMsg(canFile and "" or "Penyimpanan file tidak tersedia, akun hanya tersimpan selama sesi ini", C.warn)
             render()
             setStatus(("AKUN TERHUBUNG • @%s"):format(p.name), C.ok)
-            notify("WLEO x NEKO", "Akun terhubung: " .. p.displayName)
+            notify("Melss x Medi", "Akun terhubung: " .. p.displayName)
         end)
     end
 
@@ -5610,6 +5693,11 @@ local EXP = {}
         targetLbl.TextColor3 = C.text
     end
     local function isSel(o) return selected[o] ~= nil end
+    EXP.getSelection = function()
+        local out = {}
+        for _, o in ipairs(selOrder) do if o.Parent then out[#out + 1] = o end end
+        return out
+    end
     local function setSel(o, on)
         if on and selected[o] == nil then
             local box = false
@@ -6046,7 +6134,7 @@ local EXP = {}
                     resL.Text = table.concat(lines, "\n")
                     lastPath = saved[#saved]
                     copyR.Visible = true
-                    notify("WLEO x NEKO", "Export selesai: " .. finalName)
+                    notify("Melss x Medi", "Export selesai: " .. finalName)
                 end
             end
             running = false
@@ -6057,20 +6145,634 @@ local EXP = {}
     refresh()
 end)()
 
+-- =====================================================================
+--   PANEL • SPOOF / AUDIO / DECAL -> MESH / PART -> MESH
+-- =====================================================================
+local PANELPAGES = {}
+;(function()
+    local WHITE = Color3.fromRGB(255, 255, 255)
+    local DARK = Color3.fromRGB(10, 20, 50)
+
+    -- ---------- bahan halaman ----------
+    local function newPage(name)
+        local page = Instance.new("ScrollingFrame")
+        page.Name = name .. "Page"
+        page.Position = UDim2.fromOffset(6, 28)
+        page.Size = UDim2.new(1, -12, 1, -34)
+        page.BackgroundTransparency = 1
+        page.BorderSizePixel = 0
+        page.ScrollBarThickness = 3
+        page.ScrollBarImageColor3 = C.accent
+        page.AutomaticCanvasSize = Enum.AutomaticSize.Y
+        page.CanvasSize = UDim2.new()
+        page.ZIndex = 21
+        page.Visible = false
+        page.Parent = content
+        local l = Instance.new("UIListLayout")
+        l.Padding = UDim.new(0, 6)
+        l.SortOrder = Enum.SortOrder.LayoutOrder
+        l.Parent = page
+        local p = Instance.new("UIPadding")
+        p.PaddingRight = UDim.new(0, 6)
+        p.PaddingBottom = UDim.new(0, 6)
+        p.Parent = page
+        PANELPAGES[name] = page
+        local W = { page = page, order = 0 }
+        function W.row(h)
+            W.order += 1
+            local f = Instance.new("Frame")
+            f.BackgroundTransparency = 1
+            f.Size = UDim2.new(1, 0, 0, h)
+            f.LayoutOrder = W.order
+            f.ZIndex = 21
+            f.Parent = page
+            return f
+        end
+        function W.label(parent, str, size, font, color, xa)
+            local lb = text(parent, str, size, font, color, xa)
+            lb.ZIndex = 23
+            return lb
+        end
+        function W.btn(parent, str, color)
+            local b = Instance.new("TextButton")
+            b.BackgroundColor3 = color or WHITE
+            b.BackgroundTransparency = color and 0.1 or 0.85
+            b.Text = str
+            b.TextSize = 10
+            b.Font = Enum.Font.GothamBold
+            b.TextColor3 = color and DARK or C.text
+            b.AutoButtonColor = false
+            b.ZIndex = 23
+            b.Parent = parent
+            corner(b, 8)
+            if not color then glassStroke(b, 1) end
+            return b
+        end
+        function W.caption(str)
+            local r = W.row(14)
+            local lb = W.label(r, str, 9, Enum.Font.GothamBold, C.muted)
+            lb.Size = UDim2.fromScale(1, 1)
+            return lb
+        end
+        function W.note(str)
+            local r = W.row(0)
+            r.AutomaticSize = Enum.AutomaticSize.Y
+            local lb = W.label(r, str, 9, Enum.Font.GothamMedium, C.muted)
+            lb.Size = UDim2.new(1, 0, 0, 0)
+            lb.AutomaticSize = Enum.AutomaticSize.Y
+            lb.TextWrapped = true
+            lb.TextYAlignment = Enum.TextYAlignment.Top
+            return lb
+        end
+        function W.input(placeholder, h, multi)
+            local r = W.row(h or 26)
+            local tb = Instance.new("TextBox")
+            tb.Size = UDim2.fromScale(1, 1)
+            tb.BackgroundColor3 = WHITE
+            tb.BackgroundTransparency = 0.82
+            tb.Text = ""
+            tb.PlaceholderText = placeholder
+            tb.PlaceholderColor3 = C.muted
+            tb.TextColor3 = C.text
+            tb.TextSize = 11
+            tb.Font = Enum.Font.GothamMedium
+            tb.ClearTextOnFocus = false
+            tb.TextXAlignment = Enum.TextXAlignment.Left
+            tb.MultiLine = multi == true
+            tb.TextWrapped = multi == true
+            tb.TextYAlignment = multi and Enum.TextYAlignment.Top or Enum.TextYAlignment.Center
+            tb.ZIndex = 23
+            tb.Parent = r
+            corner(tb, 9)
+            glassStroke(tb, 1)
+            local p2 = Instance.new("UIPadding")
+            p2.PaddingLeft = UDim.new(0, 8) p2.PaddingRight = UDim.new(0, 8)
+            if multi then p2.PaddingTop = UDim.new(0, 6) end
+            p2.Parent = tb
+            return tb
+        end
+        function W.chips(options, default, onChange)
+            local r = W.row(22)
+            local lay = Instance.new("UIListLayout")
+            lay.FillDirection = Enum.FillDirection.Horizontal
+            lay.Padding = UDim.new(0, 4)
+            lay.SortOrder = Enum.SortOrder.LayoutOrder
+            lay.Parent = r
+            local btns, value = {}, default
+            local function paint()
+                for v, b in pairs(btns) do
+                    local on = v == value
+                    b.BackgroundColor3 = on and C.ok or WHITE
+                    b.BackgroundTransparency = on and 0.15 or 0.85
+                    b.TextColor3 = on and DARK or C.text
+                end
+            end
+            for i, opt in ipairs(options) do
+                local b = W.btn(r, opt[1])
+                b.LayoutOrder = i
+                b.Size = UDim2.fromOffset(opt[3] or 60, 22)
+                btns[opt[2]] = b
+                b.MouseButton1Click:Connect(function()
+                    value = opt[2]
+                    paint()
+                    if onChange then onChange(value) end
+                end)
+            end
+            paint()
+            return function() return value end
+        end
+        function W.toggle(str, default)
+            local r = W.row(26)
+            local b = W.btn(r, "")
+            b.Size = UDim2.fromScale(1, 1)
+            local on = default
+            local function paint()
+                b.Text = (on and "✓  " or "✕  ") .. str
+                b.BackgroundColor3 = on and C.ok or WHITE
+                b.BackgroundTransparency = on and 0.2 or 0.85
+                b.TextColor3 = on and DARK or C.text
+            end
+            b.MouseButton1Click:Connect(function() on = not on paint() end)
+            paint()
+            return function() return on end
+        end
+        function W.bigButton(str)
+            local r = W.row(32)
+            local b = W.btn(r, str, C.accent)
+            b.Size = UDim2.fromScale(1, 1)
+            b.TextSize = 12
+            grad(b, Color3.fromRGB(150, 225, 255), Color3.fromRGB(110, 160, 255), 90)
+            return b
+        end
+        function W.result()
+            local box = glassPanel(page, 0.88, 10)
+            W.order += 1
+            box.LayoutOrder = W.order
+            box.Size = UDim2.new(1, 0, 0, 0)
+            box.AutomaticSize = Enum.AutomaticSize.Y
+            box.ZIndex = 22
+            box.Visible = false
+            local l2 = Instance.new("UIListLayout")
+            l2.Padding = UDim.new(0, 4)
+            l2.SortOrder = Enum.SortOrder.LayoutOrder
+            l2.Parent = box
+            local p3 = Instance.new("UIPadding")
+            p3.PaddingTop = UDim.new(0, 6) p3.PaddingBottom = UDim.new(0, 6)
+            p3.PaddingLeft = UDim.new(0, 8) p3.PaddingRight = UDim.new(0, 8)
+            p3.Parent = box
+            return box
+        end
+        return W
+    end
+
+    local function lineIn(box, str, color, order)
+        local lb = text(box, str, 10, Enum.Font.GothamMedium, color or C.soft)
+        lb.Size = UDim2.new(1, 0, 0, 0)
+        lb.AutomaticSize = Enum.AutomaticSize.Y
+        lb.TextWrapped = true
+        lb.TextYAlignment = Enum.TextYAlignment.Top
+        lb.LayoutOrder = order or 0
+        lb.ZIndex = 23
+        return lb
+    end
+    local function clearBox(box)
+        for _, c in ipairs(box:GetChildren()) do
+            if c:IsA("GuiObject") then c:Destroy() end
+        end
+    end
+    local function configLink(id) return "https://create.roblox.com/dashboard/creations/store/" .. tostring(id) .. "/configure" end
+    local OPEN_USE = "Buka link di Chrome → Privasi Aset → pilih \"Terbuka\" (Open Use) → Simpan. Tanpa ini mesh/gambar tidak muncul di Studio Lite."
+
+    -- API key + creator dari menu AKUN
+    local function creds()
+        local d = ACCT.data or {}
+        if not ACCT.connected or type(d.apiKey) ~= "string" or d.apiKey == "" then
+            return nil, "Isi API key Open Cloud di menu AKUN dulu, lalu KONEK."
+        end
+        local gid = tonumber(d.groupId)
+        if gid then
+            return { api_key = d.apiKey, creator_id = tostring(math.floor(gid)), creator_type = "group" }
+        end
+        return { api_key = d.apiKey, creator_id = tostring(math.floor(tonumber(d.userId) or LocalPlayer.UserId)), creator_type = "user" }
+    end
+    local function merge(a, b) for k, v in pairs(b or {}) do a[k] = v end return a end
+
+    -- pasang mesh hasil upload ke Workspace (MeshPart asli, coba ulang selama Roblox memproses)
+    local function loadMeshPart(meshId)
+        local uri = "rbxassetid://" .. tostring(meshId)
+        local function has(mp)
+            local okR, id = pcall(function() return tostring(mp.MeshId) end)
+            return okR and id:find(tostring(meshId), 1, true) ~= nil
+        end
+        local okA, mpA = pcall(function()
+            local mp = Instance.new("MeshPart")
+            mp.MeshId = uri
+            return mp
+        end)
+        if okA and mpA and has(mpA) then return mpA end
+        if type(sethiddenproperty) == "function" then
+            local okB, mpB = pcall(function()
+                local mp = Instance.new("MeshPart")
+                sethiddenproperty(mp, "MeshId", uri)
+                return mp
+            end)
+            if okB and mpB and has(mpB) then return mpB end
+        end
+        local okC, mpC = pcall(function() return AssetService:CreateMeshPartAsync(Content.fromUri(uri)) end)
+        if okC and mpC then return mpC end
+        local okD, mpD = pcall(function() return AssetService:CreateMeshPartAsync(uri) end)
+        if okD and mpD then return mpD end
+        return nil
+    end
+    local function placeMesh(r, size, cf, onDone)
+        task.spawn(function()
+            triggerServerLoad(r.mesh_id)
+            if r.image_id then triggerServerLoad(r.image_id) end
+            for attempt = 1, 40 do
+                local mp = loadMeshPart(r.mesh_id)
+                if mp then
+                    mp.Name = r.name or "Mesh"
+                    if not pcall(function() mp.RenderFidelity = Enum.RenderFidelity.Precise end) and type(sethiddenproperty) == "function" then
+                        pcall(sethiddenproperty, mp, "RenderFidelity", Enum.RenderFidelity.Precise)
+                    end
+                    if type(sethiddenproperty) == "function" then
+                        pcall(sethiddenproperty, mp, "InitialSize", Vector3.new(1, 1, 1))
+                    else
+                        pcall(function() mp.InitialSize = Vector3.new(1, 1, 1) end)
+                    end
+                    mp.Size = size
+                    if r.image_id then pcall(function() mp.TextureID = "rbxassetid://" .. tostring(r.image_id) end) end
+                    mp.Parent = workspace
+                    if cf then mp.CFrame = cf else spawnInFrontOfCamera(mp) end
+                    anchorPart(mp)
+                    if onDone then onDone(true, mp) end
+                    return
+                end
+                setStatus(("MENUNGGU MESH %s SIAP (%d/40)"):format(tostring(r.mesh_id), attempt), C.warn)
+                task.wait(8)
+            end
+            if onDone then onDone(false) end
+        end)
+    end
+    local function vec3(t, fallback)
+        if type(t) == "table" and t[1] then
+            return Vector3.new(math.max(0.05, t[1]), math.max(0.05, t[2]), math.max(0.05, t[3]))
+        end
+        return fallback
+    end
+    local function linkButtons(box, id, order)
+        local r = Instance.new("Frame")
+        r.BackgroundTransparency = 1
+        r.Size = UDim2.new(1, 0, 0, 24)
+        r.LayoutOrder = order
+        r.ZIndex = 23
+        r.Parent = box
+        local function mk(str, x, w, fn)
+            local b = Instance.new("TextButton")
+            b.Position = UDim2.new(x, x > 0 and 3 or 0, 0, 0)
+            b.Size = UDim2.new(w, -3, 1, 0)
+            b.BackgroundColor3 = C.accent
+            b.BackgroundTransparency = 0.1
+            b.Text = str
+            b.TextSize = 10
+            b.Font = Enum.Font.GothamBold
+            b.TextColor3 = DARK
+            b.AutoButtonColor = false
+            b.ZIndex = 24
+            b.Parent = r
+            corner(b, 8)
+            b.MouseButton1Click:Connect(fn)
+        end
+        mk("COPY ID", 0, 0.5, function() if copyText(tostring(id)) then setStatus("ID DISALIN • " .. tostring(id), C.ok) end end)
+        mk("COPY LINK OPEN USE", 0.5, 0.5, function()
+            if copyText(configLink(id)) then setStatus("LINK DISALIN • buka di Chrome", C.ok) end
+        end)
+    end
+
+    -- ================= SPOOF =================
+    do
+        local W = newPage("SPOOF")
+        W.caption("ASSET ID LAMA (pisahkan spasi / koma / baris baru)")
+        local idsBox = W.input("123456789 987654321 ...", 70, true)
+        W.caption("TIPE")
+        local getType = W.chips({ { "AUTO", "auto", 50 }, { "AUDIO", "audio", 54 }, { "DECAL", "decal", 54 },
+            { "MODEL", "model", 54 }, { "ANIM", "animation", 48 } }, "auto")
+        local go = W.bigButton("SPOOF SEKARANG")
+        W.note("Butuh API key di menu AKUN. Hasil diupload ke akun / grup kamu. Aset yang masih dimoderasi Roblox akan berubah jadi ID baru sendiri.")
+        local res = W.result()
+        local busy = false
+        go.MouseButton1Click:Connect(function()
+            if busy then return end
+            local c, err = creds()
+            if not c then setStatus(err, C.bad) return end
+            local ids = {}
+            for n in idsBox.Text:gmatch("%d+") do ids[#ids + 1] = n end
+            if #ids == 0 then setStatus("Masukkan minimal 1 Asset ID.", C.bad) return end
+            busy = true
+            go.Text = "MEMPROSES..."
+            clearBox(res)
+            res.Visible = false
+            setProgress(0.02, ("SPOOF • %d ID"):format(#ids))
+            task.spawn(function()
+                local ok, data = Panel.call("POST", "/spoof", merge({ ids = ids, type = getType() }, c))
+                local job
+                if ok then
+                    ok, job = Panel.wait(data.job, function(j)
+                        setProgress(math.clamp((j.done or 0) / math.max(j.total or 1, 1), 0.02, 0.98),
+                            ("SPOOF %d / %d%s"):format(j.done or 0, j.total or 0, (j.waiting or 0) > 0 and (" • tunggu moderasi " .. j.waiting) or ""))
+                    end)
+                else
+                    job = data
+                end
+                busy = false
+                go.Text = "SPOOF SEKARANG"
+                if not ok then setStatus("SPOOF GAGAL: " .. tostring(job), C.bad) return end
+                setProgress(1, ("SPOOF SELESAI • %d berhasil • %d gagal"):format(job.ok or 0, job.failed or 0))
+                setStatus(("SPOOF SELESAI • %d berhasil • %d gagal"):format(job.ok or 0, job.failed or 0), (job.ok or 0) > 0 and C.ok or C.bad)
+                res.Visible = true
+                local all = {}
+                for i, r in ipairs(job.rows or {}) do
+                    local line
+                    if r.status == "done" then
+                        line = ("%s  →  %s%s"):format(r.id, r.new_id, r.name and ("   (" .. r.name .. ")") or "")
+                        all[#all + 1] = tostring(r.new_id)
+                        lineIn(res, line, C.ok, i)
+                    else
+                        lineIn(res, ("%s  →  %s"):format(r.id, r.error or r.status), r.status == "timeout" and C.warn or C.bad, i)
+                    end
+                end
+                if #all > 0 then
+                    local b = Instance.new("TextButton")
+                    b.Size = UDim2.new(1, 0, 0, 24)
+                    b.LayoutOrder = 9999
+                    b.BackgroundColor3 = C.accent
+                    b.BackgroundTransparency = 0.1
+                    b.Text = "COPY SEMUA ID BARU (" .. #all .. ")"
+                    b.TextSize = 10
+                    b.Font = Enum.Font.GothamBold
+                    b.TextColor3 = DARK
+                    b.ZIndex = 24
+                    b.Parent = res
+                    corner(b, 8)
+                    b.MouseButton1Click:Connect(function()
+                        if copyText(table.concat(all, "\n")) then setStatus("SEMUA ID BARU DISALIN", C.ok) end
+                    end)
+                end
+                notify("Melss x Medi", "Spoof selesai: " .. (job.ok or 0) .. " berhasil")
+            end)
+        end)
+    end
+
+    -- ================= AUDIO YOUTUBE / TIKTOK =================
+    do
+        local W = newPage("AUDIO")
+        W.caption("LINK YOUTUBE / TIKTOK")
+        local urlBox = W.input("https://youtu.be/... atau https://vt.tiktok.com/...")
+        W.caption("NAMA AUDIO (opsional)")
+        local nameBox = W.input("Nama audio")
+        W.caption("PLAYBACK SPEED (opsional, 0.1 - 1.0)")
+        local speedBox = W.input("kosong = normal")
+        local go = W.bigButton("UPLOAD AUDIO")
+        W.note("Audio diambil dari link, diubah ke MP3, lalu diupload ke akun / grup dari menu AKUN. Batas durasi audio Roblox ± 7 menit.")
+        local res = W.result()
+        local busy = false
+        go.MouseButton1Click:Connect(function()
+            if busy then return end
+            local c, err = creds()
+            if not c then setStatus(err, C.bad) return end
+            local url = urlBox.Text:gsub("^%s+", ""):gsub("%s+$", "")
+            if url == "" then setStatus("Masukkan link dulu.", C.bad) return end
+            local speed = tonumber(speedBox.Text)
+            busy = true
+            go.Text = "MENGUNDUH & UPLOAD..."
+            clearBox(res)
+            res.Visible = false
+            setProgress(0.05, "AUDIO • MENGUNDUH")
+            task.spawn(function()
+                local ok, data = Panel.call("POST", "/upload/youtube", merge({ url = url, name = nameBox.Text, speed = speed }, c))
+                local job
+                if ok then
+                    ok, job = Panel.wait(data.job, function(j)
+                        setProgress(0.5, "AUDIO • " .. string.upper(tostring(j.stage or "memproses")))
+                    end)
+                else
+                    job = data
+                end
+                busy = false
+                go.Text = "UPLOAD AUDIO"
+                if not ok then setStatus("UPLOAD GAGAL: " .. tostring(job), C.bad) return end
+                local r = job.result or {}
+                setProgress(1, "AUDIO SELESAI • " .. tostring(r.asset_id))
+                setStatus("AUDIO ID " .. tostring(r.asset_id), C.ok)
+                res.Visible = true
+                lineIn(res, ("Audio ID: %s\nJudul: %s\nDurasi: %s detik%s"):format(tostring(r.asset_id), tostring(r.title or r.name),
+                    tostring(r.duration), r.too_long and "  (melebihi batas Roblox, bisa ditolak)" or ""), C.ok, 1)
+                linkButtons(res, r.asset_id, 2)
+                notify("Melss x Medi", "Audio terupload: " .. tostring(r.asset_id))
+            end)
+        end)
+    end
+
+    -- ================= DECAL -> MESH =================
+    do
+        local W = newPage("DMESH")
+        W.caption("DECAL ID / IMAGE ID")
+        local idBox = W.input("contoh: 1234567890")
+        W.caption("DETAIL")
+        local getDetail = W.chips({ { "RENDAH", "rendah", 58 }, { "SEDANG", "sedang", 58 }, { "TINGGI", "tinggi", 58 },
+            { "ULTRA", "ultra", 52 } }, "tinggi")
+        W.caption("KETEBALAN")
+        local getThick = W.chips({ { "TIPIS", "tipis", 58 }, { "SEDANG", "sedang", 58 }, { "TEBAL", "tebal", 58 } }, "sedang")
+        W.caption("LATAR GAMBAR")
+        local getBg = W.chips({ { "AUTO", "auto", 58 }, { "TRANSPARAN", "transparan", 80 }, { "WARNA", "warna", 58 } }, "auto")
+        W.caption("LEBAR MESH (stud)")
+        local widthBox = W.input("8")
+        local go = W.bigButton("BUAT MESH")
+        W.note("Mesh otomatis masuk Workspace di depan kamera. " .. OPEN_USE)
+        local res = W.result()
+        local busy = false
+        go.MouseButton1Click:Connect(function()
+            if busy then return end
+            local c, err = creds()
+            if not c then setStatus(err, C.bad) return end
+            local id = idBox.Text:match("%d+")
+            if not id then setStatus("Masukkan Decal ID / Image ID.", C.bad) return end
+            busy = true
+            go.Text = "MEMBUAT MESH..."
+            clearBox(res)
+            res.Visible = false
+            setProgress(0.05, "MESH • MEMBACA GAMBAR")
+            task.spawn(function()
+                local body = merge({ id = id, detail = getDetail(), thickness = getThick(), background = getBg(),
+                    width = tonumber(widthBox.Text) or 8 }, c)
+                local ok, data = Panel.call("POST", "/decal-mesh", body)
+                local job
+                if ok then
+                    ok, job = Panel.wait(data.job, function(j)
+                        setProgress(0.5, "MESH • " .. string.upper(tostring(j.stage or "memproses")))
+                    end)
+                else
+                    job = data
+                end
+                busy = false
+                go.Text = "BUAT MESH"
+                if not ok then setStatus("MESH GAGAL: " .. tostring(job), C.bad) return end
+                local r = job.result or {}
+                res.Visible = true
+                if not r.mesh_id then
+                    setStatus("UPLOAD MESH GAGAL: " .. tostring(r.upload_error), C.bad)
+                    lineIn(res, "Mesh dibuat tapi upload gagal: " .. tostring(r.upload_error), C.bad, 1)
+                    return
+                end
+                lineIn(res, ("Mesh ID: %s%s\n%d segitiga"):format(tostring(r.mesh_id),
+                    r.image_id and ("\nImage ID: " .. tostring(r.image_id)) or "", tonumber(r.tris) or 0), C.ok, 1)
+                linkButtons(res, r.mesh_id, 2)
+                if r.image_id then linkButtons(res, r.image_id, 3) end
+                lineIn(res, OPEN_USE, C.warn, 4)
+                copyText(configLink(r.mesh_id))
+                setProgress(0.9, "MESH • MEMASANG KE WORKSPACE")
+                placeMesh(r, vec3(r.size, Vector3.new(8, 8, 1)), nil, function(done)
+                    if done then
+                        setProgress(1, "MESH TERPASANG • " .. tostring(r.mesh_id))
+                        setStatus("MESH TERPASANG • link Open Use disalin", C.ok)
+                    else
+                        setStatus("Mesh belum bisa dimuat. Set Open Use lalu coba lagi.", C.bad)
+                    end
+                end)
+            end)
+        end)
+    end
+
+    -- ================= PART -> MESH =================
+    do
+        local W = newPage("PMESH")
+        W.caption("SUMBER PART")
+        local getSrc = W.chips({ { "TARGET EXPORT", "target", 100 }, { "NAMA MODEL", "name", 90 } }, "target")
+        local nameBox = W.input("Nama Model / Folder di Workspace (kalau pilih NAMA MODEL)")
+        W.note("TARGET EXPORT = objek yang kamu centang / ketuk di tab EXPORT. Part biasa, Wedge, CornerWedge, Cylinder & Ball digabung; MeshPart / Union / transparan dilewati.")
+        W.caption("KUALITAS")
+        local getQ = W.chips({ { "RENDAH", "rendah", 60 }, { "SEDANG", "sedang", 60 }, { "TINGGI", "tinggi", 60 } }, "sedang")
+        local getDel = W.toggle("Hapus part asli setelah mesh terpasang", false)
+        local go = W.bigButton("GABUNG JADI 1 MESH")
+        local res = W.result()
+
+        local SHAPE = { Ball = "Ball", Cylinder = "Cylinder", Wedge = "Wedge", CornerWedge = "CornerWedge", Block = "Block" }
+        local function gather()
+            local roots = {}
+            if getSrc() == "target" then
+                roots = EXP.getSelection and EXP.getSelection() or {}
+                if #roots == 0 then return nil, "Belum ada target. Centang / ketuk objek di tab EXPORT dulu." end
+            else
+                local nm = nameBox.Text:gsub("^%s+", ""):gsub("%s+$", "")
+                local o = nm ~= "" and workspace:FindFirstChild(nm, true)
+                if not o then return nil, "Model / Folder \"" .. nm .. "\" tidak ditemukan di Workspace." end
+                roots = { o }
+            end
+            local parts, seen = {}, {}
+            for _, r in ipairs(roots) do
+                local all = { r }
+                for _, d in ipairs(r:GetDescendants()) do all[#all + 1] = d end
+                for _, d in ipairs(all) do
+                    if d:IsA("BasePart") and not seen[d] then
+                        seen[d] = true
+                        parts[#parts + 1] = d
+                    end
+                end
+            end
+            if #parts == 0 then return nil, "Tidak ada part di dalamnya." end
+            return parts
+        end
+        local function describe(parts)
+            local list, used = {}, {}
+            for _, part in ipairs(parts) do
+                local shape
+                if part:IsA("WedgePart") then shape = "Wedge"
+                elseif part:IsA("CornerWedgePart") then shape = "CornerWedge"
+                elseif part:IsA("Part") and not part:FindFirstChildWhichIsA("SpecialMesh") then
+                    shape = SHAPE[part.Shape.Name] or "Block"
+                end
+                if shape and part.Transparency < 1 then
+                    local c = part.Color
+                    list[#list + 1] = { shape = shape, size = { part.Size.X, part.Size.Y, part.Size.Z },
+                        cf = { part.CFrame:GetComponents() },
+                        color = { math.floor(c.R * 255 + 0.5), math.floor(c.G * 255 + 0.5), math.floor(c.B * 255 + 0.5) } }
+                    used[#used + 1] = part
+                end
+            end
+            return list, used
+        end
+
+        local busy = false
+        go.MouseButton1Click:Connect(function()
+            if busy then return end
+            local c, err = creds()
+            if not c then setStatus(err, C.bad) return end
+            local parts, gerr = gather()
+            if not parts then setStatus(gerr, C.bad) return end
+            local list, used = describe(parts)
+            if #list == 0 then setStatus("Tidak ada part yang bisa digabung (MeshPart / Union dilewati).", C.bad) return end
+            busy = true
+            go.Text = "MENGGABUNG..."
+            clearBox(res)
+            res.Visible = false
+            setProgress(0.05, ("PART→MESH • %d PART"):format(#list))
+            task.spawn(function()
+                local nm = getSrc() == "name" and nameBox.Text or "PartMesh"
+                local ok, data = Panel.call("POST", "/part-mesh", merge({ parts = list, quality = getQ(), name = nm }, c))
+                local job
+                if ok then
+                    ok, job = Panel.wait(data.job, function(j)
+                        setProgress(0.5, "PART→MESH • " .. string.upper(tostring(j.stage or "memproses")))
+                    end)
+                else
+                    job = data
+                end
+                busy = false
+                go.Text = "GABUNG JADI 1 MESH"
+                if not ok then setStatus("GAGAL: " .. tostring(job), C.bad) return end
+                local r = job.result or {}
+                res.Visible = true
+                if not r.mesh_id then
+                    setStatus("UPLOAD MESH GAGAL: " .. tostring(r.upload_error), C.bad)
+                    lineIn(res, "Mesh dibuat tapi upload gagal: " .. tostring(r.upload_error), C.bad, 1)
+                    return
+                end
+                lineIn(res, ("Mesh ID: %s\n%d part digabung • %d segitiga"):format(tostring(r.mesh_id), #list,
+                    tonumber(r.tris) or 0), C.ok, 1)
+                linkButtons(res, r.mesh_id, 2)
+                lineIn(res, OPEN_USE, C.warn, 3)
+                copyText(configLink(r.mesh_id))
+                local cf = type(r.center) == "table" and CFrame.new(r.center[1], r.center[2], r.center[3]) or nil
+                local delete = getDel()
+                placeMesh(r, vec3(r.size, Vector3.new(4, 4, 4)), cf, function(done)
+                    if done then
+                        if delete then for _, p in ipairs(used) do pcall(function() p:Destroy() end) end end
+                        setProgress(1, "MESH TERPASANG • " .. tostring(r.mesh_id))
+                        setStatus("MESH TERPASANG • link Open Use disalin", C.ok)
+                    else
+                        setStatus("Mesh belum bisa dimuat. Set Open Use lalu coba lagi.", C.bad)
+                    end
+                end)
+            end)
+        end)
+    end
+end)()
+
 -- ---------- tab ----------
 local function setTab(name)
     currentTab = name
     local isTB = (name == "TOOLBOX")
     local isHome = (name == "HOME")
     local isAcct = (name == "AKUN")
-    local isExp = (name == "EXPORT")
+    local isExp = PAGE_TABS[name] == true
     refreshTabs()
     DASH.home.Visible = isHome
     if ACCT.page then ACCT.page.Visible = isAcct end
     if EXP.page then
-        EXP.page.Visible = isExp
-        if isExp and EXP.refresh then EXP.refresh() end
+        EXP.page.Visible = name == "EXPORT"
+        if name == "EXPORT" and EXP.refresh then EXP.refresh() end
     end
+    for key, pg in pairs(PANELPAGES) do pg.Visible = key == name end
     searchBox.Visible = not (isHome or isAcct or isExp)
     if isHome or isAcct or isExp then
         list.Visible = false
@@ -6226,4 +6928,4 @@ renderList()
 showDashboard()
 setOpen(true)
 task.delay(0.3, scanNow)
-print("[WLEO x NEKO] RBXL/RBXM importer + toolbox (liquid glass) loaded")
+print("[Melss x Medi] panel + importer + exporter + toolbox loaded")
