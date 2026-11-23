@@ -13,6 +13,31 @@
 ]]--
 
 if not game:IsLoaded() then game.Loaded:Wait() end
+
+-- ============ KOMPATIBILITAS EXECUTOR (Delta, Arceus X, Codex, Fluxus, dll) ============
+-- Nama fungsi tiap executor kadang beda; disamakan di sini supaya semua fitur jalan.
+local EXECUTOR = "Unknown"
+pcall(function()
+    if identifyexecutor then EXECUTOR = tostring((identifyexecutor()))
+    elseif getexecutorname then EXECUTOR = tostring((getexecutorname())) end
+end)
+local IS_ARCEUS = EXECUTOR:lower():find("arceus") ~= nil
+request = request or http_request or (syn and syn.request) or (http and http.request) or (fluxus and fluxus.request)
+http_request = http_request or request
+setclipboard = setclipboard or toclipboard or set_clipboard or (Clipboard and Clipboard.set)
+getcustomasset = getcustomasset or getsynasset
+if type(isfile) ~= "function" and type(readfile) == "function" then
+    isfile = function(path)
+        local ok, data = pcall(readfile, path)
+        return ok and type(data) == "string"
+    end
+end
+if type(isfolder) ~= "function" and type(listfiles) == "function" then
+    isfolder = function(path) return (pcall(listfiles, path)) end
+end
+if type(makefolder) ~= "function" then makefolder = function() end end
+-- folder kerja executor (dipakai untuk teks lokasi file)
+local EXEC_FOLDER = IS_ARCEUS and "Arceus X/Workspace" or (EXECUTOR:lower():find("delta") and "Delta/workspace" or "workspace executor")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local HttpService = game:GetService("HttpService")
@@ -25,6 +50,12 @@ local LocalPlayer = Players.LocalPlayer
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 local CoreDest = PlayerGui
 pcall(function()
+    -- gethui = folder UI tersembunyi milik executor (Arceus X, Codex, dll); kalau tidak ada coba CoreGui
+    local hui = type(gethui) == "function" and gethui() or nil
+    if typeof(hui) == "Instance" then
+        CoreDest = hui
+        return
+    end
     local probe = Instance.new("Folder")
     probe.Name = "__WN_PROBE"
     probe.Parent = CoreGui
@@ -2666,9 +2697,15 @@ local function looksFolder(path) return not getFileName(path):match("%.[%a%d]+$"
 
 local SCAN_PATHS = {
     "workspace",
+    "Workspace",
     "Delta/workspace",
     "delta/workspace",
     "Android/Delta/workspace",
+    "Arceus X/Workspace",
+    "Arceus X/workspace",
+    "/sdcard/Arceus X/Workspace",
+    "/storage/emulated/0/Arceus X/Workspace",
+    "../Workspace",
     "/sdcard/Delta/workspace",
     "/sdcard/Android/Delta/workspace",
     "../workspace",
@@ -3519,7 +3556,7 @@ local Exporter = (function()
             end
         end)
         local okW = pcall(writefile, "MedStudio/export/" .. fileName, data)
-        if okW then saved[#saved + 1] = "Delta/workspace/MedStudio/export/" .. fileName end
+        if okW then saved[#saved + 1] = (EXEC_FOLDER or "workspace") .. "/MedStudio/export/" .. fileName end
         for _, dir in ipairs({ "/storage/emulated/0/Download/MedStudio", "/sdcard/Download/MedStudio" }) do
             local ok = pcall(function()
                 if makefolder then pcall(makefolder, dir) end
@@ -6928,4 +6965,4 @@ renderList()
 showDashboard()
 setOpen(true)
 task.delay(0.3, scanNow)
-print("[Melss x Medi] panel + importer + exporter + toolbox loaded")
+print("[Melss x Medi] panel + importer + exporter + toolbox loaded • executor: " .. EXECUTOR)
