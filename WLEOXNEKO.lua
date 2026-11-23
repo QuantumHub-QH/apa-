@@ -49,19 +49,20 @@ local AssetService = game:GetService("AssetService")
 local LocalPlayer = Players.LocalPlayer
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 local CoreDest = PlayerGui
+-- urutan tempat UI: CoreGui -> gethui() executor -> PlayerGui (dicek lagi setelah UI dibuat)
 pcall(function()
-    -- gethui = folder UI tersembunyi milik executor (Arceus X, Codex, dll); kalau tidak ada coba CoreGui
-    local hui = type(gethui) == "function" and gethui() or nil
-    if typeof(hui) == "Instance" then
-        CoreDest = hui
-        return
-    end
     local probe = Instance.new("Folder")
     probe.Name = "__WN_PROBE"
     probe.Parent = CoreGui
     probe:Destroy()
     CoreDest = CoreGui
 end)
+if CoreDest == PlayerGui then
+    pcall(function()
+        local hui = type(gethui) == "function" and gethui() or nil
+        if typeof(hui) == "Instance" then CoreDest = hui end
+    end)
+end
 
 _G.Langz_RAW_SOURCES = _G.Langz_RAW_SOURCES or {}
 _G.Langz_RAW_SOURCE_BY_REF = _G.Langz_RAW_SOURCE_BY_REF or {}
@@ -133,9 +134,38 @@ do
         pcall(function()
             game:GetService("StarterGui"):SetCore("SendNotification", { Title = "Melss x Medi • AKSES DITOLAK", Text = why, Duration = 10 })
         end)
-        warn("[Melss x Medi] AKSES DITOLAK — " .. why)
+        -- pesan di layar (notifikasi Roblox kadang tidak muncul di beberapa executor)
+        pcall(function()
+            local g = Instance.new("ScreenGui")
+            g.Name = "MelssMediDenied"
+            g.ResetOnSpawn = false
+            g.DisplayOrder = 999999
+            g.Parent = LocalPlayer:WaitForChild("PlayerGui")
+            local f = Instance.new("Frame")
+            f.AnchorPoint = Vector2.new(0.5, 0.5)
+            f.Position = UDim2.fromScale(0.5, 0.5)
+            f.Size = UDim2.fromOffset(330, 120)
+            f.BackgroundColor3 = Color3.fromRGB(34, 46, 92)
+            f.BackgroundTransparency = 0.1
+            f.Parent = g
+            Instance.new("UICorner", f).CornerRadius = UDim.new(0, 16)
+            local t = Instance.new("TextLabel")
+            t.BackgroundTransparency = 1
+            t.Size = UDim2.new(1, -20, 1, -16)
+            t.Position = UDim2.fromOffset(10, 8)
+            t.Font = Enum.Font.GothamBold
+            t.TextSize = 13
+            t.TextWrapped = true
+            t.RichText = true
+            t.TextColor3 = Color3.new(1, 1, 1)
+            t.Text = '<font size="16" color="#FF7390">AKSES DITOLAK</font>\n\n' .. why
+            t.Parent = f
+            task.delay(10, function() g:Destroy() end)
+        end)
+        warn("[Melss x Medi] AKSES DITOLAK — " .. why .. " (executor: " .. EXECUTOR .. ")")
         return
     end
+    print("[Melss x Medi] whitelist OK • executor: " .. EXECUTOR)
 end
 
 -- =====================================================================
@@ -3631,6 +3661,14 @@ gui.IgnoreGuiInset = true
 gui.DisplayOrder = 800
 gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 gui.Parent = CoreDest
+-- kalau UI tidak tergambar di tempat itu (AbsoluteSize 0), pindah ke PlayerGui
+task.delay(1.5, function()
+    if gui.Parent and gui.AbsoluteSize.X < 1 and gui.Parent ~= PlayerGui then
+        pcall(function() gui.Parent = PlayerGui end)
+        warn("[Melss x Medi] UI dipindah ke PlayerGui (tempat sebelumnya tidak tampil)")
+    end
+    print("[Melss x Medi] UI di: " .. tostring(gui.Parent and gui.Parent:GetFullName()))
+end)
 
 local function corner(o, r) local c = Instance.new("UICorner"); c.CornerRadius = UDim.new(0, r or 10); c.Parent = o; return c end
 local function grad(o, c0, c1, rot)
