@@ -1999,11 +1999,15 @@ local function importRBXM(fileInfo)
     end
 
     local sourceQueues = {}
+    local binParsed, binParseErr = nil, nil
     if serialization == "BINARY" then
         reportImportProgress(0.15, "PARSING RBXM SOURCES")
-        local okParsed, parsed = pcall(parseRBXLBinary, data)
+        local okParsed, parsed, perr = pcall(parseRBXLBinary, data)
         if okParsed and parsed then
+            binParsed = parsed
             sourceQueues = collectRBXMSources(parsed)
+        else
+            binParseErr = okParsed and perr or parsed
         end
     end
 
@@ -2030,7 +2034,18 @@ local function importRBXM(fileInfo)
     end
 
     if not objects then
-        return false, "RBXM LOAD ERROR: getcustomasset/game:GetObjects tidak dapat memuat model"
+        -- FALLBACK: Roblox menolak file -> bangun sendiri pakai parser internal
+        if binParsed then
+            reportImportProgress(0.34, "BUILDING RBXM (PARSER INTERNAL)")
+            local okBuild, roots, count, skipped, failedProperties = pcall(buildRBXModelParsed, binParsed, fileInfo.name)
+            if not okBuild then return false, "RBXM BUILD ERROR: " .. tostring(roots) end
+            if not roots or #roots == 0 then return false, "RBXM kosong / tidak ada objek yang bisa dibuat" end
+            reportImportProgress(1.00, "RBXM GENERATION COMPLETE")
+            return true,
+                ("RBXM OK (parser) • %d object(s) • skipped:%d • prop:%d"):format(count or 0, skipped or 0, failedProperties or 0),
+                roots[1]
+        end
+        return false, "RBXM LOAD ERROR: GetObjects gagal & parser gagal: " .. tostring(binParseErr or "unknown")
     end
 
     reportImportProgress(0.40, ("RBXM OPENED • %d ROOT"):format(#objects))
@@ -2899,7 +2914,7 @@ local Exporter = (function()
         { "LuaSourceContainer", {} },
         { "BaseScript", { { "RunContext" } } },
         { "Sound", { { "SoundId", nil, "content" }, { "Volume" }, { "Looped" }, { "PlaybackSpeed" }, { "Playing" },
-            { "RollOffMaxDistance" }, { "RollOffMinDistance" }, { "RollOffMode" }, { "TimePosition" } } },
+            { "RollOffMaxDistance" }, { "RollOffMinDistance" }, { "RollOffMode" }, { "TimePosition", nil, "double" } } },
         { "ParticleEmitter", { { "Texture", nil, "content" }, { "Rate" }, { "Lifetime" }, { "Speed" }, { "Size" }, { "Transparency" },
             { "Color" }, { "LightEmission" }, { "LightInfluence" }, { "SpreadAngle" }, { "Rotation" }, { "RotSpeed" },
             { "Acceleration" }, { "Drag" }, { "Enabled" }, { "EmissionDirection" }, { "ZOffset" }, { "LockedToPart" },
