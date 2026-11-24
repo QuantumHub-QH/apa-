@@ -3885,7 +3885,7 @@ sideScroll.BackgroundTransparency = 1
 sideScroll.BorderSizePixel = 0
 sideScroll.ScrollBarThickness = 2
 sideScroll.ScrollBarImageColor3 = C.accent
-sideScroll.CanvasSize = UDim2.fromOffset(0, 430)
+sideScroll.CanvasSize = UDim2.fromOffset(0, 460)
 sideScroll.ZIndex = 20
 sideScroll.Parent = side
 
@@ -3910,8 +3910,8 @@ end
 local DASH = { mode = "dash", hooks = {}, tiles = {}, stat = {} }
 local ACCT = { connected = false, data = {} }
 local TAB_LABEL = { HOME = "HOME", TOOLBOX = "TOOLBOX PC", AKUN = "AKUN", EXPORT = "RBXM / RBXL",
-    SPOOF = "SPOOF", AUDIO = "AUDIO YT/TT", DMESH = "DECAL > MESH", PMESH = "PART > MESH" }
-local PAGE_TABS = { EXPORT = true, SPOOF = true, AUDIO = true, DMESH = true, PMESH = true }
+    SPOOF = "SPOOF", AUDIO = "AUDIO YT/TT", DMESH = "DECAL > MESH", PMESH = "PART > MESH", SKY = "SKYBOX" }
+local PAGE_TABS = { EXPORT = true, SPOOF = true, AUDIO = true, DMESH = true, PMESH = true, SKY = true }
 local function tabLabel(n) return TAB_LABEL[n] or n end
 
 local tabButtons = {}
@@ -3983,8 +3983,9 @@ makeTab("SPOOF", 267)
 makeTab("AUDIO", 294)
 makeTab("DMESH", 321)
 makeTab("PMESH", 348)
-sideCategory("GENERAL", 380, true)
-makeTab("AKUN", 395)
+makeTab("SKY", 375)
+sideCategory("GENERAL", 407, true)
+makeTab("AKUN", 422)
 
 local scanBtn = Instance.new("TextButton")
 scanBtn.Size = UDim2.new(1, -12, 0, 24)
@@ -6826,6 +6827,439 @@ local PANELPAGES = {}
                         setStatus("Mesh belum bisa dimuat. Set Open Use lalu coba lagi.", C.bad)
                     end
                 end)
+            end)
+        end)
+    end
+
+    -- ================= SKYBOX =================
+    do
+        local Lighting = game:GetService("Lighting")
+        local SKY_DIR = "MedStudio/skybox"
+        local FACES = { "Bk", "Dn", "Ft", "Lf", "Rt", "Up" }
+        local CROSS = { Up = { 1, 0 }, Lf = { 0, 1 }, Ft = { 1, 1 }, Rt = { 2, 1 }, Bk = { 3, 1 }, Dn = { 1, 2 } }
+
+        -- base64 cepat (tabel 12-bit) untuk kirim file gambar dari HP
+        local B64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
+        local PAIR = {}
+        for i = 0, 4095 do
+            local a, b = math.floor(i / 64), i % 64
+            PAIR[i] = B64:sub(a + 1, a + 1) .. B64:sub(b + 1, b + 1)
+        end
+        local function enc64(s)
+            local out, n, len = {}, 0, #s
+            for i = 1, len - 2, 3 do
+                local x, y, z = string.byte(s, i, i + 2)
+                local v = x * 65536 + y * 256 + z
+                n += 1
+                out[n] = PAIR[math.floor(v / 4096)] .. PAIR[v % 4096]
+                if n % 20000 == 0 then task.wait() end
+            end
+            local rest = len % 3
+            if rest == 1 then
+                local v = string.byte(s, len) * 65536
+                n += 1
+                out[n] = PAIR[math.floor(v / 4096)] .. "=="
+            elseif rest == 2 then
+                local x, y = string.byte(s, len - 1, len)
+                local v = x * 65536 + y * 256
+                n += 1
+                out[n] = PAIR[math.floor(v / 4096)] .. B64:sub(math.floor(v / 64) % 64 + 1, math.floor(v / 64) % 64 + 1) .. "="
+            end
+            return table.concat(out)
+        end
+        local DEC = {}
+        for i = 1, 64 do DEC[B64:byte(i)] = i - 1 end
+        local function dec64(s)
+            s = s:gsub("[^%w%+/]", "")
+            local out, n = {}, 0
+            for i = 1, #s, 4 do
+                local a, b, c, d = DEC[s:byte(i)], DEC[s:byte(i + 1) or 0], DEC[s:byte(i + 2) or 0], DEC[s:byte(i + 3) or 0]
+                if not a or not b then break end
+                local v = a * 262144 + b * 4096 + (c or 0) * 64 + (d or 0)
+                local x, y, z = math.floor(v / 65536), math.floor(v / 256) % 256, v % 256
+                n += 1
+                if not c then out[n] = string.char(x)
+                elseif not d then out[n] = string.char(x, y)
+                else out[n] = string.char(x, y, z) end
+            end
+            return table.concat(out)
+        end
+
+        local function ensureDir()
+            if type(makefolder) ~= "function" or type(isfolder) ~= "function" then return end
+            pcall(function()
+                if not isfolder("MedStudio") then makefolder("MedStudio") end
+                if not isfolder(SKY_DIR) then makefolder(SKY_DIR) end
+                if not isfolder(SKY_DIR .. "/preview") then makefolder(SKY_DIR .. "/preview") end
+            end)
+        end
+        ensureDir()
+
+        -- ---------- sky di game ----------
+        local parked, previewSky = nil, nil
+        local function stopPreview()
+            if previewSky then pcall(function() previewSky:Destroy() end) previewSky = nil end
+            if parked then
+                for _, s in ipairs(parked) do pcall(function() s.Parent = Lighting end) end
+                parked = nil
+            end
+        end
+        local function parkSkies()
+            if parked then return end
+            parked = {}
+            for _, s in ipairs(Lighting:GetChildren()) do
+                if s:IsA("Sky") then parked[#parked + 1] = s s.Parent = nil end
+            end
+        end
+        local function setFaces(sk, map)
+            for _, f in ipairs(FACES) do
+                if map[f] then pcall(function() sk["Skybox" .. f] = map[f] end) end
+            end
+        end
+
+        local W = newPage("SKY")
+
+        -- ---------- prompt AI siap copy ----------
+        local TAIL = " Seamless 360° equirectangular panorama, 2:1, straight horizon at the exact middle, %s centered. "
+            .. "Plain %s at top, a soft flat %s at bottom, left and right edges match. Big soft shapes, smooth gradients, "
+            .. "no tiny details, particles, grain, vignette, flare, text or watermark, no ground, buildings or birds. GENERATE NOW"
+        local function P(head, center, top, bottom) return head .. TAIL:format(center, top, bottom) end
+        local PROMPTS = {
+            { "☀ SIANG CERAH", P("Realistic bright daytime sky with huge white cumulus clouds and a clear blue atmosphere.",
+                "the sun", "deep blue sky", "white cloud layer") },
+            { "🌅 SORE HANGAT", P("Realistic daytime sky with huge cumulus clouds, a warm late-afternoon sun and soft haze near the horizon.",
+                "the sun", "deep blue sky", "cloud layer") },
+            { "🌸 SUNSET PINK", P("Dreamy pink and purple sunset sky with large soft glowing clouds and a warm sun near the horizon.",
+                "the sun", "soft purple sky", "pink cloud layer") },
+            { "🌌 MALAM BINTANG", P("Calm night sky full of soft stars with a faint purple milky way band across the sky.",
+                "the milky way", "dark navy sky", "dark cloud layer") },
+            { "🌠 AURORA", P("Night sky with a bright green and pink aurora borealis and soft stars.",
+                "the aurora band", "dark navy sky", "dark cloud layer") },
+            { "🪐 GALAXY", P("Colorful deep space sky with a huge purple and blue nebula, a big ringed planet and glowing stars.",
+                "the planet", "dark space", "purple nebula layer") },
+            { "🌙 RAMADHAN", P("Peaceful night sky with a large glowing golden crescent moon, soft stars and thin warm clouds.",
+                "the crescent moon", "deep blue night sky", "dark blue cloud layer") },
+            { "⛈ BADAI", P("Dramatic stormy sky with dark heavy clouds, distant lightning glow and moody grey light.",
+                "the brightest storm glow", "dark grey sky", "dark storm cloud layer") },
+            { "🩸 HORROR", P("Creepy blood red sky with dark swirling clouds and a huge pale red full moon.",
+                "the red moon", "dark red sky", "black cloud layer") },
+            { "🍬 ANIME", P("Anime style sky with big fluffy pastel clouds, bright cyan blue sky and a soft shining sun, Makoto Shinkai style colors.",
+                "the sun", "bright cyan sky", "pastel cloud layer") },
+            { "❄ SALJU", P("Cold winter sky with soft pale clouds, light blue haze and a dim white sun.",
+                "the sun", "pale blue sky", "white snow cloud layer") },
+            { "🌄 SUBUH", P("Early dawn sky with soft orange and blue gradient, thin clouds and the sun just about to rise.",
+                "the sunrise glow", "deep blue sky", "soft orange cloud layer") },
+        }
+        W.caption("PROMPT AI SKYBOX (tekan = copy, tempel di AI gambar)")
+        for i = 1, #PROMPTS, 2 do
+            local r = W.row(26)
+            for k = 0, 1 do
+                local item = PROMPTS[i + k]
+                if item then
+                    local b = W.btn(r, item[1])
+                    b.Position = UDim2.new(k * 0.5, k * 3, 0, 0)
+                    b.Size = UDim2.new(0.5, -3, 1, 0)
+                    b.TextTruncate = Enum.TextTruncate.AtEnd
+                    b.MouseButton1Click:Connect(function()
+                        if copyText(item[2]) then setStatus("PROMPT " .. item[1] .. " DISALIN", C.ok) end
+                    end)
+                end
+            end
+        end
+        W.note("Atur ukuran gambar di AI ke 2:1 (paling besar yang ada), lalu upscale ke 4096x2048 biar HD. " ..
+            "Simpan ke folder MedStudio/skybox atau pakai LINK.")
+
+        W.caption("SUMBER GAMBAR")
+        local srcBox
+        local getSrc = W.chips({ { "LINK", "url", 58 }, { "FILE HP", "file", 64 }, { "ID", "id", 50 } }, "url", function(v)
+            if not srcBox then return end
+            srcBox.Text = ""
+            srcBox.PlaceholderText = v == "url" and "https://... (link gambar .jpg / .png)"
+                or v == "file" and "nama file di Delta/workspace/" .. SKY_DIR .. "/"
+                or "Decal ID / Image ID"
+        end)
+        srcBox = W.input("https://... (link gambar .jpg / .png)")
+        local fileRow = W.row(22)
+        local scanF = W.btn(fileRow, "LIHAT FILE DI FOLDER SKYBOX")
+        scanF.Size = UDim2.fromScale(1, 1)
+        local fileList = W.result()
+        scanF.MouseButton1Click:Connect(function()
+            ensureDir()
+            clearBox(fileList)
+            fileList.Visible = true
+            if type(listfiles) ~= "function" then lineIn(fileList, "Executor tidak punya listfiles().", C.bad, 1) return end
+            local ok, files = pcall(listfiles, SKY_DIR)
+            local n = 0
+            for _, p in ipairs(ok and files or {}) do
+                local nm = tostring(p):match("([^/\\]+)$") or tostring(p)
+                if nm:lower():match("%.png$") or nm:lower():match("%.jpe?g$") or nm:lower():match("%.bmp$") then
+                    n += 1
+                    local b = W.btn(fileList, nm)
+                    b.Size = UDim2.new(1, 0, 0, 22)
+                    b.LayoutOrder = n
+                    b.MouseButton1Click:Connect(function()
+                        srcBox.Text = nm
+                        fileList.Visible = false
+                    end)
+                end
+            end
+            if n == 0 then
+                lineIn(fileList, "Belum ada gambar. Taruh file .jpg/.png di folder:\nDelta/workspace/" .. SKY_DIR, C.warn, 1)
+            end
+        end)
+
+        W.caption("JENIS GAMBAR")
+        local getLayout = W.chips({ { "AUTO", "auto", 50 }, { "360°", "panorama", 50 }, { "CROSS", "cross", 56 },
+            { "1 GAMBAR", "single", 70 } }, "auto")
+        W.note("AUTO: gambar 2:1 = foto 360°, 4:3 = cubemap bentuk salib, selain itu = 1 gambar dipasang di semua sisi.")
+        W.caption("PUTAR SISI ATAS / BAWAH (kalau sambungannya miring)")
+        local getRotUp = W.chips({ { "ATAS 0", 0, 52 }, { "90", 90, 36 }, { "180", 180, 40 }, { "270", 270, 40 } }, 0)
+        local getRotDn = W.chips({ { "BAWAH 0", 0, 60 }, { "90", 90, 36 }, { "180", 180, 40 }, { "270", 270, 40 } }, 0)
+        local getSwap = W.toggle("TUKAR KIRI ↔ KANAN", false)
+        local prevBtn = W.bigButton("BUAT PREVIEW")
+
+        -- kotak preview (susunan salib)
+        local pv = W.result()
+        local grid = Instance.new("Frame")
+        grid.BackgroundTransparency = 1
+        grid.Size = UDim2.new(1, 0, 0, 600)
+        grid.LayoutOrder = 1
+        grid.ZIndex = 23
+        grid.Parent = pv
+        local ratio = Instance.new("UIAspectRatioConstraint")
+        ratio.AspectRatio = 4 / 3
+        ratio.Parent = grid
+        local cells = {}
+        for f, pos in pairs(CROSS) do
+            local im = Instance.new("ImageLabel")
+            im.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+            im.BackgroundTransparency = 0.85
+            im.BorderSizePixel = 0
+            im.Position = UDim2.fromScale(pos[1] / 4, pos[2] / 3)
+            im.Size = UDim2.fromScale(1 / 4, 1 / 3)
+            im.ScaleType = Enum.ScaleType.Stretch
+            im.ZIndex = 24
+            im.Parent = grid
+            local tag = text(im, f:upper(), 9, Enum.Font.GothamBold, Color3.fromRGB(255, 255, 255))
+            tag.Position = UDim2.fromOffset(3, 1)
+            tag.Size = UDim2.fromOffset(24, 12)
+            tag.TextStrokeTransparency = 0.4
+            tag.ZIndex = 25
+            cells[f] = im
+        end
+        local pvInfo = lineIn(pv, "", C.soft, 2)
+        local pvRow = Instance.new("Frame")
+        pvRow.BackgroundTransparency = 1
+        pvRow.Size = UDim2.new(1, 0, 0, 24)
+        pvRow.LayoutOrder = 3
+        pvRow.ZIndex = 23
+        pvRow.Parent = pv
+        local inGame = W.btn(pvRow, "LIHAT DI GAME", C.accent)
+        inGame.Size = UDim2.new(0.5, -3, 1, 0)
+        local webBtn = W.btn(pvRow, "COPY LINK PREVIEW 3D", C.accent)
+        webBtn.Position = UDim2.new(0.5, 3, 0, 0)
+        webBtn.Size = UDim2.new(0.5, -3, 1, 0)
+
+        W.caption("KUALITAS UPLOAD")
+        local getSize = W.chips({ { "1024 (HD)", 1024, 76 }, { "512", 512, 50 } }, 1024)
+        W.caption("NAMA SKY")
+        local nameBox = W.input("Skybox")
+        local getReplace = W.toggle("GANTI SKY LAMA DI LIGHTING", true)
+        local upBtn = W.bigButton("UPLOAD & PASANG SKYBOX")
+        W.note("Alur: BUAT PREVIEW → cek (LIHAT DI GAME / link 3D di browser) → UPLOAD & PASANG. " ..
+            "Upload 6 gambar memakai API key di menu AKUN. Gambar baru kadang perlu beberapa menit dicek Roblox sebelum tampil.")
+        local res = W.result()
+
+        local state = { token = nil, files = {}, n = 0, live = false, busy = false }
+        local function previewMap()
+            local m = {}
+            for f, path in pairs(state.files) do
+                local ok, asset = pcall(getcustomasset, path)
+                if ok and asset then m[f] = asset end
+            end
+            return m
+        end
+        local function paintLive()
+            inGame.Text = state.live and "STOP PREVIEW GAME" or "LIHAT DI GAME"
+        end
+        inGame.MouseButton1Click:Connect(function()
+            if not state.token then return end
+            if state.live then
+                stopPreview()
+                state.live = false
+                paintLive()
+                setStatus("PREVIEW GAME DIMATIKAN • sky lama kembali", C.soft)
+                return
+            end
+            if type(getcustomasset) ~= "function" then setStatus("Executor tidak punya getcustomasset().", C.bad) return end
+            parkSkies()
+            if previewSky then pcall(function() previewSky:Destroy() end) end
+            previewSky = Instance.new("Sky")
+            previewSky.Name = "MxM_SkyPreview"
+            setFaces(previewSky, previewMap())
+            previewSky.Parent = Lighting
+            state.live = true
+            paintLive()
+            setStatus("PREVIEW DI GAME • hanya terlihat olehmu", C.ok)
+        end)
+        webBtn.MouseButton1Click:Connect(function()
+            if not state.token then return end
+            if copyText(PANEL_URL .. "/skybox/view/" .. state.token) then
+                setStatus("LINK PREVIEW 3D DISALIN • buka di Chrome (30 menit)", C.ok)
+            end
+        end)
+
+        local function opts()
+            return { layout = getLayout(), rot_up = getRotUp(), rot_dn = getRotDn(), swap_lr = getSwap() }
+        end
+
+        local lastSrc = nil
+        prevBtn.MouseButton1Click:Connect(function()
+            if state.busy then return end
+            local kind, val = getSrc(), (srcBox.Text or ""):gsub("^%s+", ""):gsub("%s+$", "")
+            local body = opts()
+            local srcKey = kind .. "|" .. val
+            if state.token and lastSrc == srcKey then
+                body.token = state.token                                -- gambar sama: cukup ubah putaran/jenis
+            elseif kind == "url" then
+                if not val:match("^https?://") then setStatus("Masukkan link gambar (https://...)", C.bad) return end
+                body.url = val
+            elseif kind == "id" then
+                local id = val:match("%d+")
+                if not id then setStatus("Masukkan Decal ID / Image ID.", C.bad) return end
+                body.id = id
+            else
+                if type(readfile) ~= "function" then setStatus("Executor tidak punya readfile().", C.bad) return end
+                if val == "" then setStatus("Pilih file dulu (LIHAT FILE DI FOLDER SKYBOX).", C.bad) return end
+                local path = val:find("/") and val or (SKY_DIR .. "/" .. val)
+                local ok, data = pcall(readfile, path)
+                if not ok or type(data) ~= "string" or #data == 0 then setStatus("File tidak bisa dibaca: " .. path, C.bad) return end
+                if #data > 24 * 1024 * 1024 then setStatus("Gambar terlalu besar (maks 24 MB).", C.bad) return end
+                setProgress(0.05, "SKYBOX • MENYIAPKAN FILE")
+                body.image_b64 = enc64(data)
+            end
+            state.busy = true
+            prevBtn.Text = "MEMBUAT PREVIEW..."
+            setProgress(0.1, "SKYBOX • MENGIRIM GAMBAR")
+            task.spawn(function()
+                local ok, data = Panel.call("POST", "/skybox/preview", body)
+                local job
+                if ok then
+                    ok, job = Panel.wait(data.job, function(j)
+                        setProgress(0.5, "SKYBOX • " .. string.upper(tostring(j.stage or "memproses")))
+                    end, 300)
+                else
+                    job = data
+                end
+                state.busy = false
+                prevBtn.Text = "BUAT PREVIEW"
+                if not ok then
+                    if body.token then state.token, lastSrc = nil, nil end
+                    setStatus("PREVIEW GAGAL: " .. tostring(job), C.bad)
+                    return
+                end
+                local r = job.result or {}
+                state.token, lastSrc = r.token, srcKey
+                state.n += 1
+                ensureDir()
+                state.files = {}
+                for _, f in ipairs(FACES) do
+                    local b = r.faces and r.faces[f]
+                    if b then
+                        local path = ("%s/preview/%s_%d.jpg"):format(SKY_DIR, f, state.n)
+                        if pcall(writefile, path, dec64(b)) then
+                            state.files[f] = path
+                            pcall(function() if delfile and state.n > 1 then delfile(("%s/preview/%s_%d.jpg"):format(SKY_DIR, f, state.n - 1)) end end)
+                        end
+                    end
+                end
+                local m = type(getcustomasset) == "function" and previewMap() or {}
+                for f, im in pairs(cells) do im.Image = m[f] or "" end
+                pv.Visible = true
+                local names = { panorama = "FOTO 360°", cross = "CUBEMAP SALIB", single = "1 GAMBAR" }
+                pvInfo.Text = ("%s • %dx%d px%s"):format(names[r.layout] or tostring(r.layout), tonumber(r.width) or 0,
+                    tonumber(r.height) or 0, next(m) and "" or "\n(executor tidak bisa menampilkan gambar lokal, pakai link 3D)")
+                    .. (r.low_res and ("\n⚠ Gambar kurang besar untuk HD. Pakai minimal 4096x2048 (upscale dulu) biar tajam.") or "")
+                if state.live then setFaces(previewSky, m) end
+                setProgress(1, "PREVIEW SIAP")
+                setStatus("PREVIEW SIAP • cek dulu sebelum upload", C.ok)
+            end)
+        end)
+
+        upBtn.MouseButton1Click:Connect(function()
+            if state.busy then return end
+            if not state.token then setStatus("Buat preview dulu.", C.bad) return end
+            local c, err = creds()
+            if not c then setStatus(err, C.bad) return end
+            state.busy = true
+            upBtn.Text = "MENGUPLOAD 6 GAMBAR..."
+            clearBox(res)
+            res.Visible = false
+            setProgress(0.05, "SKYBOX • UPLOAD")
+            task.spawn(function()
+                local body = merge(merge({ token = state.token, size = getSize(), name = nameBox.Text }, opts()), c)
+                local ok, data = Panel.call("POST", "/skybox/upload", body)
+                local job
+                if ok then
+                    ok, job = Panel.wait(data.job, function(j)
+                        setProgress(0.1 + 0.8 * (tonumber(j.done) or 0) / 6, "SKYBOX • " .. string.upper(tostring(j.stage or "memproses")))
+                    end, 900)
+                else
+                    job = data
+                end
+                state.busy = false
+                upBtn.Text = "UPLOAD & PASANG SKYBOX"
+                if not ok then setStatus("UPLOAD SKYBOX GAGAL: " .. tostring(job), C.bad) return end
+                local r = job.result or {}
+                local ids, map, lines = r.ids or {}, {}, {}
+                for _, f in ipairs(FACES) do
+                    local v = ids[f] or {}
+                    local id = v.image_id or v.decal_id
+                    if id then
+                        map[f] = "rbxassetid://" .. tostring(id)
+                        triggerServerLoad(id)
+                    end
+                    lines[#lines + 1] = ("%s: %s"):format(f, tostring(id or "GAGAL"))
+                end
+                -- pasang ke Lighting
+                stopPreview()
+                state.live = false
+                paintLive()
+                if getReplace() then
+                    for _, s in ipairs(Lighting:GetChildren()) do
+                        if s:IsA("Sky") then pcall(function() s:Destroy() end) end
+                    end
+                end
+                local sk = Instance.new("Sky")
+                sk.Name = (r.name and r.name ~= "") and r.name or "Sky"
+                setFaces(sk, map)
+                pcall(function() sk:SetAttribute("LANGZ_ImportedObject", true) end)
+                sk.Parent = Lighting
+
+                res.Visible = true
+                lineIn(res, "SKYBOX TERPASANG di Lighting • " .. sk.Name .. "\n" .. table.concat(lines, "\n"), C.ok, 1)
+                if r.failed and #r.failed > 0 then
+                    lineIn(res, "Gagal upload: " .. table.concat(r.failed, ", ") .. " — coba UPLOAD lagi.", C.bad, 2)
+                end
+                if r.no_image_id and #r.no_image_id > 0 then
+                    lineIn(res, "Image ID belum didapat untuk: " .. table.concat(r.no_image_id, ", ") ..
+                        " (dipakai Decal ID, bisa tidak tampil). Cek ROBLOSECURITY di .env panel.", C.warn, 3)
+                end
+                local copyRow = Instance.new("Frame")
+                copyRow.BackgroundTransparency = 1
+                copyRow.Size = UDim2.new(1, 0, 0, 24)
+                copyRow.LayoutOrder = 4
+                copyRow.ZIndex = 23
+                copyRow.Parent = res
+                local cp = W.btn(copyRow, "COPY SEMUA ID", C.accent)
+                cp.Size = UDim2.fromScale(1, 1)
+                cp.MouseButton1Click:Connect(function()
+                    if copyText(table.concat(lines, "\n")) then setStatus("ID SKYBOX DISALIN", C.ok) end
+                end)
+                lineIn(res, "Kalau langit masih kosong: tunggu beberapa menit (gambar sedang dicek Roblox), lalu tekan UPLOAD lagi atau buka ulang place.", C.soft, 5)
+                setProgress(1, "SKYBOX TERPASANG")
+                setStatus("SKYBOX TERPASANG", C.ok)
+                notify("Melss x Medi", "Skybox terpasang di Lighting")
             end)
         end)
     end
