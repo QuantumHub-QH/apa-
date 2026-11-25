@@ -3643,16 +3643,19 @@ do
     if old then old:Destroy() end
 end
 
+-- TEMA LIQUID GLASS (grafit gelap, aksen biru iOS)
+local INK, PAPER = Color3.fromRGB(255, 255, 255), Color3.fromRGB(22, 24, 30)
 local C = {
     text    = Color3.fromRGB(255, 255, 255),
-    soft    = Color3.fromRGB(214, 224, 250),
-    muted   = Color3.fromRGB(165, 180, 222),
-    accent  = Color3.fromRGB(105, 205, 255),
-    accent2 = Color3.fromRGB(160, 125, 255),
-    ok      = Color3.fromRGB(95, 235, 175),
-    warn    = Color3.fromRGB(255, 205, 100),
-    bad     = Color3.fromRGB(255, 115, 140),
+    soft    = Color3.fromRGB(222, 226, 236),
+    muted   = Color3.fromRGB(150, 157, 175),
+    accent  = Color3.fromRGB(90, 170, 255),
+    accent2 = Color3.fromRGB(170, 140, 255),
+    ok      = Color3.fromRGB(52, 210, 120),
+    warn    = Color3.fromRGB(255, 196, 82),
+    bad     = Color3.fromRGB(255, 92, 110),
 }
+local MANGA_FONT = Enum.Font.GothamBold
 
 local gui = Instance.new("ScreenGui")
 gui.Name = GUI_NAME
@@ -3670,20 +3673,21 @@ local function grad(o, c0, c1, rot)
     g.Parent = o
     return g
 end
+-- tepi kaca: putih terang di atas, pudar di tengah, pantulan tipis di bawah
 local function glassStroke(o, thick, strong)
     local s = Instance.new("UIStroke")
-    s.Thickness = thick or 1.2
+    s.Thickness = thick or 1
     s.Color = Color3.fromRGB(255, 255, 255)
     s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
     s.Transparency = 0
     s.Parent = o
     local g = Instance.new("UIGradient")
     g.Rotation = 90
-    local a = strong and 0.15 or 0.35
+    local a = strong and 0.25 or 0.45
     g.Transparency = NumberSequence.new({
         NumberSequenceKeypoint.new(0, a),
-        NumberSequenceKeypoint.new(0.5, 0.85),
-        NumberSequenceKeypoint.new(1, 0.6),
+        NumberSequenceKeypoint.new(0.45, 0.9),
+        NumberSequenceKeypoint.new(1, 0.7),
     })
     g.Parent = s
     return s
@@ -3704,7 +3708,7 @@ end
 local function glassPanel(parent, alpha, r)
     local f = Instance.new("Frame")
     f.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-    f.BackgroundTransparency = alpha or 0.88
+    f.BackgroundTransparency = math.max(alpha or 0.9, 0.86) + 0.03
     f.BorderSizePixel = 0
     f.Parent = parent
     corner(f, r or 12)
@@ -3717,8 +3721,8 @@ local toggle = Instance.new("ImageButton")
 toggle.Name = "Toggle"
 toggle.Size = UDim2.fromOffset(46, 46)
 toggle.Position = UDim2.new(0, 10, 0, 70)
-toggle.BackgroundColor3 = Color3.fromRGB(40, 55, 110)
-toggle.BackgroundTransparency = 0.25
+toggle.BackgroundColor3 = Color3.fromRGB(30, 33, 42)
+toggle.BackgroundTransparency = 0.2
 toggle.Image = TOGGLE_ICON
 toggle.ScaleType = Enum.ScaleType.Fit
 toggle.AutoButtonColor = false
@@ -3734,63 +3738,81 @@ do
 end
 
 -- ---------- main ----------
-local MAIN_W, MAIN_H = 540, 345
+local MAIN_W, MAIN_H = 560, 384
+local DOCK_H, DOCK_GAP = 64, 12
 local main = Instance.new("Frame")
 main.Name = "Main"
 main.AnchorPoint = Vector2.new(0.5, 0.5)
 main.Position = UDim2.fromScale(0.5, 0.5)
 main.Size = UDim2.fromOffset(MAIN_W, MAIN_H)
-main.BackgroundColor3 = Color3.fromRGB(34, 46, 92)
-main.BackgroundTransparency = 0.12
+main.BackgroundColor3 = Color3.fromRGB(20, 22, 28)
+main.BackgroundTransparency = 0.16
 main.BorderSizePixel = 0
 main.ClipsDescendants = true
 main.Visible = false
 main.ZIndex = 10
 main.Parent = gui
 corner(main, 20)
-grad(main, Color3.fromRGB(78, 96, 190), Color3.fromRGB(26, 34, 74), 55)
-glassStroke(main, 1.8, true)
+corner(main, 26)
+grad(main, Color3.fromRGB(56, 62, 80), Color3.fromRGB(16, 17, 22), 70)
+glassStroke(main, 1.4, true)
 
 local mainScale = Instance.new("UIScale")
 mainScale.Parent = main
 local function fitScale()
     local v = gui.AbsoluteSize
     if v.X <= 0 then v = Vector2.new(800, 400) end
-    return math.clamp(math.min((v.X - 24) / MAIN_W, (v.Y - 24) / MAIN_H), 0.5, 1.15)
+    return math.clamp(math.min((v.X - 24) / MAIN_W, (v.Y - 24) / (MAIN_H + DOCK_H + DOCK_GAP)), 0.45, 1.15)
 end
 mainScale.Scale = fitScale()
 
--- kilau kaca di atas
+-- kilau kaca + cahaya lembut + blur dunia di belakang (frosted)
 do
     local shine = Instance.new("Frame")
-    shine.Size = UDim2.new(1, 0, 0, 120)
+    shine.Size = UDim2.new(1, 0, 0, 140)
     shine.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
     shine.BackgroundTransparency = 0.9
     shine.BorderSizePixel = 0
     shine.ZIndex = 10
     shine.Parent = main
+    corner(shine, 26)
     local g = Instance.new("UIGradient")
     g.Rotation = 90
-    g.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.55), NumberSequenceKeypoint.new(1, 1) })
+    g.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.45), NumberSequenceKeypoint.new(1, 1) })
     g.Parent = shine
-    local blobA = Instance.new("Frame")
-    blobA.Size = UDim2.fromOffset(220, 220)
-    blobA.Position = UDim2.new(1, -120, 1, -110)
-    blobA.BackgroundColor3 = C.accent2
-    blobA.BackgroundTransparency = 0.8
-    blobA.BorderSizePixel = 0
-    blobA.ZIndex = 10
-    blobA.Parent = main
-    corner(blobA, 110)
-    local blobB = Instance.new("Frame")
-    blobB.Size = UDim2.fromOffset(180, 180)
-    blobB.Position = UDim2.new(0, -70, 1, -90)
-    blobB.BackgroundColor3 = C.accent
-    blobB.BackgroundTransparency = 0.82
-    blobB.BorderSizePixel = 0
-    blobB.ZIndex = 10
-    blobB.Parent = main
-    corner(blobB, 90)
+    for _, spec in ipairs({ { 240, UDim2.new(1, -150, 1, -120), C.accent, 0.86 }, { 200, UDim2.new(0, -90, 0, -60), C.accent2, 0.88 } }) do
+        local blob = Instance.new("Frame")
+        blob.Size = UDim2.fromOffset(spec[1], spec[1])
+        blob.Position = spec[2]
+        blob.BackgroundColor3 = spec[3]
+        blob.BackgroundTransparency = spec[4]
+        blob.BorderSizePixel = 0
+        blob.ZIndex = 10
+        blob.Parent = main
+        corner(blob, spec[1] / 2)
+    end
+    local rule = Instance.new("Frame")
+    rule.Position = UDim2.new(0, 16, 0, 54)
+    rule.Size = UDim2.new(1, -32, 0, 1)
+    rule.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    rule.BackgroundTransparency = 0.85
+    rule.BorderSizePixel = 0
+    rule.ZIndex = 19
+    rule.Parent = main
+    -- jendela naik sedikit supaya dock muat di bawahnya
+    local function place()
+        main.Position = UDim2.new(0.5, 0, 0.5, -math.floor((DOCK_H + DOCK_GAP) / 2 * mainScale.Scale))
+    end
+    mainScale:GetPropertyChangedSignal("Scale"):Connect(place)
+    place()
+    -- blur dunia 3D di belakang jendela (lokal, di kamera)
+    local blur = Instance.new("BlurEffect")
+    blur.Name = "MxM_GlassBlur"
+    blur.Size = 0
+    pcall(function() blur.Parent = workspace.CurrentCamera end)
+    main:GetPropertyChangedSignal("Visible"):Connect(function()
+        TweenService:Create(blur, TweenInfo.new(0.25), { Size = main.Visible and 10 or 0 }):Play()
+    end)
 end
 
 -- ---------- header ----------
@@ -3815,11 +3837,11 @@ do
     corner(logo, 11)
     glassStroke(logo, 1)
 
-    local title = text(header, "Melss x Medi", 16, Enum.Font.GothamBold, C.text)
+    local title = text(header, "Melss × Medi", 17, Enum.Font.GothamBold, C.text)
     title.Position = UDim2.fromOffset(44, 2)
     title.Size = UDim2.new(1, -120, 0, 20)
     title.ZIndex = 21
-    local subtitle = text(header, "PANEL • IMPORT • EXPORT • TOOLBOX", 10, Enum.Font.GothamMedium, C.accent)
+    local subtitle = text(header, "PANEL • IMPORT • EXPORT • TOOLBOX", 10, Enum.Font.GothamBold, C.accent)
     subtitle.Position = UDim2.fromOffset(44, 22)
     subtitle.Size = UDim2.new(1, -120, 0, 14)
     subtitle.ZIndex = 21
@@ -3829,7 +3851,7 @@ do
     closeBtn.AnchorPoint = Vector2.new(1, 0)
     closeBtn.Position = UDim2.new(1, 0, 0, 5)
     closeBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-    closeBtn.BackgroundTransparency = 0.85
+    closeBtn.BackgroundTransparency = 0.86
     closeBtn.Text = "×"
     closeBtn.TextSize = 20
     closeBtn.Font = Enum.Font.GothamBold
@@ -3837,7 +3859,7 @@ do
     closeBtn.AutoButtonColor = false
     closeBtn.ZIndex = 22
     closeBtn.Parent = header
-    corner(closeBtn, 9)
+    corner(closeBtn, 14)
     glassStroke(closeBtn, 1)
 
     hdrTitle, hdrSub = title, subtitle
@@ -3909,7 +3931,8 @@ end
 -- state dashboard / panel (dipakai banyak bagian)
 local DASH = { mode = "dash", hooks = {}, tiles = {}, stat = {} }
 local ACCT = { connected = false, data = {} }
-local TAB_LABEL = { HOME = "HOME", TOOLBOX = "TOOLBOX PC", AKUN = "AKUN", EXPORT = "RBXM / RBXL",
+local NAV = {}
+local TAB_LABEL = { HOME = "SEMUA MENU", TOOLBOX = "TOOLBOX PC", AKUN = "AKUN", EXPORT = "RBXM / RBXL",
     SPOOF = "SPOOF", AUDIO = "AUDIO YT/TT", DMESH = "DECAL > MESH", PMESH = "PART > MESH", SKY = "SKYBOX" }
 local PAGE_TABS = { EXPORT = true, SPOOF = true, AUDIO = true, DMESH = true, PMESH = true, SKY = true }
 local function tabLabel(n) return TAB_LABEL[n] or n end
@@ -3939,7 +3962,7 @@ local function makeTab(name, y)
         ic.ZIndex = 22
         ic.Parent = b
     else
-        local ic = text(b, name:sub(1, 1), 10, Enum.Font.GothamBold, Color3.fromRGB(10, 20, 50), Enum.TextXAlignment.Center)
+        local ic = text(b, name:sub(1, 1), 10, Enum.Font.GothamBold, Color3.fromRGB(255, 255, 255), Enum.TextXAlignment.Center)
         ic.Position = UDim2.fromOffset(6, 3)
         ic.Size = UDim2.fromOffset(20, 20)
         ic.BackgroundTransparency = 0.1
@@ -3996,17 +4019,53 @@ scanBtn.BackgroundTransparency = 0.15
 scanBtn.Text = "SCAN"
 scanBtn.TextSize = 11
 scanBtn.Font = Enum.Font.GothamBold
-scanBtn.TextColor3 = Color3.fromRGB(10, 20, 50)
+scanBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 scanBtn.AutoButtonColor = false
 scanBtn.ZIndex = 22
 scanBtn.Parent = side
 corner(scanBtn, 10)
 grad(scanBtn, Color3.fromRGB(150, 225, 255), Color3.fromRGB(110, 160, 255), 90)
 
+-- ---------- layout website: navbar • sub-menu • isi • menu bawah ----------
+local NAV_TOP, NAV_BOTTOM = 96, 12
+side.Visible = false
+scanBtn.Parent = main
+scanBtn.AnchorPoint = Vector2.new(1, 0)
+scanBtn.Position = UDim2.new(1, -50, 0, 13)
+scanBtn.Size = UDim2.fromOffset(74, 28)
+scanBtn.ZIndex = 22
+scanBtn.Font = Enum.Font.GothamBold
+scanBtn.TextSize = 11
+corner(scanBtn, 14)
+
+local subnav = Instance.new("ScrollingFrame")
+subnav.Name = "SubNav"
+subnav.Position = UDim2.fromOffset(12, 61)
+subnav.Size = UDim2.new(1, -24, 0, 30)
+subnav.BackgroundTransparency = 1
+subnav.BorderSizePixel = 0
+subnav.ScrollBarThickness = 0
+subnav.ScrollingDirection = Enum.ScrollingDirection.X
+subnav.AutomaticCanvasSize = Enum.AutomaticSize.X
+subnav.CanvasSize = UDim2.new()
+subnav.ZIndex = 20
+subnav.Parent = main
+do
+    local l = Instance.new("UIListLayout")
+    l.FillDirection = Enum.FillDirection.Horizontal
+    l.VerticalAlignment = Enum.VerticalAlignment.Center
+    l.Padding = UDim.new(0, 6)
+    l.SortOrder = Enum.SortOrder.LayoutOrder
+    l.Parent = subnav
+    local p = Instance.new("UIPadding")
+    p.PaddingLeft = UDim.new(0, 2); p.PaddingRight = UDim.new(0, 4)
+    p.Parent = subnav
+end
+
 -- ---------- content ----------
 local content = glassPanel(main, 0.9, 14)
-content.Position = UDim2.fromOffset(SIDE_W + 20, 56)
-content.Size = UDim2.new(1, -(SIDE_W + 32), 1, -68)
+content.Position = UDim2.fromOffset(12, NAV_TOP)
+content.Size = UDim2.new(1, -24, 1, -(NAV_TOP + NAV_BOTTOM))
 content.ZIndex = 20
 
 local contentTitle = text(content, "RBXM FILES", 13, Enum.Font.GothamBold, C.text)
@@ -4069,8 +4128,8 @@ do
     pill.AnchorPoint = Vector2.new(0, 1)
     pill.Position = UDim2.new(0, 10, 1, -10)
     pill.Size = UDim2.fromOffset(190, 34)
-    pill.BackgroundColor3 = Color3.fromRGB(22, 30, 66)
-    pill.BackgroundTransparency = 0.2
+    pill.BackgroundColor3 = Color3.fromRGB(22, 24, 30)
+    pill.BackgroundTransparency = 0.18
     pill.BorderSizePixel = 0
     pill.ZIndex = 60
     pill.Parent = gui
@@ -4112,7 +4171,7 @@ do
     track.Position = UDim2.fromOffset(10, 25)
     track.Size = UDim2.new(1, -20, 0, 4)
     track.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-    track.BackgroundTransparency = 0.82
+    track.BackgroundTransparency = 0.85
     track.BorderSizePixel = 0
     track.ZIndex = 62
     track.Parent = pill
@@ -4199,7 +4258,7 @@ end
 -- =====================================================================
 ;(function()
     local WHITE = Color3.fromRGB(255, 255, 255)
-    local DARK = Color3.fromRGB(10, 20, 50)
+    local DARK = Color3.fromRGB(255, 255, 255)
 
     local function pressFx(btn, base)
         btn.MouseButton1Down:Connect(function()
@@ -4230,8 +4289,8 @@ end
     -- ================= DASHBOARD (sebelum panel utama) =================
     local dash = Instance.new("Frame")
     dash.Name = "Dashboard"
-    dash.Position = UDim2.fromOffset(12, 56)
-    dash.Size = UDim2.new(1, -24, 1, -68)
+    dash.Position = UDim2.fromOffset(12, 96)
+    dash.Size = UDim2.new(1, -24, 1, -108)
     dash.BackgroundTransparency = 1
     dash.BorderSizePixel = 0
     dash.ZIndex = 20
@@ -4412,8 +4471,8 @@ end
         local track = Instance.new("Frame")
         track.Position = UDim2.fromOffset(8, 67)
         track.Size = UDim2.new(1, -16, 0, 4)
-        track.BackgroundColor3 = WHITE
-        track.BackgroundTransparency = 0.8
+        track.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+        track.BackgroundTransparency = 0.85
         track.BorderSizePixel = 0
         track.ZIndex = 23
         track.Parent = t
@@ -4605,10 +4664,11 @@ end
 local function refreshTabs()
     for name, t in pairs(tabButtons) do
         local active = (name == currentTab)
-        TweenService:Create(t.btn, TweenInfo.new(0.15), {
-            BackgroundTransparency = active and 0.55 or 0.9,
-            BackgroundColor3 = active and C.accent2 or Color3.fromRGB(255, 255, 255),
+        TweenService:Create(t.btn, TweenInfo.new(0.18), {
+            BackgroundTransparency = active and 0.74 or 0.92,
+            BackgroundColor3 = active and C.accent or Color3.fromRGB(255, 255, 255),
         }):Play()
+        t.lbl.TextColor3 = active and C.text or C.soft
     end
     if currentTab == "TOOLBOX" then
         contentTitle.Text = "TOOLBOX PC"
@@ -4671,7 +4731,7 @@ local function makeCard(info)
     btn.Text = st.label
     btn.TextScaled = true
     btn.Font = Enum.Font.GothamBold
-    btn.TextColor3 = Color3.fromRGB(10, 20, 50)
+    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
     btn.AutoButtonColor = false
     btn.ZIndex = 24
     btn.Parent = card
@@ -4842,7 +4902,7 @@ end
     goBtn.Text = "GO"
     goBtn.TextSize = 11
     goBtn.Font = Enum.Font.GothamBold
-    goBtn.TextColor3 = Color3.fromRGB(10, 20, 50)
+    goBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
     goBtn.AutoButtonColor = false
     goBtn.ZIndex = 22
     goBtn.Visible = false
@@ -4872,7 +4932,7 @@ end
             local on = (id == tbCat)
             b.BackgroundColor3 = on and C.ok or Color3.fromRGB(255, 255, 255)
             b.BackgroundTransparency = on and 0.15 or 0.85
-            b.TextColor3 = on and Color3.fromRGB(10, 20, 50) or C.text
+            b.TextColor3 = on and Color3.fromRGB(255, 255, 255) or C.text
         end
     end
     for i, cat in ipairs(TB_CATS) do
@@ -5037,7 +5097,7 @@ end
             b.Text = label
             b.TextSize = 10
             b.Font = Enum.Font.GothamBold
-            b.TextColor3 = Color3.fromRGB(10, 20, 50)
+            b.TextColor3 = Color3.fromRGB(255, 255, 255)
             b.AutoButtonColor = false
             b.ZIndex = 24
             b.Parent = card
@@ -5279,7 +5339,7 @@ end)()
 -- =====================================================================
 ;(function()
     local WHITE = Color3.fromRGB(255, 255, 255)
-    local DARK = Color3.fromRGB(10, 20, 50)
+    local DARK = Color3.fromRGB(255, 255, 255)
     local ACCT_FILE = "WLEO_NEKO_ACCOUNT.json"   -- nama tetap, jangan diganti supaya akun aman saat script di-update
     local genv = (type(getgenv) == "function" and getgenv()) or _G
     local canFile = type(writefile) == "function" and type(readfile) == "function" and type(isfile) == "function"
@@ -5643,7 +5703,7 @@ end)()
 local EXP = {}
 ;(function()
     local WHITE = Color3.fromRGB(255, 255, 255)
-    local DARK = Color3.fromRGB(10, 20, 50)
+    local DARK = Color3.fromRGB(255, 255, 255)
 
     local page = Instance.new("ScrollingFrame")
     page.Name = "ExportPage"
@@ -6007,7 +6067,7 @@ local EXP = {}
     tapBar.AnchorPoint = Vector2.new(0.5, 0)
     tapBar.Position = UDim2.new(0.5, 0, 0, 12)
     tapBar.Size = UDim2.fromOffset(260, 34)
-    tapBar.BackgroundColor3 = Color3.fromRGB(22, 30, 66)
+    tapBar.BackgroundColor3 = Color3.fromRGB(22, 24, 30)
     tapBar.BackgroundTransparency = 0.15
     tapBar.Text = "Ketuk objek • tekan di sini kalau SELESAI"
     tapBar.TextSize = 11
@@ -6225,7 +6285,7 @@ end)()
 local PANELPAGES = {}
 ;(function()
     local WHITE = Color3.fromRGB(255, 255, 255)
-    local DARK = Color3.fromRGB(10, 20, 50)
+    local DARK = Color3.fromRGB(255, 255, 255)
 
     -- ---------- bahan halaman ----------
     local function newPage(name)
@@ -7267,6 +7327,7 @@ end)()
 
 -- ---------- tab ----------
 local function setTab(name)
+    if NAV.onTab then NAV.onTab(name) end
     currentTab = name
     local isTB = (name == "TOOLBOX")
     local isHome = (name == "HOME")
@@ -7346,7 +7407,7 @@ scanBtn.MouseButton1Click:Connect(scanNow)
 
 -- ---------- dashboard <-> panel ----------
 local function setHeaderMode(panel)
-    backBtn.Visible = panel
+    backBtn.Visible = false
 end
 
 local function showDashboard()
@@ -7358,17 +7419,17 @@ local function showDashboard()
     DASH.refresh()
     local d = DASH.dash
     d.Visible = true
-    d.Position = UDim2.fromOffset(12, 66)
+    d.Position = UDim2.fromOffset(12, 106)
     TweenService:Create(d, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-        Position = UDim2.fromOffset(12, 56),
+        Position = UDim2.fromOffset(12, 96),
     }):Play()
+    if NAV.onDash then NAV.onDash() end
 end
 
 local function showPanel(tab)
     DASH.mode = "panel"
     setHeaderMode(true)
     DASH.dash.Visible = false
-    side.Visible = true
     content.Visible = true
     setTab(tab or "HOME")
 end
@@ -7429,6 +7490,265 @@ end
 gui:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
     if isOpen then mainScale.Scale = fitScale() end
 end)
+
+-- =====================================================================
+--   MENU BAWAH (5 menu) + SUB-MENU ATAS — gaya website
+-- =====================================================================
+do
+    local GROUPS = {
+        { key = "HOME", label = "Home", glyph = "⌂", tabs = { "BERANDA", "HOME" } },
+        { key = "IMPORT", label = "Import", glyph = "⇩", tabs = { "RBXM", "RBXMX", "RBXL", "RBXLX", "TOOLBOX" } },
+        { key = "EXPORT", label = "Export", glyph = "⇧", tabs = { "EXPORT" } },
+        { key = "PANEL", label = "Panel", glyph = "✦", tabs = { "SPOOF", "AUDIO", "DMESH", "PMESH", "SKY" } },
+        { key = "AKUN", label = "Akun", glyph = "☻", tabs = { "AKUN" } },
+    }
+    local groupOf, last, active = {}, {}, nil
+    for _, g in ipairs(GROUPS) do for _, t in ipairs(g.tabs) do groupOf[t] = g.key end end
+
+    -- tombol tab lama dipindah ke sub-menu (bentuk pil)
+    for name, t in pairs(tabButtons) do
+        local w = math.max(64, #tabLabel(name) * 7 + (t.badge and 66 or 42))
+        t.btn.Parent = subnav
+        t.btn.Position = UDim2.new()
+        t.btn.Size = UDim2.fromOffset(w, 26)
+        t.lbl.Size = UDim2.new(1, t.badge and -62 or -36, 1, 0)
+        local g = groupOf[name]
+        for _, gg in ipairs(GROUPS) do
+            if gg.key == g then
+                for i, tn in ipairs(gg.tabs) do if tn == name then t.btn.LayoutOrder = i end end
+            end
+        end
+    end
+    -- sub-menu khusus "BERANDA" (dashboard)
+    local homeBtn = Instance.new("TextButton")
+    homeBtn.Size = UDim2.fromOffset(86, 26)
+    homeBtn.LayoutOrder = 0
+    homeBtn.Text = "BERANDA"
+    homeBtn.Font = Enum.Font.GothamBold
+    homeBtn.TextSize = 11
+    homeBtn.TextColor3 = C.soft
+    homeBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    homeBtn.BackgroundTransparency = 0.92
+    homeBtn.AutoButtonColor = false
+    homeBtn.ZIndex = 21
+    homeBtn.Parent = subnav
+    corner(homeBtn, 13)
+    glassStroke(homeBtn, 1)
+    for _, t in pairs(tabButtons) do corner(t.btn, 13) end
+
+    -- ===== DOCK: frame kaca terpisah, melayang di bawah jendela =====
+    local DOCK_W = 430
+    local dock = Instance.new("Frame")
+    dock.Name = "GlassDock"
+    dock.AnchorPoint = Vector2.new(0.5, 0)
+    dock.Size = UDim2.fromOffset(DOCK_W, DOCK_H)
+    dock.BackgroundColor3 = Color3.fromRGB(26, 28, 36)
+    dock.BackgroundTransparency = 0.14
+    dock.BorderSizePixel = 0
+    dock.ZIndex = 40
+    dock.Visible = false
+    dock.Parent = gui
+    corner(dock, DOCK_H / 2)
+    grad(dock, Color3.fromRGB(70, 76, 96), Color3.fromRGB(20, 21, 27), 90)
+    glassStroke(dock, 1.3, true)
+    local dockScale = Instance.new("UIScale")
+    dockScale.Parent = dock
+    do  -- kilau atas dock
+        local sh = Instance.new("Frame")
+        sh.Size = UDim2.new(1, -24, 0.5, 0)
+        sh.Position = UDim2.fromOffset(12, 2)
+        sh.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+        sh.BackgroundTransparency = 0.9
+        sh.BorderSizePixel = 0
+        sh.ZIndex = 40
+        sh.Parent = dock
+        corner(sh, DOCK_H / 2)
+        local g = Instance.new("UIGradient")
+        g.Rotation = 90
+        g.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.3), NumberSequenceKeypoint.new(1, 1) })
+        g.Parent = sh
+    end
+    local function syncDock()
+        local sc = mainScale.Scale
+        dockScale.Scale = sc
+        dock.Position = main.Position + UDim2.fromOffset(0, (MAIN_H / 2 + DOCK_GAP) * sc)
+        dock.Visible = main.Visible
+    end
+    mainScale:GetPropertyChangedSignal("Scale"):Connect(syncDock)
+    main:GetPropertyChangedSignal("Position"):Connect(syncDock)
+    main:GetPropertyChangedSignal("Visible"):Connect(syncDock)
+
+    -- lensa kaca yang meluncur (seperti tab bar iOS)
+    local N = #GROUPS
+    local PAD = 6
+    local slotW = (DOCK_W - PAD * 2) / N
+    local lens = Instance.new("Frame")
+    lens.Name = "Lens"
+    lens.AnchorPoint = Vector2.new(0.5, 0.5)
+    lens.Size = UDim2.fromOffset(slotW, DOCK_H - PAD * 2)
+    lens.Position = UDim2.fromOffset(PAD + slotW / 2, DOCK_H / 2)
+    lens.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    lens.BackgroundTransparency = 0.84
+    lens.BorderSizePixel = 0
+    lens.ZIndex = 41
+    lens.Parent = dock
+    corner(lens, (DOCK_H - PAD * 2) / 2)
+    do
+        local g = Instance.new("UIGradient")
+        g.Rotation = 90
+        g.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.2), NumberSequenceKeypoint.new(0.55, 0.75), NumberSequenceKeypoint.new(1, 0.45) })
+        g.Parent = lens
+        -- tepi lensa berkilau pelangi tipis (efek refraksi)
+        local rim = Instance.new("UIStroke")
+        rim.Thickness = 1.4
+        rim.Color = Color3.fromRGB(255, 255, 255)
+        rim.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+        rim.Parent = lens
+        local rg = Instance.new("UIGradient")
+        rg.Rotation = 20
+        rg.Color = ColorSequence.new({
+            ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 255, 255)),
+            ColorSequenceKeypoint.new(0.3, Color3.fromRGB(160, 220, 255)),
+            ColorSequenceKeypoint.new(0.5, Color3.fromRGB(255, 255, 255)),
+            ColorSequenceKeypoint.new(0.7, Color3.fromRGB(255, 180, 230)),
+            ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 255, 255)),
+        })
+        rg.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.1), NumberSequenceKeypoint.new(0.5, 0.6), NumberSequenceKeypoint.new(1, 0.25) })
+        rg.Parent = rim
+        -- kilau pelangi berputar pelan di tepi lensa
+        task.spawn(function()
+            while lens.Parent do
+                rg.Rotation = (rg.Rotation + 2) % 360
+                task.wait(0.03)
+            end
+        end)
+    end
+
+    local navBtns = {}
+    for i, g in ipairs(GROUPS) do
+        local b = Instance.new("Frame")            -- bukan tombol: sentuhan ditangani dock (tap / seret)
+        b.AnchorPoint = Vector2.new(0.5, 0.5)
+        b.Position = UDim2.fromOffset(PAD + slotW * (i - 0.5), DOCK_H / 2)
+        b.Size = UDim2.fromOffset(slotW, DOCK_H - PAD * 2)
+        b.BackgroundTransparency = 1
+        b.ZIndex = 42
+        b.Parent = dock
+        local us = Instance.new("UIScale")
+        us.Parent = b
+        local gl = text(b, g.glyph, 20, Enum.Font.GothamBold, C.soft, Enum.TextXAlignment.Center)
+        gl.Size = UDim2.new(1, 0, 0, 24)
+        gl.Position = UDim2.fromOffset(0, 3)
+        gl.ZIndex = 43
+        local lb = text(b, g.label, 10, Enum.Font.GothamBold, C.soft, Enum.TextXAlignment.Center)
+        lb.Size = UDim2.new(1, 0, 0, 14)
+        lb.Position = UDim2.new(0, 0, 1, -19)
+        lb.ZIndex = 43
+        navBtns[g.key] = { btn = b, glyph = gl, label = lb, scale = us, index = i }
+    end
+
+    local lensIndex = 1
+    local function moveLens(i, instant)
+        local x = PAD + slotW * (i - 0.5)
+        local h = DOCK_H - PAD * 2
+        if instant then
+            lens.Position = UDim2.fromOffset(x, DOCK_H / 2)
+            lens.Size = UDim2.fromOffset(slotW, h)
+        else
+            local dist = math.abs(i - lensIndex)
+            -- melar saat meluncur, lalu kembali (efek cair)
+            TweenService:Create(lens, TweenInfo.new(0.16, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+                { Size = UDim2.fromOffset(slotW * (1 + 0.22 * math.min(dist, 3)), h * 0.9) }):Play()
+            TweenService:Create(lens, TweenInfo.new(0.42, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
+                { Position = UDim2.fromOffset(x, DOCK_H / 2) }):Play()
+            task.delay(0.16, function()
+                TweenService:Create(lens, TweenInfo.new(0.34, Enum.EasingStyle.Elastic, Enum.EasingDirection.Out, 0, false, 0),
+                    { Size = UDim2.fromOffset(slotW, h) }):Play()
+            end)
+        end
+        lensIndex = i
+    end
+
+    local function openGroup(key)
+        for _, g in ipairs(GROUPS) do
+            if g.key == key then
+                local target = last[g.key] or g.tabs[1]
+                if target == "BERANDA" then showDashboard() else showPanel(target) end
+            end
+        end
+    end
+
+    -- tap atau seret lensa dengan jari
+    do
+        local dragging, startX, moved = false, 0, false
+        local function slotAt(px)
+            local rel = (px - dock.AbsolutePosition.X) / math.max(dock.AbsoluteSize.X, 1) * DOCK_W
+            return math.clamp(math.floor((rel - PAD) / slotW) + 1, 1, N), rel
+        end
+        dock.InputBegan:Connect(function(input)
+            if input.UserInputType ~= Enum.UserInputType.MouseButton1 and input.UserInputType ~= Enum.UserInputType.Touch then return end
+            dragging, moved, startX = true, false, input.Position.X
+            TweenService:Create(lens, TweenInfo.new(0.15), { BackgroundTransparency = 0.76,
+                Size = UDim2.fromOffset(slotW * 1.12, DOCK_H - PAD) }):Play()
+        end)
+        UserInputService.InputChanged:Connect(function(input)
+            if not dragging then return end
+            if input.UserInputType ~= Enum.UserInputType.MouseMovement and input.UserInputType ~= Enum.UserInputType.Touch then return end
+            if math.abs(input.Position.X - startX) > 6 then moved = true end
+            if moved then
+                local _, rel = slotAt(input.Position.X)
+                lens.Position = UDim2.fromOffset(math.clamp(rel, PAD + slotW / 2, DOCK_W - PAD - slotW / 2), DOCK_H / 2)
+            end
+        end)
+        UserInputService.InputEnded:Connect(function(input)
+            if not dragging then return end
+            if input.UserInputType ~= Enum.UserInputType.MouseButton1 and input.UserInputType ~= Enum.UserInputType.Touch then return end
+            dragging = false
+            TweenService:Create(lens, TweenInfo.new(0.2), { BackgroundTransparency = 0.84 }):Play()
+            local i = slotAt(input.Position.X)
+            openGroup(GROUPS[i].key)
+            moveLens(i)
+        end)
+    end
+
+    local function paint(group, tab)
+        local prev = active
+        active = group
+        for key, nb in pairs(navBtns) do
+            local on = key == group
+            TweenService:Create(nb.glyph, TweenInfo.new(0.2), { TextColor3 = on and C.text or C.muted }):Play()
+            TweenService:Create(nb.label, TweenInfo.new(0.2), { TextColor3 = on and C.text or C.muted }):Play()
+            TweenService:Create(nb.scale, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
+                { Scale = on and 1.08 or 1 }):Play()
+            if on and nb.index ~= lensIndex then moveLens(nb.index, prev == nil) end
+        end
+        for name, t in pairs(tabButtons) do t.btn.Visible = groupOf[name] == group end
+        homeBtn.Visible = group == "HOME"
+        local onHome = tab == "BERANDA"
+        homeBtn.BackgroundColor3 = onHome and C.accent or Color3.fromRGB(255, 255, 255)
+        homeBtn.BackgroundTransparency = onHome and 0.74 or 0.92
+        homeBtn.TextColor3 = onHome and C.text or C.soft
+        subnav.CanvasPosition = Vector2.new()
+    end
+    homeBtn.MouseButton1Click:Connect(showDashboard)
+    syncDock()
+
+    NAV.onTab = function(name)
+        local g = groupOf[name] or "HOME"
+        last[g] = name
+        if DASH.mode ~= "panel" then          -- klik sub-menu saat di beranda -> pindah ke halaman
+            DASH.mode = "panel"
+            DASH.dash.Visible = false
+            content.Visible = true
+        end
+        paint(g, name)
+    end
+    NAV.onDash = function()
+        last.HOME = "BERANDA"
+        paint("HOME", "BERANDA")
+    end
+
+
+end
 
 refreshTabs()
 renderList()
