@@ -1,15 +1,18 @@
 -- ============================================================
---  DELTA TERRAIN BUILDER v2.1 - EXECUTOR EDITION
---  Studio Lite Compatible — material invalid dihapus
---  Paste di Delta Executor > Execute
+--  DELTA TERRAIN BUILDER v3.0 — LIQUID GLASS PREMIUM
+--  Executor Edition | Studio Lite Compatible
+--  UI Portrait | Analog Joystick Build Control
 -- ============================================================
 
-local oldGui = game.CoreGui:FindFirstChild("DeltaTerrainBuilder")
-if oldGui then oldGui:Destroy() end
+-- cleanup
+for _, n in ipairs({"DeltaTerrainBuilder","DTBrushPreview"}) do
+	local o = game.CoreGui:FindFirstChild(n) or workspace:FindFirstChild(n)
+	if o then o:Destroy() end
+end
 
 local Players          = game:GetService("Players")
 local RunService       = game:GetService("RunService")
-local UserInputService = game:GetService("UserInputService")
+local UIS              = game:GetService("UserInputService")
 local terrain          = workspace.Terrain
 local player           = Players.LocalPlayer
 local mouse            = player:GetMouse()
@@ -18,933 +21,1216 @@ local camera           = workspace.CurrentCamera
 -- ============================================================
 --  STATE
 -- ============================================================
-local state = {
-	panelOpen    = true,
-	activeTool   = "add",
-	activeMat    = Enum.Material.Grass,
-	brushSize    = 12,
-	brushStrength= 0.4,
-	brushShape   = "sphere",
-	isPainting   = false,
-	flatHeight   = nil,
-	tab          = "tools",
+local S = {
+	tool       = "add",
+	mat        = Enum.Material.Grass,
+	brushSize  = 16,
+	strength   = 0.5,
+	shape      = "sphere",
+	flatY      = nil,
+	tab        = "tool",
+	panelOpen  = true,
+	-- analog
+	analogActive = false,
+	analogX      = 0,
+	analogY      = 0,
+	analogDist   = 0,
+	buildPos     = nil,
+	buildDir     = Vector3.new(0,0,0),
 }
 
 -- ============================================================
---  MATERIALS — hanya yang valid di Studio Lite
+--  MATERIAL LIST (safe for Studio Lite — auto-filter)
 -- ============================================================
-local MATERIALS = {
-	{name="Grass",       mat=Enum.Material.Grass,       color=Color3.fromRGB(106,127,63)},
-	{name="Ground",      mat=Enum.Material.Ground,      color=Color3.fromRGB(106,95,76)},
-	{name="Sand",        mat=Enum.Material.Sand,        color=Color3.fromRGB(198,189,128)},
-	{name="Rock",        mat=Enum.Material.Rock,        color=Color3.fromRGB(102,108,111)},
-	{name="Sandstone",   mat=Enum.Material.Sandstone,   color=Color3.fromRGB(137,90,71)},
-	{name="Slate",       mat=Enum.Material.Slate,       color=Color3.fromRGB(63,75,86)},
-	{name="Basalt",      mat=Enum.Material.Basalt,      color=Color3.fromRGB(30,30,37)},
-	{name="Limestone",   mat=Enum.Material.Limestone,   color=Color3.fromRGB(206,173,148)},
-	{name="Pavement",    mat=Enum.Material.Pavement,    color=Color3.fromRGB(148,148,140)},
-	{name="Cobblestone", mat=Enum.Material.Cobblestone, color=Color3.fromRGB(132,123,90)},
-	{name="Brick",       mat=Enum.Material.Brick,       color=Color3.fromRGB(150,85,59)},
-	{name="Snow",        mat=Enum.Material.Snow,        color=Color3.fromRGB(195,199,218)},
-	{name="Ice",         mat=Enum.Material.Ice,         color=Color3.fromRGB(129,194,224)},
-	{name="Water",       mat=Enum.Material.Water,       color=Color3.fromRGB(40,120,196)},
-	{name="Wood",        mat=Enum.Material.Wood,        color=Color3.fromRGB(122,85,55)},
-	{name="WoodPlanks",  mat=Enum.Material.WoodPlanks,  color=Color3.fromRGB(159,118,82)},
-	{name="Neon",        mat=Enum.Material.Neon,        color=Color3.fromRGB(0,200,255)},
-	{name="SmoothPlastic",mat=Enum.Material.SmoothPlastic,color=Color3.fromRGB(180,180,180)},
-	{name="Concrete",    mat=Enum.Material.Concrete,    color=Color3.fromRGB(120,120,120)},
-	{name="DiamondPlate",mat=Enum.Material.DiamondPlate,color=Color3.fromRGB(160,170,180)},
-	{name="Foil",        mat=Enum.Material.Foil,        color=Color3.fromRGB(200,200,180)},
-	{name="Fabric",      mat=Enum.Material.Fabric,      color=Color3.fromRGB(180,140,100)},
+local MAT_RAW = {
+	{n="Grass",        m=Enum.Material.Grass,        c=Color3.fromRGB(85,120,50)},
+	{n="Ground",       m=Enum.Material.Ground,       c=Color3.fromRGB(100,80,55)},
+	{n="Sand",         m=Enum.Material.Sand,         c=Color3.fromRGB(210,195,130)},
+	{n="Rock",         m=Enum.Material.Rock,         c=Color3.fromRGB(100,105,110)},
+	{n="Sandstone",    m=Enum.Material.Sandstone,    c=Color3.fromRGB(140,95,70)},
+	{n="Slate",        m=Enum.Material.Slate,        c=Color3.fromRGB(55,65,80)},
+	{n="Basalt",       m=Enum.Material.Basalt,       c=Color3.fromRGB(28,28,35)},
+	{n="Limestone",    m=Enum.Material.Limestone,    c=Color3.fromRGB(210,180,150)},
+	{n="Pavement",     m=Enum.Material.Pavement,     c=Color3.fromRGB(145,145,138)},
+	{n="Cobblestone",  m=Enum.Material.Cobblestone,  c=Color3.fromRGB(130,120,88)},
+	{n="Brick",        m=Enum.Material.Brick,        c=Color3.fromRGB(155,88,60)},
+	{n="Snow",         m=Enum.Material.Snow,         c=Color3.fromRGB(220,225,235)},
+	{n="Ice",          m=Enum.Material.Ice,          c=Color3.fromRGB(130,200,230)},
+	{n="Water",        m=Enum.Material.Water,        c=Color3.fromRGB(30,110,200)},
+	{n="Wood",         m=Enum.Material.Wood,         c=Color3.fromRGB(120,82,52)},
+	{n="WoodPlanks",   m=Enum.Material.WoodPlanks,   c=Color3.fromRGB(160,120,80)},
+	{n="Concrete",     m=Enum.Material.Concrete,     c=Color3.fromRGB(115,115,115)},
+	{n="SmoothPlastic",m=Enum.Material.SmoothPlastic,c=Color3.fromRGB(175,175,175)},
+	{n="Neon",         m=Enum.Material.Neon,         c=Color3.fromRGB(0,200,255)},
+	{n="DiamondPlate", m=Enum.Material.DiamondPlate, c=Color3.fromRGB(165,172,180)},
+	{n="Foil",         m=Enum.Material.Foil,         c=Color3.fromRGB(205,205,185)},
+	{n="Fabric",       m=Enum.Material.Fabric,       c=Color3.fromRGB(180,145,105)},
 }
 
--- filter material yang beneran exist di Studio Lite
-local validMaterials = {}
-for _, m in ipairs(MATERIALS) do
+local MATS = {}
+for _, m in ipairs(MAT_RAW) do
 	local ok = pcall(function()
-		terrain:FillBall(Vector3.new(0,-9999,0), 1, m.mat)
-		terrain:FillBall(Vector3.new(0,-9999,0), 1, Enum.Material.Air)
+		terrain:FillBall(Vector3.new(0,-9999,0),1,m.m)
+		terrain:FillBall(Vector3.new(0,-9999,0),1,Enum.Material.Air)
 	end)
-	if ok then
-		table.insert(validMaterials, m)
-	end
+	if ok then table.insert(MATS, m) end
 end
--- fallback kalo semua gagal
-if #validMaterials == 0 then validMaterials = MATERIALS end
+if #MATS == 0 then MATS = MAT_RAW end
 
 local TOOLS = {
-	{id="add",    name="Add",     key="1"},
-	{id="sub",    name="Remove",  key="2"},
-	{id="paint",  name="Paint",   key="3"},
-	{id="smooth", name="Smooth",  key="4"},
-	{id="flat",   name="Flatten", key="5"},
-	{id="grow",   name="Grow",    key="6"},
-	{id="erode",  name="Erode",   key="7"},
+	{id="add",    label="Add",     icon="＋"},
+	{id="sub",    label="Remove",  icon="－"},
+	{id="paint",  label="Paint",   icon="◎"},
+	{id="smooth", label="Smooth",  icon="≈"},
+	{id="flat",   label="Flatten", icon="═"},
+	{id="grow",   label="Grow",    icon="▲"},
+	{id="erode",  label="Erode",   icon="▼"},
 }
 
 -- ============================================================
---  COLORS
+--  GLASS PREMIUM COLORS
 -- ============================================================
-local C = {
-	bg      = Color3.fromRGB(37,37,37),
-	panel   = Color3.fromRGB(46,46,46),
-	sidebar = Color3.fromRGB(30,30,30),
-	header  = Color3.fromRGB(27,27,27),
-	border  = Color3.fromRGB(60,60,60),
-	accent  = Color3.fromRGB(0,162,255),
-	accentH = Color3.fromRGB(30,180,255),
-	text    = Color3.fromRGB(220,220,220),
-	textDim = Color3.fromRGB(140,140,140),
-	btnN    = Color3.fromRGB(55,55,55),
-	btnH    = Color3.fromRGB(70,70,70),
-	btnAct  = Color3.fromRGB(0,120,215),
-	matSel  = Color3.fromRGB(0,100,180),
-	danger  = Color3.fromRGB(200,60,60),
-	success = Color3.fromRGB(60,180,80),
-	slider  = Color3.fromRGB(80,80,80),
+local G = {
+	-- glass panels
+	glass      = Color3.fromRGB(255,255,255),
+	glassDark  = Color3.fromRGB(20,24,36),
+	glassBlue  = Color3.fromRGB(14,20,45),
+
+	-- accents
+	cyan       = Color3.fromRGB(0,220,255),
+	blue       = Color3.fromRGB(50,130,255),
+	purple     = Color3.fromRGB(140,80,255),
+	pink       = Color3.fromRGB(255,80,180),
+	green      = Color3.fromRGB(0,230,120),
+	red        = Color3.fromRGB(255,60,60),
+	orange     = Color3.fromRGB(255,150,0),
+
+	-- text
+	textW      = Color3.fromRGB(240,245,255),
+	textDim    = Color3.fromRGB(140,160,200),
+	textHint   = Color3.fromRGB(80,100,150),
+
+	-- misc
+	border     = Color3.fromRGB(60,80,140),
+	borderGlow = Color3.fromRGB(0,180,255),
 }
 
 -- ============================================================
 --  HELPERS
 -- ============================================================
-local function corner(p, r)
-	local c = Instance.new("UICorner")
-	c.CornerRadius = UDim.new(0, r or 4)
-	c.Parent = p
+local function rnd(p,r) local c=Instance.new("UICorner");c.CornerRadius=UDim.new(0,r or 8);c.Parent=p end
+local function strk(p,col,th) local s=Instance.new("UIStroke");s.Color=col or G.border;s.Thickness=th or 1;s.Parent=p;return s end
+local function pad(p,t,r,b,l) local u=Instance.new("UIPadding");u.PaddingTop=UDim.new(0,t);u.PaddingRight=UDim.new(0,r);u.PaddingBottom=UDim.new(0,b);u.PaddingLeft=UDim.new(0,l);u.Parent=p end
+local function grad(p,c0,c1,rot)
+	local g=Instance.new("UIGradient")
+	g.Color=ColorSequence.new(c0,c1)
+	g.Rotation=rot or 90
+	g.Parent=p
 end
 
-local function pad(p,t,r,b,l)
-	local u = Instance.new("UIPadding")
-	u.PaddingTop=UDim.new(0,t) u.PaddingRight=UDim.new(0,r)
-	u.PaddingBottom=UDim.new(0,b) u.PaddingLeft=UDim.new(0,l)
-	u.Parent = p
+local function glassFrame(parent, size, pos, alpha, zi)
+	local f=Instance.new("Frame")
+	f.Size=size f.Position=pos or UDim2.new(0,0,0,0)
+	f.BackgroundColor3=G.glassBlue
+	f.BackgroundTransparency=alpha or 0.3
+	f.BorderSizePixel=0
+	f.ZIndex=zi or 10
+	f.Parent=parent
+	rnd(f,12)
+	strk(f,G.border,1)
+	return f
 end
 
-local function mkStroke(p, col, thick)
-	local s = Instance.new("UIStroke")
-	s.Color = col or C.border
-	s.Thickness = thick or 1
-	s.Parent = p
-	return s
+local function mkBtn(parent, txt, size, pos, zi)
+	local b=Instance.new("TextButton")
+	b.Size=size b.Position=pos or UDim2.new(0,0,0,0)
+	b.BackgroundColor3=G.glassBlue
+	b.BackgroundTransparency=0.4
+	b.BorderSizePixel=0
+	b.Text=txt b.TextSize=12
+	b.Font=Enum.Font.GothamBold
+	b.TextColor3=G.textW
+	b.ZIndex=zi or 11
+	b.Parent=parent
+	rnd(b,8)
+	strk(b,G.border,1)
+	b.MouseEnter:Connect(function() b.BackgroundTransparency=0.15 end)
+	b.MouseLeave:Connect(function() b.BackgroundTransparency=0.4 end)
+	return b
 end
 
-local function hover(btn, n, h)
-	btn.MouseEnter:Connect(function() btn.BackgroundColor3 = h end)
-	btn.MouseLeave:Connect(function() btn.BackgroundColor3 = n end)
-end
-
-local function secHdr(parent, title, order)
-	local f = Instance.new("Frame")
-	f.Size = UDim2.new(1,0,0,26)
-	f.BackgroundColor3 = C.header
-	f.BorderSizePixel = 0
-	f.LayoutOrder = order
-	f.Parent = parent
-	local l = Instance.new("TextLabel")
-	l.Size = UDim2.new(1,0,1,0)
-	l.BackgroundTransparency = 1
-	l.Text = "  " .. title
-	l.TextSize = 10
-	l.Font = Enum.Font.GothamBold
-	l.TextColor3 = C.textDim
-	l.TextXAlignment = Enum.TextXAlignment.Left
-	l.Parent = f
+local function mkLabel(parent, txt, size, bold, col, xa)
+	local l=Instance.new("TextLabel")
+	l.BackgroundTransparency=1
+	l.Text=txt l.TextSize=size or 12
+	l.Font=bold and Enum.Font.GothamBold or Enum.Font.Gotham
+	l.TextColor3=col or G.textW
+	l.TextXAlignment=xa or Enum.TextXAlignment.Left
+	l.AutomaticSize=Enum.AutomaticSize.XY
+	l.Parent=parent
+	return l
 end
 
 -- ============================================================
 --  GUI ROOT
 -- ============================================================
-local gui = Instance.new("ScreenGui")
-gui.Name = "DeltaTerrainBuilder"
-gui.ResetOnSpawn = false
-gui.IgnoreGuiInset = true
-gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-gui.Parent = game.CoreGui
+local gui=Instance.new("ScreenGui")
+gui.Name="DeltaTerrainBuilder"
+gui.ResetOnSpawn=false
+gui.IgnoreGuiInset=true
+gui.ZIndexBehavior=Enum.ZIndexBehavior.Sibling
+gui.Parent=game.CoreGui
 
 -- ============================================================
---  TOGGLE BUTTON
+--  BACKGROUND BLUR OVERLAY (glass effect)
 -- ============================================================
-local toggleBtn = Instance.new("TextButton")
-toggleBtn.Size = UDim2.new(0,44,0,44)
-toggleBtn.Position = UDim2.new(0,12,0.5,-22)
-toggleBtn.BackgroundColor3 = C.accentH
-toggleBtn.BorderSizePixel = 0
-toggleBtn.Text = "T"
-toggleBtn.TextSize = 20
-toggleBtn.Font = Enum.Font.GothamBold
-toggleBtn.TextColor3 = Color3.new(1,1,1)
-toggleBtn.ZIndex = 100
-toggleBtn.Parent = gui
-corner(toggleBtn, 10)
+-- (Studio Lite tidak support BlurEffect di CoreGui, skip)
 
 -- ============================================================
---  MAIN PANEL
+--  MAIN PANEL — Portrait, right side
 -- ============================================================
-local panel = Instance.new("Frame")
-panel.Name = "MainPanel"
-panel.Size = UDim2.new(0,320,0,540)
-panel.Position = UDim2.new(0,64,0.5,-270)
-panel.BackgroundColor3 = C.bg
-panel.BorderSizePixel = 0
-panel.ZIndex = 50
-panel.Visible = true
-panel.Parent = gui
-corner(panel, 8)
-mkStroke(panel)
+local PANEL_W = 260
+local PANEL_H = 580
 
--- HEADER
-local hdr = Instance.new("Frame")
-hdr.Size = UDim2.new(1,0,0,38)
-hdr.BackgroundColor3 = C.header
-hdr.BorderSizePixel = 0
-hdr.ZIndex = 51
-hdr.Parent = panel
-mkStroke(hdr)
+local panel=Instance.new("Frame")
+panel.Name="MainPanel"
+panel.Size=UDim2.new(0,PANEL_W,0,PANEL_H)
+panel.Position=UDim2.new(1,-PANEL_W-8,0.5,-PANEL_H/2)
+panel.BackgroundColor3=G.glassBlue
+panel.BackgroundTransparency=0.18
+panel.BorderSizePixel=0
+panel.ZIndex=20
+panel.Visible=true
+panel.Parent=gui
+rnd(panel,16)
+strk(panel,G.border,1.5)
 
-local hTitle = Instance.new("TextLabel")
-hTitle.Size = UDim2.new(1,-80,1,0)
-hTitle.Position = UDim2.new(0,12,0,0)
-hTitle.Text = "Delta Terrain Builder v2.1"
-hTitle.TextSize = 13
-hTitle.Font = Enum.Font.GothamBold
-hTitle.TextColor3 = C.text
-hTitle.BackgroundTransparency = 1
-hTitle.TextXAlignment = Enum.TextXAlignment.Left
-hTitle.Parent = hdr
+-- glow border
+local glowStroke=Instance.new("UIStroke")
+glowStroke.Color=G.cyan
+glowStroke.Thickness=0
+glowStroke.Parent=panel
 
-local closeBtn = Instance.new("TextButton")
-closeBtn.Size = UDim2.new(0,26,0,26)
-closeBtn.Position = UDim2.new(1,-32,0,6)
-closeBtn.BackgroundColor3 = Color3.fromRGB(196,43,28)
-closeBtn.BorderSizePixel = 0
-closeBtn.Text = "X"
-closeBtn.TextSize = 14
-closeBtn.Font = Enum.Font.GothamBold
-closeBtn.TextColor3 = Color3.new(1,1,1)
-closeBtn.ZIndex = 52
-closeBtn.Parent = hdr
-corner(closeBtn, 5)
-hover(closeBtn, Color3.fromRGB(196,43,28), Color3.fromRGB(230,60,45))
+-- top gradient bar
+local topBar=Instance.new("Frame")
+topBar.Size=UDim2.new(1,0,0,3)
+topBar.BackgroundColor3=G.cyan
+topBar.BorderSizePixel=0
+topBar.ZIndex=21
+topBar.Parent=panel
+rnd(topBar,2)
+grad(topBar, G.cyan, G.purple, 0)
 
--- DRAG
+-- ============================================================
+--  HEADER
+-- ============================================================
+local header=Instance.new("Frame")
+header.Size=UDim2.new(1,0,0,48)
+header.Position=UDim2.new(0,0,0,3)
+header.BackgroundTransparency=1
+header.BorderSizePixel=0
+header.ZIndex=21
+header.Parent=panel
+
+local hIcon=Instance.new("TextLabel")
+hIcon.Size=UDim2.new(0,36,0,36)
+hIcon.Position=UDim2.new(0,10,0,6)
+hIcon.BackgroundColor3=G.cyan
+hIcon.BackgroundTransparency=0.6
+hIcon.Text="▲"
+hIcon.TextSize=18
+hIcon.Font=Enum.Font.GothamBold
+hIcon.TextColor3=G.cyan
+hIcon.TextXAlignment=Enum.TextXAlignment.Center
+hIcon.ZIndex=22
+hIcon.Parent=header
+rnd(hIcon,8)
+strk(hIcon,G.cyan,1)
+
+local hTitle=Instance.new("TextLabel")
+hTitle.Size=UDim2.new(1,-90,0,20)
+hTitle.Position=UDim2.new(0,52,0,6)
+hTitle.BackgroundTransparency=1
+hTitle.Text="Delta Terrain"
+hTitle.TextSize=14
+hTitle.Font=Enum.Font.GothamBold
+hTitle.TextColor3=G.textW
+hTitle.TextXAlignment=Enum.TextXAlignment.Left
+hTitle.ZIndex=22
+hTitle.Parent=header
+
+local hSub=Instance.new("TextLabel")
+hSub.Size=UDim2.new(1,-90,0,14)
+hSub.Position=UDim2.new(0,52,0,24)
+hSub.BackgroundTransparency=1
+hSub.Text="Builder v3.0 · Liquid Glass"
+hSub.TextSize=9
+hSub.Font=Enum.Font.Gotham
+hSub.TextColor3=G.textDim
+hSub.TextXAlignment=Enum.TextXAlignment.Left
+hSub.ZIndex=22
+hSub.Parent=header
+
+-- close btn
+local closeBtn=Instance.new("TextButton")
+closeBtn.Size=UDim2.new(0,28,0,28)
+closeBtn.Position=UDim2.new(1,-36,0,10)
+closeBtn.BackgroundColor3=G.red
+closeBtn.BackgroundTransparency=0.3
+closeBtn.BorderSizePixel=0
+closeBtn.Text="✕"
+closeBtn.TextSize=14
+closeBtn.Font=Enum.Font.GothamBold
+closeBtn.TextColor3=Color3.new(1,1,1)
+closeBtn.ZIndex=22
+closeBtn.Parent=header
+rnd(closeBtn,8)
+
+-- DRAG panel
 do
-	local drag, ds, sp
-	hdr.InputBegan:Connect(function(i)
-		if i.UserInputType == Enum.UserInputType.MouseButton1 then
-			drag = true; ds = i.Position; sp = panel.Position
+	local drag,ds,sp
+	header.InputBegan:Connect(function(i)
+		if i.UserInputType==Enum.UserInputType.MouseButton1 then
+			drag=true ds=i.Position sp=panel.Position
 		end
 	end)
-	hdr.InputEnded:Connect(function(i)
-		if i.UserInputType == Enum.UserInputType.MouseButton1 then drag = false end
+	header.InputEnded:Connect(function(i)
+		if i.UserInputType==Enum.UserInputType.MouseButton1 then drag=false end
 	end)
-	UserInputService.InputChanged:Connect(function(i)
-		if drag and i.UserInputType == Enum.UserInputType.MouseMovement then
-			local d = i.Position - ds
-			panel.Position = UDim2.new(sp.X.Scale, sp.X.Offset+d.X, sp.Y.Scale, sp.Y.Offset+d.Y)
+	UIS.InputChanged:Connect(function(i)
+		if drag and i.UserInputType==Enum.UserInputType.MouseMovement then
+			local d=i.Position-ds
+			panel.Position=UDim2.new(sp.X.Scale,sp.X.Offset+d.X,sp.Y.Scale,sp.Y.Offset+d.Y)
 		end
 	end)
 end
 
--- TAB BAR
-local tabBar = Instance.new("Frame")
-tabBar.Size = UDim2.new(1,0,0,30)
-tabBar.Position = UDim2.new(0,0,0,38)
-tabBar.BackgroundColor3 = C.sidebar
-tabBar.BorderSizePixel = 0
-tabBar.ZIndex = 51
-tabBar.Parent = panel
+-- ============================================================
+--  TAB BAR (pill style)
+-- ============================================================
+local tabPill=Instance.new("Frame")
+tabPill.Size=UDim2.new(1,-16,0,30)
+tabPill.Position=UDim2.new(0,8,0,54)
+tabPill.BackgroundColor3=Color3.fromRGB(10,15,35)
+tabPill.BackgroundTransparency=0.3
+tabPill.BorderSizePixel=0
+tabPill.ZIndex=21
+tabPill.Parent=panel
+rnd(tabPill,10)
+strk(tabPill,G.border,1)
 
-Instance.new("UIListLayout", tabBar).FillDirection = Enum.FillDirection.Horizontal
+local tabLL=Instance.new("UIListLayout")
+tabLL.FillDirection=Enum.FillDirection.Horizontal
+tabLL.SortOrder=Enum.SortOrder.LayoutOrder
+tabLL.Padding=UDim.new(0,2)
+tabLL.VerticalAlignment=Enum.VerticalAlignment.Center
+tabLL.Parent=tabPill
+pad(tabPill,3,3,3,3)
 
-local tabDefs = {
-	{id="tools",    label="Tools"},
-	{id="materials",label="Materials"},
-	{id="settings", label="Settings"},
+local TAB_DEFS={
+	{id="tool",  label="Tools"},
+	{id="mat",   label="Materials"},
+	{id="set",   label="Settings"},
 }
-local tabBtns = {}
+local tabBtns={}
 
-for i, td in ipairs(tabDefs) do
-	local b = Instance.new("TextButton")
-	b.Size = UDim2.new(0,106,0,30)
-	b.BackgroundColor3 = C.sidebar
-	b.BorderSizePixel = 0
-	b.Text = td.label
-	b.TextSize = 12
-	b.Font = Enum.Font.GothamBold
-	b.TextColor3 = C.textDim
-	b.LayoutOrder = i
-	b.ZIndex = 52
-	b.Parent = tabBar
-	tabBtns[td.id] = b
+for i,td in ipairs(TAB_DEFS) do
+	local b=Instance.new("TextButton")
+	b.Size=UDim2.new(0,76,0,24)
+	b.BackgroundColor3=G.glassBlue
+	b.BackgroundTransparency=1
+	b.BorderSizePixel=0
+	b.Text=td.label
+	b.TextSize=11
+	b.Font=Enum.Font.GothamBold
+	b.TextColor3=G.textDim
+	b.LayoutOrder=i
+	b.ZIndex=22
+	b.Parent=tabPill
+	rnd(b,8)
+	tabBtns[td.id]=b
 end
 
-local tabLine = Instance.new("Frame")
-tabLine.Size = UDim2.new(0,106,0,2)
-tabLine.Position = UDim2.new(0,0,1,-2)
-tabLine.BackgroundColor3 = C.accent
-tabLine.BorderSizePixel = 0
-tabLine.ZIndex = 53
-tabLine.Parent = tabBar
+-- ============================================================
+--  CONTENT SCROLL
+-- ============================================================
+local scrollFrame=Instance.new("ScrollingFrame")
+scrollFrame.Size=UDim2.new(1,-4,1,-200)
+scrollFrame.Position=UDim2.new(0,2,0,88)
+scrollFrame.BackgroundTransparency=1
+scrollFrame.BorderSizePixel=0
+scrollFrame.ScrollBarThickness=3
+scrollFrame.ScrollBarImageColor3=G.cyan
+scrollFrame.CanvasSize=UDim2.new(0,0,0,0)
+scrollFrame.AutomaticCanvasSize=Enum.AutomaticSize.Y
+scrollFrame.ZIndex=21
+scrollFrame.Parent=panel
 
--- CONTENT AREA
-local content = Instance.new("Frame")
-content.Size = UDim2.new(1,0,1,-92)
-content.Position = UDim2.new(0,0,0,68)
-content.BackgroundColor3 = C.panel
-content.BorderSizePixel = 0
-content.ClipsDescendants = true
-content.ZIndex = 51
-content.Parent = panel
+-- ============================================================
+--  STATUS BAR
+-- ============================================================
+local statusBg=Instance.new("Frame")
+statusBg.Size=UDim2.new(1,-16,0,20)
+statusBg.Position=UDim2.new(0,8,1,-28)
+statusBg.BackgroundColor3=Color3.fromRGB(0,180,255)
+statusBg.BackgroundTransparency=0.75
+statusBg.BorderSizePixel=0
+statusBg.ZIndex=21
+statusBg.Parent=panel
+rnd(statusBg,6)
 
--- STATUS BAR
-local statusBar = Instance.new("Frame")
-statusBar.Size = UDim2.new(1,0,0,24)
-statusBar.Position = UDim2.new(0,0,1,-24)
-statusBar.BackgroundColor3 = C.header
-statusBar.BorderSizePixel = 0
-statusBar.ZIndex = 51
-statusBar.Parent = panel
+local statusLbl=Instance.new("TextLabel")
+statusLbl.Size=UDim2.new(1,-8,1,0)
+statusLbl.Position=UDim2.new(0,4,0,0)
+statusLbl.BackgroundTransparency=1
+statusLbl.Text="Ready"
+statusLbl.TextSize=9
+statusLbl.Font=Enum.Font.Gotham
+statusLbl.TextColor3=G.textDim
+statusLbl.TextXAlignment=Enum.TextXAlignment.Left
+statusLbl.ZIndex=22
+statusLbl.Parent=statusBg
 
-local statusLbl = Instance.new("TextLabel")
-statusLbl.Size = UDim2.new(1,-8,1,0)
-statusLbl.Position = UDim2.new(0,8,0,0)
-statusLbl.BackgroundTransparency = 1
-statusLbl.Text = "Ready"
-statusLbl.TextSize = 10
-statusLbl.Font = Enum.Font.Gotham
-statusLbl.TextColor3 = C.textDim
-statusLbl.TextXAlignment = Enum.TextXAlignment.Left
-statusLbl.Parent = statusBar
+local function setStat(msg) statusLbl.Text=msg end
 
-local function setStatus(msg) statusLbl.Text = msg end
+-- ============================================================
+--  PAGE BUILDER
+-- ============================================================
+local pages={}
+
+local function makePage(id)
+	local f=Instance.new("Frame")
+	f.Size=UDim2.new(1,0,1,0)
+	f.BackgroundTransparency=1
+	f.BorderSizePixel=0
+	f.Visible=false
+	f.ZIndex=22
+	f.Parent=scrollFrame
+	local ll=Instance.new("UIListLayout")
+	ll.SortOrder=Enum.SortOrder.LayoutOrder
+	ll.Padding=UDim.new(0,4)
+	ll.Parent=f
+	pad(f,6,6,6,6)
+	pages[id]=f
+	return f
+end
+
+local function secTitle(parent, txt, order)
+	local row=Instance.new("Frame")
+	row.Size=UDim2.new(1,0,0,22)
+	row.BackgroundTransparency=1
+	row.LayoutOrder=order
+	row.Parent=parent
+
+	local line=Instance.new("Frame")
+	line.Size=UDim2.new(1,0,0,1)
+	line.Position=UDim2.new(0,0,0.5,0)
+	line.BackgroundColor3=G.border
+	line.BorderSizePixel=0
+	line.Parent=row
+	grad(line,G.cyan,Color3.fromRGB(0,0,0),0)
+
+	local bg=Instance.new("Frame")
+	bg.Size=UDim2.new(0,0,0,18)
+	bg.AutomaticSize=Enum.AutomaticSize.X
+	bg.BackgroundColor3=G.glassBlue
+	bg.BorderSizePixel=0
+	bg.Position=UDim2.new(0,0,0.5,-9)
+	bg.Parent=row
+	pad(bg,0,8,0,0)
+	rnd(bg,4)
+
+	local l=Instance.new("TextLabel")
+	l.BackgroundTransparency=1
+	l.Text=txt
+	l.TextSize=10
+	l.Font=Enum.Font.GothamBold
+	l.TextColor3=G.cyan
+	l.TextXAlignment=Enum.TextXAlignment.Left
+	l.AutomaticSize=Enum.AutomaticSize.XY
+	l.Parent=bg
+end
 
 -- ============================================================
 --  TOOLS PAGE
 -- ============================================================
-local toolsPage = Instance.new("ScrollingFrame")
-toolsPage.Size = UDim2.new(1,0,1,0)
-toolsPage.BackgroundTransparency = 1
-toolsPage.BorderSizePixel = 0
-toolsPage.ScrollBarThickness = 4
-toolsPage.ScrollBarImageColor3 = C.accent
-toolsPage.CanvasSize = UDim2.new(0,0,0,0)
-toolsPage.AutomaticCanvasSize = Enum.AutomaticSize.Y
-toolsPage.ZIndex = 52
-toolsPage.Visible = true
-toolsPage.Parent = content
+local toolPage=makePage("tool")
 
-local tpLL = Instance.new("UIListLayout")
-tpLL.SortOrder = Enum.SortOrder.LayoutOrder
-tpLL.Padding = UDim.new(0,0)
-tpLL.Parent = toolsPage
+secTitle(toolPage,"TOOL TYPE",1)
 
--- Tool buttons
-secHdr(toolsPage, "TOOL TYPE", 1)
+local toolGrid=Instance.new("Frame")
+toolGrid.Size=UDim2.new(1,0,0,110)
+toolGrid.BackgroundTransparency=1
+toolGrid.LayoutOrder=2
+toolGrid.Parent=toolPage
 
-local toolGrid = Instance.new("Frame")
-toolGrid.Size = UDim2.new(1,0,0,88)
-toolGrid.BackgroundTransparency = 1
-toolGrid.LayoutOrder = 2
-toolGrid.Parent = toolsPage
-pad(toolGrid,6,6,6,8)
+local tgGrid=Instance.new("UIGridLayout")
+tgGrid.CellSize=UDim2.new(0,106,0,32)
+tgGrid.CellPadding=UDim2.new(0,4,0,4)
+tgGrid.Parent=toolGrid
 
-local tgGrid = Instance.new("UIGridLayout")
-tgGrid.CellSize = UDim2.new(0,86,0,32)
-tgGrid.CellPadding = UDim2.new(0,4,0,4)
-tgGrid.Parent = toolGrid
-
-local toolBtns = {}
-local toolIcons = {add="+",sub="-",paint="P",smooth="~",flat="=",grow="^",erode="v"}
+local toolBtns={}
+local toolColors={
+	add=G.green, sub=G.red, paint=G.cyan, smooth=G.blue,
+	flat=G.orange, grow=G.purple, erode=G.pink,
+}
 
 local function setTool(id)
-	state.activeTool = id
-	for tid, b in pairs(toolBtns) do
-		b.BackgroundColor3 = tid==id and C.btnAct or C.btnN
-		b.TextColor3 = tid==id and Color3.new(1,1,1) or C.text
+	S.tool=id
+	for tid,b in pairs(toolBtns) do
+		local ac = tid==id
+		b.BackgroundColor3 = ac and toolColors[tid] or G.glassBlue
+		b.BackgroundTransparency = ac and 0.1 or 0.5
+		b.TextColor3 = ac and Color3.new(1,1,1) or G.textDim
 	end
-	setStatus("Tool: " .. id)
+	setStat("Tool: "..id)
 end
 
-for _, t in ipairs(TOOLS) do
-	local b = Instance.new("TextButton")
-	b.Size = UDim2.new(0,86,0,32)
-	b.BackgroundColor3 = C.btnN
-	b.BorderSizePixel = 0
-	b.Text = (toolIcons[t.id] or "") .. " " .. t.name .. " [" .. t.key .. "]"
-	b.TextSize = 11
-	b.Font = Enum.Font.Gotham
-	b.TextColor3 = C.text
-	b.ZIndex = 53
-	b.Parent = toolGrid
-	corner(b, 4)
-	hover(b, C.btnN, C.btnH)
-	toolBtns[t.id] = b
+for _,t in ipairs(TOOLS) do
+	local b=Instance.new("TextButton")
+	b.Size=UDim2.new(0,106,0,32)
+	b.BackgroundColor3=G.glassBlue
+	b.BackgroundTransparency=0.5
+	b.BorderSizePixel=0
+	b.Text=t.icon.." "..t.label
+	b.TextSize=12
+	b.Font=Enum.Font.GothamBold
+	b.TextColor3=G.textDim
+	b.ZIndex=23
+	b.Parent=toolGrid
+	rnd(b,8)
+	strk(b,G.border,1)
+	toolBtns[t.id]=b
 	b.MouseButton1Click:Connect(function() setTool(t.id) end)
 end
 setTool("add")
 
 -- Brush Shape
-secHdr(toolsPage, "BRUSH SHAPE", 3)
+secTitle(toolPage,"BRUSH SHAPE",3)
 
-local shapeRow = Instance.new("Frame")
-shapeRow.Size = UDim2.new(1,0,0,42)
-shapeRow.BackgroundTransparency = 1
-shapeRow.LayoutOrder = 4
-shapeRow.Parent = toolsPage
-pad(shapeRow,6,6,6,8)
+local shapeRow=Instance.new("Frame")
+shapeRow.Size=UDim2.new(1,0,0,32)
+shapeRow.BackgroundTransparency=1
+shapeRow.LayoutOrder=4
+shapeRow.Parent=toolPage
 
-local srLL = Instance.new("UIListLayout")
-srLL.FillDirection = Enum.FillDirection.Horizontal
-srLL.Padding = UDim.new(0,6)
-srLL.VerticalAlignment = Enum.VerticalAlignment.Center
-srLL.Parent = shapeRow
+local shLL=Instance.new("UIListLayout")
+shLL.FillDirection=Enum.FillDirection.Horizontal
+shLL.Padding=UDim.new(0,4)
+shLL.Parent=shapeRow
 
-local shapeBtns = {}
+local shapeBtns={}
 local function setShape(id)
-	state.brushShape = id
-	for sid, b in pairs(shapeBtns) do
-		b.BackgroundColor3 = sid==id and C.btnAct or C.btnN
+	S.shape=id
+	for sid,b in pairs(shapeBtns) do
+		local ac=sid==id
+		b.BackgroundTransparency=ac and 0.1 or 0.5
+		b.TextColor3=ac and G.cyan or G.textDim
 	end
 end
 
-for _, s in ipairs({
-	{id="sphere",  label="Sphere"},
-	{id="cylinder",label="Cylinder"},
-	{id="box",     label="Box"},
-}) do
-	local b = Instance.new("TextButton")
-	b.Size = UDim2.new(0,86,0,28)
-	b.BackgroundColor3 = C.btnN
-	b.BorderSizePixel = 0
-	b.Text = s.label
-	b.TextSize = 11
-	b.Font = Enum.Font.Gotham
-	b.TextColor3 = C.text
-	b.ZIndex = 53
-	b.Parent = shapeRow
-	corner(b, 4)
-	shapeBtns[s.id] = b
+for _,s in ipairs({{id="sphere",l="● Sphere"},{id="cylinder",l="⬤ Cyl"},{id="box",l="■ Box"}}) do
+	local b=Instance.new("TextButton")
+	b.Size=UDim2.new(0,76,0,30)
+	b.BackgroundColor3=G.cyan
+	b.BackgroundTransparency=0.5
+	b.BorderSizePixel=0
+	b.Text=s.l b.TextSize=10
+	b.Font=Enum.Font.GothamBold
+	b.TextColor3=G.textDim
+	b.ZIndex=23 b.Parent=shapeRow
+	rnd(b,8) strk(b,G.border,1)
+	shapeBtns[s.id]=b
 	b.MouseButton1Click:Connect(function() setShape(s.id) end)
 end
 setShape("sphere")
 
--- Slider maker
-local function makeSlider(parent, order, labelPfx, minV, maxV, defV, fillCol, suffix, onChange)
-	local sec = Instance.new("Frame")
-	sec.Size = UDim2.new(1,0,0,52)
-	sec.BackgroundTransparency = 1
-	sec.LayoutOrder = order
-	sec.Parent = parent
-	pad(sec,8,14,4,12)
+-- Sliders
+local function mkSlider(parent,order,pfx,mn,mx,def,fillC,sfx,cb)
+	local wrap=Instance.new("Frame")
+	wrap.Size=UDim2.new(1,0,0,48)
+	wrap.BackgroundTransparency=1
+	wrap.LayoutOrder=order
+	wrap.Parent=parent
 
-	local pct0 = (defV-minV)/(maxV-minV)
+	local vLbl=Instance.new("TextLabel")
+	vLbl.Size=UDim2.new(1,0,0,14)
+	vLbl.BackgroundTransparency=1
+	vLbl.Text=pfx..tostring(def)..sfx
+	vLbl.TextSize=11
+	vLbl.Font=Enum.Font.GothamBold
+	vLbl.TextColor3=G.textW
+	vLbl.TextXAlignment=Enum.TextXAlignment.Left
+	vLbl.Parent=wrap
 
-	local valLbl = Instance.new("TextLabel")
-	valLbl.Size = UDim2.new(1,0,0,16)
-	valLbl.BackgroundTransparency = 1
-	valLbl.Text = labelPfx .. tostring(defV) .. suffix
-	valLbl.TextSize = 12
-	valLbl.Font = Enum.Font.Gotham
-	valLbl.TextColor3 = C.text
-	valLbl.TextXAlignment = Enum.TextXAlignment.Left
-	valLbl.Parent = sec
+	local track=Instance.new("Frame")
+	track.Size=UDim2.new(1,0,0,8)
+	track.Position=UDim2.new(0,0,0,20)
+	track.BackgroundColor3=Color3.fromRGB(15,20,45)
+	track.BorderSizePixel=0
+	track.Parent=wrap
+	rnd(track,4) strk(track,G.border,1)
 
-	local track = Instance.new("Frame")
-	track.Size = UDim2.new(1,0,0,6)
-	track.Position = UDim2.new(0,0,0,24)
-	track.BackgroundColor3 = C.slider
-	track.BorderSizePixel = 0
-	track.Parent = sec
-	corner(track, 3)
+	local p0=(def-mn)/(mx-mn)
+	local fill=Instance.new("Frame")
+	fill.Size=UDim2.new(p0,0,1,0)
+	fill.BackgroundColor3=fillC
+	fill.BackgroundTransparency=0.1
+	fill.BorderSizePixel=0
+	fill.Parent=track
+	rnd(fill,4)
+	grad(fill,fillC,Color3.fromRGB(math.floor(fillC.R*100),math.floor(fillC.G*100),math.floor(fillC.B*100)),0)
 
-	local fill = Instance.new("Frame")
-	fill.Size = UDim2.new(pct0,0,1,0)
-	fill.BackgroundColor3 = fillCol
-	fill.BorderSizePixel = 0
-	fill.Parent = track
-	corner(fill, 3)
+	local knob=Instance.new("TextButton")
+	knob.Size=UDim2.new(0,16,0,16)
+	knob.Position=UDim2.new(p0,-8,0.5,-8)
+	knob.BackgroundColor3=Color3.new(1,1,1)
+	knob.BorderSizePixel=0
+	knob.Text="" knob.ZIndex=25
+	knob.Parent=track
+	rnd(knob,8)
+	strk(knob,fillC,2)
 
-	local knob = Instance.new("TextButton")
-	knob.Size = UDim2.new(0,14,0,14)
-	knob.Position = UDim2.new(pct0,-7,0.5,-7)
-	knob.BackgroundColor3 = Color3.new(1,1,1)
-	knob.BorderSizePixel = 0
-	knob.Text = ""
-	knob.ZIndex = 54
-	knob.Parent = track
-	corner(knob, 7)
-
-	local dragging = false
-	local function updateX(absX)
-		local tx = track.AbsolutePosition.X
-		local tw = track.AbsoluteSize.X
-		local p = math.clamp((absX-tx)/tw, 0, 1)
-		local value = math.floor(minV + p*(maxV-minV))
-		fill.Size = UDim2.new(p,0,1,0)
-		knob.Position = UDim2.new(p,-7,0.5,-7)
-		valLbl.Text = labelPfx .. tostring(value) .. suffix
-		onChange(value)
+	local dragging=false
+	local function upd(ax)
+		local tx=track.AbsolutePosition.X
+		local tw=track.AbsoluteSize.X
+		local p=math.clamp((ax-tx)/tw,0,1)
+		local v=math.floor(mn+p*(mx-mn))
+		fill.Size=UDim2.new(p,0,1,0)
+		knob.Position=UDim2.new(p,-8,0.5,-8)
+		vLbl.Text=pfx..tostring(v)..sfx
+		cb(v)
 	end
 
-	knob.MouseButton1Down:Connect(function() dragging = true end)
-	UserInputService.InputEnded:Connect(function(i)
-		if i.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end
+	knob.MouseButton1Down:Connect(function() dragging=true end)
+	UIS.InputEnded:Connect(function(i)
+		if i.UserInputType==Enum.UserInputType.MouseButton1 then dragging=false end
 	end)
-	UserInputService.InputChanged:Connect(function(i)
-		if dragging and i.UserInputType == Enum.UserInputType.MouseMovement then
-			updateX(i.Position.X)
+	UIS.InputChanged:Connect(function(i)
+		if dragging and i.UserInputType==Enum.UserInputType.MouseMovement then
+			upd(i.Position.X)
 		end
 	end)
 	track.InputBegan:Connect(function(i)
-		if i.UserInputType == Enum.UserInputType.MouseButton1 then
-			updateX(UserInputService:GetMouseLocation().X)
+		if i.UserInputType==Enum.UserInputType.MouseButton1 then
+			upd(UIS:GetMouseLocation().X)
 		end
 	end)
 end
 
-secHdr(toolsPage, "BRUSH SIZE", 5)
-makeSlider(toolsPage, 6, "Size: ", 2, 64, 12, C.accent, "", function(v)
-	state.brushSize = v
-end)
+secTitle(toolPage,"BRUSH SIZE",5)
+mkSlider(toolPage,6,"Size: ",2,64,16,G.cyan,"",function(v) S.brushSize=v end)
 
-secHdr(toolsPage, "BRUSH STRENGTH", 7)
-makeSlider(toolsPage, 8, "Strength: ", 1, 100, 40, C.success, "%", function(v)
-	state.brushStrength = v/100
-end)
+secTitle(toolPage,"STRENGTH",7)
+mkSlider(toolPage,8,"Str: ",1,100,50,G.green,"%",function(v) S.strength=v/100 end)
 
--- Flatten Height
-secHdr(toolsPage, "FLATTEN HEIGHT", 9)
-local flatSec = Instance.new("Frame")
-flatSec.Size = UDim2.new(1,0,0,42)
-flatSec.BackgroundTransparency = 1
-flatSec.LayoutOrder = 10
-flatSec.Parent = toolsPage
-pad(flatSec,6,8,6,8)
+-- Flatten pick
+secTitle(toolPage,"FLATTEN HEIGHT",9)
+local flatRow=Instance.new("Frame")
+flatRow.Size=UDim2.new(1,0,0,32)
+flatRow.BackgroundTransparency=1
+flatRow.LayoutOrder=10
+flatRow.Parent=toolPage
+local frLL=Instance.new("UIListLayout")
+frLL.FillDirection=Enum.FillDirection.Horizontal
+frLL.Padding=UDim.new(0,6)
+frLL.VerticalAlignment=Enum.VerticalAlignment.Center
+frLL.Parent=flatRow
 
-local flatLL = Instance.new("UIListLayout")
-flatLL.FillDirection = Enum.FillDirection.Horizontal
-flatLL.Padding = UDim.new(0,8)
-flatLL.VerticalAlignment = Enum.VerticalAlignment.Center
-flatLL.Parent = flatSec
+local pickBtn=Instance.new("TextButton")
+pickBtn.Size=UDim2.new(0,148,0,28)
+pickBtn.BackgroundColor3=G.orange
+pickBtn.BackgroundTransparency=0.3
+pickBtn.BorderSizePixel=0
+pickBtn.Text="Pick Height"
+pickBtn.TextSize=11
+pickBtn.Font=Enum.Font.GothamBold
+pickBtn.TextColor3=Color3.new(1,1,1)
+pickBtn.ZIndex=23
+pickBtn.Parent=flatRow
+rnd(pickBtn,8)
 
-local pickBtn = Instance.new("TextButton")
-pickBtn.Size = UDim2.new(0,160,0,28)
-pickBtn.BackgroundColor3 = C.btnN
-pickBtn.BorderSizePixel = 0
-pickBtn.Text = "Pick Height From Terrain"
-pickBtn.TextSize = 11
-pickBtn.Font = Enum.Font.Gotham
-pickBtn.TextColor3 = C.text
-pickBtn.ZIndex = 53
-pickBtn.Parent = flatSec
-corner(pickBtn, 4)
-hover(pickBtn, C.btnN, C.btnH)
-
-local flatHLbl = Instance.new("TextLabel")
-flatHLbl.Size = UDim2.new(0,100,0,28)
-flatHLbl.BackgroundTransparency = 1
-flatHLbl.Text = "Y: auto"
-flatHLbl.TextSize = 11
-flatHLbl.Font = Enum.Font.Gotham
-flatHLbl.TextColor3 = C.textDim
-flatHLbl.TextXAlignment = Enum.TextXAlignment.Left
-flatHLbl.Parent = flatSec
+local flatLbl=Instance.new("TextLabel")
+flatLbl.Size=UDim2.new(0,80,0,28)
+flatLbl.BackgroundTransparency=1
+flatLbl.Text="Y: auto"
+flatLbl.TextSize=11
+flatLbl.Font=Enum.Font.Gotham
+flatLbl.TextColor3=G.textDim
+flatLbl.TextXAlignment=Enum.TextXAlignment.Left
+flatLbl.Parent=flatRow
 
 pickBtn.MouseButton1Click:Connect(function()
-	pickBtn.Text = "Click terrain..."
-	pickBtn.BackgroundColor3 = C.accentH
-	local conn
-	conn = mouse.Button1Down:Connect(function()
-		conn:Disconnect()
-		local pos = mouse.Hit.Position
-		state.flatHeight = pos.Y
-		flatHLbl.Text = string.format("Y: %.1f", pos.Y)
-		pickBtn.Text = "Pick Height From Terrain"
-		pickBtn.BackgroundColor3 = C.btnN
+	pickBtn.Text="Click terrain..."
+	local c c=mouse.Button1Down:Connect(function()
+		c:Disconnect()
+		S.flatY=mouse.Hit.Position.Y
+		flatLbl.Text=string.format("Y: %.1f",S.flatY)
+		pickBtn.Text="Pick Height"
 	end)
 end)
 
 -- ============================================================
 --  MATERIALS PAGE
 -- ============================================================
-local matsPage = Instance.new("ScrollingFrame")
-matsPage.Size = UDim2.new(1,0,1,0)
-matsPage.BackgroundTransparency = 1
-matsPage.BorderSizePixel = 0
-matsPage.ScrollBarThickness = 4
-matsPage.ScrollBarImageColor3 = C.accent
-matsPage.CanvasSize = UDim2.new(0,0,0,0)
-matsPage.AutomaticCanvasSize = Enum.AutomaticSize.Y
-matsPage.ZIndex = 52
-matsPage.Visible = false
-matsPage.Parent = content
+local matPage=makePage("mat")
 
-local mpWrapper = Instance.new("Frame")
-mpWrapper.Size = UDim2.new(1,0,0,0)
-mpWrapper.AutomaticSize = Enum.AutomaticSize.Y
-mpWrapper.BackgroundTransparency = 1
-mpWrapper.Parent = matsPage
-pad(mpWrapper,8,8,8,8)
+local matWrap=Instance.new("Frame")
+matWrap.Size=UDim2.new(1,0,0,0)
+matWrap.AutomaticSize=Enum.AutomaticSize.Y
+matWrap.BackgroundTransparency=1
+matWrap.LayoutOrder=1
+matWrap.Parent=matPage
 
-local mpGrid = Instance.new("UIGridLayout")
-mpGrid.CellSize = UDim2.new(0,66,0,68)
-mpGrid.CellPadding = UDim2.new(0,5,0,5)
-mpGrid.Parent = mpWrapper
+local mgGrid=Instance.new("UIGridLayout")
+mgGrid.CellSize=UDim2.new(0,72,0,76)
+mgGrid.CellPadding=UDim2.new(0,4,0,4)
+mgGrid.Parent=matWrap
 
-local matBtns = {}
-local function setMat(mat, ref)
-	state.activeMat = mat
-	for _, m in ipairs(matBtns) do
-		m.cell.BackgroundColor3 = C.panel
-		m.nl.TextColor3 = C.textDim
-		local s = m.cell:FindFirstChildOfClass("UIStroke")
-		if s then s.Color = C.border end
+local matBtns={}
+local function setMat(mat,ref)
+	S.mat=mat
+	for _,m in ipairs(matBtns) do
+		m.cell.BackgroundTransparency=0.5
+		local s=m.cell:FindFirstChildOfClass("UIStroke")
+		if s then s.Color=G.border;s.Thickness=1 end
 	end
-	ref.cell.BackgroundColor3 = C.matSel
-	ref.nl.TextColor3 = Color3.new(1,1,1)
-	local s = ref.cell:FindFirstChildOfClass("UIStroke")
-	if s then s.Color = C.accent end
-	setStatus("Material: " .. tostring(mat):gsub("Enum.Material.",""))
+	ref.cell.BackgroundTransparency=0.1
+	local s=ref.cell:FindFirstChildOfClass("UIStroke")
+	if s then s.Color=G.cyan;s.Thickness=2 end
+	setStat("Mat: "..tostring(mat):gsub("Enum.Material.",""))
 end
 
-for i, m in ipairs(validMaterials) do
-	local cell = Instance.new("Frame")
-	cell.Size = UDim2.new(0,66,0,68)
-	cell.BackgroundColor3 = C.panel
-	cell.BorderSizePixel = 0
-	cell.ZIndex = 53
-	cell.Parent = mpWrapper
-	corner(cell, 6)
-	mkStroke(cell)
+for i,m in ipairs(MATS) do
+	local cell=Instance.new("Frame")
+	cell.Size=UDim2.new(0,72,0,76)
+	cell.BackgroundColor3=G.glassBlue
+	cell.BackgroundTransparency=0.5
+	cell.BorderSizePixel=0
+	cell.ZIndex=23
+	cell.Parent=matWrap
+	rnd(cell,10)
+	strk(cell,G.border,1)
 
-	local swatch = Instance.new("Frame")
-	swatch.Size = UDim2.new(1,-6,0,32)
-	swatch.Position = UDim2.new(0,3,0,3)
-	swatch.BackgroundColor3 = m.color
-	swatch.BorderSizePixel = 0
-	swatch.Parent = cell
-	corner(swatch, 4)
+	local swatch=Instance.new("Frame")
+	swatch.Size=UDim2.new(1,-8,0,38)
+	swatch.Position=UDim2.new(0,4,0,4)
+	swatch.BackgroundColor3=m.c
+	swatch.BorderSizePixel=0
+	swatch.Parent=cell
+	rnd(swatch,7)
+	-- shimmer
+	local sh=Instance.new("Frame")
+	sh.Size=UDim2.new(1,0,0.4,0)
+	sh.BackgroundColor3=Color3.new(1,1,1)
+	sh.BackgroundTransparency=0.75
+	sh.BorderSizePixel=0
+	sh.Parent=swatch
+	rnd(sh,7)
 
-	local nl = Instance.new("TextLabel")
-	nl.Size = UDim2.new(1,-2,0,26)
-	nl.Position = UDim2.new(0,1,0,37)
-	nl.BackgroundTransparency = 1
-	nl.Text = m.name
-	nl.TextSize = 9
-	nl.Font = Enum.Font.Gotham
-	nl.TextColor3 = C.textDim
-	nl.TextWrapped = true
-	nl.Parent = cell
+	local nl=Instance.new("TextLabel")
+	nl.Size=UDim2.new(1,-2,0,28)
+	nl.Position=UDim2.new(0,1,0,45)
+	nl.BackgroundTransparency=1
+	nl.Text=m.n
+	nl.TextSize=9
+	nl.Font=Enum.Font.Gotham
+	nl.TextColor3=G.textDim
+	nl.TextWrapped=true
+	nl.TextXAlignment=Enum.TextXAlignment.Center
+	nl.Parent=cell
 
-	local ca = Instance.new("TextButton")
-	ca.Size = UDim2.new(1,0,1,0)
-	ca.BackgroundTransparency = 1
-	ca.Text = ""
-	ca.ZIndex = 54
-	ca.Parent = cell
+	local ca=Instance.new("TextButton")
+	ca.Size=UDim2.new(1,0,1,0)
+	ca.BackgroundTransparency=1
+	ca.Text="" ca.ZIndex=24
+	ca.Parent=cell
 
-	local ref = {cell=cell, nl=nl}
-	matBtns[i] = ref
+	local ref={cell=cell,nl=nl}
+	matBtns[i]=ref
 
-	ca.MouseButton1Click:Connect(function() setMat(m.mat, ref) end)
+	ca.MouseButton1Click:Connect(function() setMat(m.m,ref) end)
 	ca.MouseEnter:Connect(function()
-		if state.activeMat ~= m.mat then cell.BackgroundColor3 = C.btnH end
+		if S.mat~=m.m then cell.BackgroundTransparency=0.3 end
 	end)
 	ca.MouseLeave:Connect(function()
-		if state.activeMat ~= m.mat then cell.BackgroundColor3 = C.panel end
+		if S.mat~=m.m then cell.BackgroundTransparency=0.5 end
 	end)
 end
-
-if #matBtns > 0 then
-	setMat(validMaterials[1].mat, matBtns[1])
-end
+if #matBtns>0 then setMat(MATS[1].m,matBtns[1]) end
 
 -- ============================================================
 --  SETTINGS PAGE
 -- ============================================================
-local settPage = Instance.new("ScrollingFrame")
-settPage.Size = UDim2.new(1,0,1,0)
-settPage.BackgroundTransparency = 1
-settPage.BorderSizePixel = 0
-settPage.ScrollBarThickness = 4
-settPage.ScrollBarImageColor3 = C.accent
-settPage.CanvasSize = UDim2.new(0,0,0,0)
-settPage.AutomaticCanvasSize = Enum.AutomaticSize.Y
-settPage.ZIndex = 52
-settPage.Visible = false
-settPage.Parent = content
+local setPage=makePage("set")
 
-local spLL = Instance.new("UIListLayout")
-spLL.SortOrder = Enum.SortOrder.LayoutOrder
-spLL.Padding = UDim.new(0,0)
-spLL.Parent = settPage
-
-secHdr(settPage, "HOTKEYS", 1)
-
-for i, hk in ipairs({
-	{"T",   "Toggle panel buka/tutup"},
-	{"[",   "Brush size kurangin"},
-	{"]",   "Brush size tambah"},
-	{"M",   "Cycle material berikutnya"},
-	{"1-7", "Quick select tool"},
+secTitle(setPage,"HOTKEYS",1)
+for i,hk in ipairs({
+	{"T","Toggle panel"},{"[","Brush size -"},
+	{"]","Brush size +"},{"M","Next material"},
+	{"1","Add"},{"2","Remove"},{"3","Paint"},
+	{"4","Smooth"},{"5","Flatten"},{"6","Grow"},{"7","Erode"},
 }) do
-	local row = Instance.new("Frame")
-	row.Size = UDim2.new(1,0,0,32)
-	row.BackgroundTransparency = 1
-	row.LayoutOrder = i+1
-	row.Parent = settPage
-	pad(row,0,12,0,12)
+	local row=Instance.new("Frame")
+	row.Size=UDim2.new(1,0,0,26)
+	row.BackgroundTransparency=1
+	row.LayoutOrder=i+1
+	row.Parent=setPage
 
-	local badge = Instance.new("TextLabel")
-	badge.Size = UDim2.new(0,28,0,20)
-	badge.Position = UDim2.new(0,0,0.5,-10)
-	badge.BackgroundColor3 = C.btnN
-	badge.BorderSizePixel = 0
-	badge.Text = hk[1]
-	badge.TextSize = 10
-	badge.Font = Enum.Font.GothamBold
-	badge.TextColor3 = C.text
-	badge.Parent = row
-	corner(badge, 3)
+	local badge=Instance.new("TextLabel")
+	badge.Size=UDim2.new(0,26,0,20)
+	badge.Position=UDim2.new(0,0,0.5,-10)
+	badge.BackgroundColor3=G.glassBlue
+	badge.BackgroundTransparency=0.2
+	badge.BorderSizePixel=0
+	badge.Text=hk[1]
+	badge.TextSize=10
+	badge.Font=Enum.Font.GothamBold
+	badge.TextColor3=G.cyan
+	badge.TextXAlignment=Enum.TextXAlignment.Center
+	badge.Parent=row
+	rnd(badge,4) strk(badge,G.cyan,1)
 
-	local dl = Instance.new("TextLabel")
-	dl.Size = UDim2.new(1,-38,1,0)
-	dl.Position = UDim2.new(0,36,0,0)
-	dl.BackgroundTransparency = 1
-	dl.Text = hk[2]
-	dl.TextSize = 11
-	dl.Font = Enum.Font.Gotham
-	dl.TextColor3 = C.textDim
-	dl.TextXAlignment = Enum.TextXAlignment.Left
-	dl.Parent = row
+	local dl=Instance.new("TextLabel")
+	dl.Size=UDim2.new(1,-36,1,0)
+	dl.Position=UDim2.new(0,34,0,0)
+	dl.BackgroundTransparency=1
+	dl.Text=hk[2]
+	dl.TextSize=11
+	dl.Font=Enum.Font.Gotham
+	dl.TextColor3=G.textDim
+	dl.TextXAlignment=Enum.TextXAlignment.Left
+	dl.Parent=row
 end
 
-secHdr(settPage, "INFO", 10)
-local infoF = Instance.new("Frame")
-infoF.Size = UDim2.new(1,0,0,70)
-infoF.BackgroundTransparency = 1
-infoF.LayoutOrder = 11
-infoF.Parent = settPage
-pad(infoF,8,12,8,12)
-
-local infoLL = Instance.new("UIListLayout")
-infoLL.SortOrder = Enum.SortOrder.LayoutOrder
-infoLL.Padding = UDim.new(0,4)
-infoLL.Parent = infoF
-
-local function infoLbl(txt, bold, col, order)
-	local l = Instance.new("TextLabel")
-	l.Size = UDim2.new(1,0,0,16)
-	l.BackgroundTransparency = 1
-	l.Text = txt
-	l.TextSize = 11
-	l.Font = bold and Enum.Font.GothamBold or Enum.Font.Gotham
-	l.TextColor3 = col or C.textDim
-	l.TextXAlignment = Enum.TextXAlignment.Left
-	l.LayoutOrder = order
-	l.Parent = infoF
+secTitle(setPage,"INFO",15)
+local iF=Instance.new("Frame")
+iF.Size=UDim2.new(1,0,0,55)
+iF.BackgroundTransparency=1
+iF.LayoutOrder=16
+iF.Parent=setPage
+local iLL=Instance.new("UIListLayout")
+iLL.SortOrder=Enum.SortOrder.LayoutOrder
+iLL.Padding=UDim.new(0,3)
+iLL.Parent=iF
+for i,ln in ipairs({
+	{"Delta Terrain Builder v3.0",true,G.textW},
+	{"Liquid Glass · Executor Edition",false,G.textDim},
+	{tostring(#MATS).." valid materials",false,G.textDim},
+}) do
+	local l=Instance.new("TextLabel")
+	l.Size=UDim2.new(1,0,0,14)
+	l.BackgroundTransparency=1
+	l.Text=ln[1] l.TextSize=11
+	l.Font=ln[2] and Enum.Font.GothamBold or Enum.Font.Gotham
+	l.TextColor3=ln[3]
+	l.TextXAlignment=Enum.TextXAlignment.Left
+	l.LayoutOrder=i
+	l.Parent=iF
 end
-
-infoLbl("Delta Terrain Builder v2.1", true, C.text, 1)
-infoLbl(tostring(#validMaterials) .. " materials valid di Studio Lite", false, C.textDim, 2)
-infoLbl("7 tools  |  3 brush shapes", false, C.textDim, 3)
-infoLbl("Build di mana aja — bukan cuma Baseplate", false, C.textDim, 4)
 
 -- ============================================================
 --  TAB SWITCH
 -- ============================================================
-local pages = {tools=toolsPage, materials=matsPage, settings=settPage}
-
 local function switchTab(id)
-	state.tab = id
-	for tid, b in pairs(tabBtns) do
-		b.TextColor3 = tid==id and C.text or C.textDim
-		b.BackgroundColor3 = tid==id and C.panel or C.sidebar
+	S.tab=id
+	for tid,b in pairs(tabBtns) do
+		local ac=tid==id
+		b.BackgroundTransparency=ac and 0.1 or 1
+		b.BackgroundColor3=ac and G.cyan or G.glassBlue
+		b.TextColor3=ac and Color3.fromRGB(10,10,30) or G.textDim
 	end
-	for _, p in pairs(pages) do p.Visible = false end
-	pages[id].Visible = true
-	local idx = 0
-	for i, td in ipairs(tabDefs) do
-		if td.id == id then idx = i-1; break end
-	end
-	tabLine.Position = UDim2.new(0, idx*106, 1, -2)
+	for pid,pg in pairs(pages) do pg.Visible=pid==id end
 end
 
-for _, td in ipairs(tabDefs) do
+for _,td in ipairs(TAB_DEFS) do
 	tabBtns[td.id].MouseButton1Click:Connect(function() switchTab(td.id) end)
 end
+switchTab("tool")
 
--- ============================================================
---  TOGGLE
--- ============================================================
+-- toggle
 local function togglePanel()
-	state.panelOpen = not state.panelOpen
-	panel.Visible = state.panelOpen
-	toggleBtn.BackgroundColor3 = state.panelOpen and C.accentH or C.btnAct
+	S.panelOpen=not S.panelOpen
+	panel.Visible=S.panelOpen
 end
-
-toggleBtn.MouseButton1Click:Connect(togglePanel)
 closeBtn.MouseButton1Click:Connect(function()
-	state.panelOpen = false
-	panel.Visible = false
-	toggleBtn.BackgroundColor3 = C.btnAct
+	S.panelOpen=false panel.Visible=false
 end)
 
 -- ============================================================
---  TERRAIN OPS
+--  TOGGLE BUTTON (floating)
 -- ============================================================
-local function applyTerrain(pos)
-	local r   = state.brushSize
-	local mat = state.activeMat
-	local tool = state.activeTool
+local togBtn=Instance.new("TextButton")
+togBtn.Size=UDim2.new(0,42,0,42)
+togBtn.Position=UDim2.new(1,-54,0.5,-21)
+togBtn.BackgroundColor3=G.cyan
+togBtn.BackgroundTransparency=0.2
+togBtn.BorderSizePixel=0
+togBtn.Text="▲"
+togBtn.TextSize=20
+togBtn.Font=Enum.Font.GothamBold
+togBtn.TextColor3=Color3.fromRGB(0,10,20)
+togBtn.ZIndex=100
+togBtn.Parent=gui
+rnd(togBtn,12) strk(togBtn,G.cyan,2)
+togBtn.Visible=false -- muncul kalo panel ditutup
 
-	if tool == "add" then
-		if mat == Enum.Material.Water then
-			terrain:FillBlock(CFrame.new(pos), Vector3.new(r*2,r*2,r*2), Enum.Material.Water)
-		else
-			terrain:FillBall(pos, r, mat)
-		end
+closeBtn.MouseButton1Click:Connect(function() togBtn.Visible=true end)
+togBtn.MouseButton1Click:Connect(function()
+	panel.Visible=true S.panelOpen=true togBtn.Visible=false
+end)
 
-	elseif tool == "sub" then
-		terrain:FillBall(pos, r, Enum.Material.Air)
+-- ============================================================
+--  ANALOG JOYSTICK
+-- ============================================================
+local JOYSTICK_SIZE = 130
+local KNOB_SIZE     = 50
+local MAX_DIST      = (JOYSTICK_SIZE/2) - (KNOB_SIZE/2)
 
-	elseif tool == "paint" then
-		local half = Vector3.new(r,r,r)
-		local reg  = Region3.new(pos-half, pos+half)
-		local ok, occ, mats = pcall(function()
-			return terrain:ReadVoxels(reg, 4)
-		end)
-		if ok and occ then
-			for x = 1, #occ do
-				for y = 1, #occ[x] do
-					for z = 1, #occ[x][y] do
-						if occ[x][y][z] > 0.1 then
-							mats[x][y][z] = mat
-						end
-					end
-				end
-			end
-			pcall(function() terrain:WriteVoxels(reg, 4, occ, mats) end)
-		end
+-- base
+local joyBase=Instance.new("Frame")
+joyBase.Name="JoyBase"
+joyBase.Size=UDim2.new(0,JOYSTICK_SIZE,0,JOYSTICK_SIZE)
+joyBase.Position=UDim2.new(0,20,1,-JOYSTICK_SIZE-20)
+joyBase.BackgroundColor3=G.glassBlue
+joyBase.BackgroundTransparency=0.25
+joyBase.BorderSizePixel=0
+joyBase.ZIndex=50
+joyBase.Parent=gui
+rnd(joyBase,JOYSTICK_SIZE//2)
+strk(joyBase,G.border,1.5)
 
-	elseif tool == "smooth" then
-		terrain:FillBall(pos, r, mat)
-		for _ = 1, 2 do
-			local off = Vector3.new(math.random(-2,2), math.random(-1,1), math.random(-2,2))
-			terrain:FillBall(pos+off, math.max(2, r*0.35), Enum.Material.Air)
-		end
+-- ring
+local joyRing=Instance.new("Frame")
+joyRing.Size=UDim2.new(1,-16,1,-16)
+joyRing.Position=UDim2.new(0,8,0,8)
+joyRing.BackgroundTransparency=1
+joyRing.BorderSizePixel=0
+joyRing.ZIndex=51
+joyRing.Parent=joyBase
+rnd(joyRing,(JOYSTICK_SIZE-16)//2)
+strk(joyRing,G.cyan,1)
 
-	elseif tool == "flat" then
-		local hy = state.flatHeight or pos.Y
-		terrain:FillBlock(CFrame.new(pos.X,hy,pos.Z), Vector3.new(r*2,4,r*2), mat)
-		terrain:FillBlock(CFrame.new(pos.X,hy+r,pos.Z), Vector3.new(r*2,r*2,r*2), Enum.Material.Air)
-
-	elseif tool == "grow" then
-		terrain:FillBall(pos + Vector3.new(0,r*0.5,0), r, mat)
-
-	elseif tool == "erode" then
-		for _ = 1, 4 do
-			local off = Vector3.new(
-				math.random(-r,r)*0.7,
-				math.random(-r,r)*0.7,
-				math.random(-r,r)*0.7
-			)
-			terrain:FillBall(pos+off, math.max(1,r*0.25), Enum.Material.Air)
-		end
-	end
+-- cross lines
+for _,dir in ipairs({
+	{UDim2.new(0.5,-1,0,8),UDim2.new(0,2,1,-16)},
+	{UDim2.new(0,8,0.5,-1),UDim2.new(1,-16,0,2)},
+}) do
+	local l=Instance.new("Frame")
+	l.Position=dir[1] l.Size=dir[2]
+	l.BackgroundColor3=G.border
+	l.BackgroundTransparency=0.5
+	l.BorderSizePixel=0
+	l.ZIndex=51
+	l.Parent=joyBase
 end
 
--- ============================================================
---  PAINT LOOP
--- ============================================================
-local isPainting = false
+-- direction label
+local dirLabel=Instance.new("TextLabel")
+dirLabel.Size=UDim2.new(0,JOYSTICK_SIZE,0,18)
+dirLabel.Position=UDim2.new(0,0,1,4)
+dirLabel.BackgroundTransparency=1
+dirLabel.Text="Joystick: Idle"
+dirLabel.TextSize=9
+dirLabel.Font=Enum.Font.Gotham
+dirLabel.TextColor3=G.textDim
+dirLabel.TextXAlignment=Enum.TextXAlignment.Center
+dirLabel.ZIndex=51
+dirLabel.Parent=joyBase
 
-mouse.Button1Down:Connect(function()
-	if mouse.Target and mouse.Target:IsDescendantOf(gui) then return end
-	isPainting = true
+-- knob
+local knob=Instance.new("TextButton")
+knob.Size=UDim2.new(0,KNOB_SIZE,0,KNOB_SIZE)
+knob.Position=UDim2.new(0.5,-KNOB_SIZE/2,0.5,-KNOB_SIZE/2)
+knob.BackgroundColor3=G.cyan
+knob.BackgroundTransparency=0.1
+knob.BorderSizePixel=0
+knob.Text=""
+knob.ZIndex=52
+knob.Parent=joyBase
+rnd(knob,KNOB_SIZE//2)
+strk(knob,G.cyan,2)
+
+-- knob inner glow dot
+local knobDot=Instance.new("Frame")
+knobDot.Size=UDim2.new(0,14,0,14)
+knobDot.Position=UDim2.new(0.5,-7,0.5,-7)
+knobDot.BackgroundColor3=Color3.new(1,1,1)
+knobDot.BackgroundTransparency=0.3
+knobDot.BorderSizePixel=0
+knobDot.ZIndex=53
+knobDot.Parent=knob
+rnd(knobDot,7)
+
+-- analog drag logic
+local joyDragging=false
+local centerX=0 local centerY=0
+
+local function resetKnob()
+	knob.Position=UDim2.new(0.5,-KNOB_SIZE/2,0.5,-KNOB_SIZE/2)
+	S.analogX=0 S.analogY=0 S.analogDist=0 S.analogActive=false
+	dirLabel.Text="Joystick: Idle"
+	knob.BackgroundColor3=G.cyan
+end
+
+knob.MouseButton1Down:Connect(function()
+	joyDragging=true
+	local ap=joyBase.AbsolutePosition
+	local as=joyBase.AbsoluteSize
+	centerX=ap.X+as.X/2
+	centerY=ap.Y+as.Y/2
 end)
-mouse.Button1Up:Connect(function() isPainting = false end)
 
-local cooldown = 0
-RunService.RenderStepped:Connect(function(dt)
-	if not isPainting then return end
-	cooldown = cooldown - dt
-	if cooldown > 0 then return end
-	cooldown = 0.06
-
-	local unitRay = camera:ScreenPointToRay(mouse.X, mouse.Y)
-	local ray = Ray.new(unitRay.Origin, unitRay.Direction * 2000)
-	local _, pos = workspace:FindPartOnRayWithIgnoreList(ray, {player.Character})
-
-	if pos then
-		applyTerrain(pos)
-		setStatus(string.format("[%s] %s | Brush:%d Str:%.0f%% | %.0f %.0f %.0f",
-			state.activeTool:upper(),
-			tostring(state.activeMat):gsub("Enum.Material.",""),
-			state.brushSize, state.brushStrength*100,
-			pos.X, pos.Y, pos.Z
-		))
+UIS.InputEnded:Connect(function(i)
+	if i.UserInputType==Enum.UserInputType.MouseButton1 then
+		if joyDragging then
+			joyDragging=false
+			resetKnob()
+		end
 	end
 end)
+
+UIS.InputChanged:Connect(function(i)
+	if joyDragging and i.UserInputType==Enum.UserInputType.MouseMovement then
+		local mx=i.Position.X
+		local my=i.Position.Y
+		local dx=mx-centerX
+		local dy=my-centerY
+		local dist=math.sqrt(dx*dx+dy*dy)
+		local clampDist=math.min(dist,MAX_DIST)
+		local nx=dx/math.max(dist,0.001)
+		local ny=dy/math.max(dist,0.001)
+
+		local kx=JOYSTICK_SIZE/2 + nx*clampDist - KNOB_SIZE/2
+		local ky=JOYSTICK_SIZE/2 + ny*clampDist - KNOB_SIZE/2
+		knob.Position=UDim2.new(0,kx,0,ky)
+
+		S.analogX=nx S.analogY=ny
+		S.analogDist=clampDist/MAX_DIST
+		S.analogActive=dist>8
+
+		-- color feedback
+		local t=math.clamp(S.analogDist,0,1)
+		knob.BackgroundColor3=Color3.fromRGB(
+			math.floor(0+t*255),
+			math.floor(220-t*160),
+			math.floor(255-t*255)
+		)
+
+		-- direction text
+		local ang=math.atan2(ny,nx)*57.3
+		local dirs
+		if     ang>=-22.5  and ang<22.5   then dirs="→ East"
+		elseif ang>=22.5   and ang<67.5   then dirs="↘ SE"
+		elseif ang>=67.5   and ang<112.5  then dirs="↓ South"
+		elseif ang>=112.5  and ang<157.5  then dirs="↙ SW"
+		elseif ang>=157.5  or  ang<-157.5 then dirs="← West"
+		elseif ang>=-157.5 and ang<-112.5 then dirs="↖ NW"
+		elseif ang>=-112.5 and ang<-67.5  then dirs="↑ North"
+		else                                    dirs="↗ NE"
+		end
+		dirLabel.Text=string.format("Dir: %s  |  %.0f%%",dirs,S.analogDist*100)
+	end
+end)
+
+-- ============================================================
+--  QUICK TOOL BUTTONS (above joystick)
+-- ============================================================
+local quickRow=Instance.new("Frame")
+quickRow.Size=UDim2.new(0,JOYSTICK_SIZE,0,32)
+quickRow.Position=UDim2.new(0,20,1,-JOYSTICK_SIZE-60)
+quickRow.BackgroundTransparency=1
+quickRow.ZIndex=50
+quickRow.Parent=gui
+
+local qrLL=Instance.new("UIListLayout")
+qrLL.FillDirection=Enum.FillDirection.Horizontal
+qrLL.Padding=UDim.new(0,4)
+qrLL.Parent=quickRow
+
+local quickTools={
+	{id="add",c=G.green,l="＋"},
+	{id="sub",c=G.red,l="－"},
+	{id="paint",c=G.cyan,l="◎"},
+	{id="flat",c=G.orange,l="═"},
+}
+for _,qt in ipairs(quickTools) do
+	local b=Instance.new("TextButton")
+	b.Size=UDim2.new(0,28,0,28)
+	b.BackgroundColor3=qt.c
+	b.BackgroundTransparency=0.3
+	b.BorderSizePixel=0
+	b.Text=qt.l b.TextSize=14
+	b.Font=Enum.Font.GothamBold
+	b.TextColor3=Color3.new(1,1,1)
+	b.ZIndex=51 b.Parent=quickRow
+	rnd(b,8) strk(b,qt.c,1)
+	b.MouseButton1Click:Connect(function()
+		setTool(qt.id)
+		setStat("Quick: "..qt.id)
+	end)
+end
 
 -- ============================================================
 --  BRUSH PREVIEW
 -- ============================================================
-local brushPart = Instance.new("Part")
-brushPart.Anchored = true
-brushPart.CanCollide = false
-brushPart.Transparency = 1
-brushPart.CastShadow = false
-brushPart.Name = "DTBrushPreview"
-brushPart.Parent = workspace
+local brushPart=Instance.new("Part")
+brushPart.Anchored=true brushPart.CanCollide=false
+brushPart.Transparency=1 brushPart.CastShadow=false
+brushPart.Name="DTBrushPreview" brushPart.Parent=workspace
 
-local selBox = Instance.new("SelectionBox")
-selBox.SurfaceTransparency = 0.75
-selBox.Color3 = C.accent
-selBox.LineThickness = 0.04
-selBox.Adornee = brushPart
-selBox.Parent = workspace
+local selBox=Instance.new("SelectionBox")
+selBox.SurfaceTransparency=0.7
+selBox.Color3=G.cyan selBox.LineThickness=0.04
+selBox.Adornee=brushPart selBox.Parent=workspace
 
-RunService.RenderStepped:Connect(function()
-	local unitRay = camera:ScreenPointToRay(mouse.X, mouse.Y)
-	local ray = Ray.new(unitRay.Origin, unitRay.Direction * 2000)
-	local _, pos = workspace:FindPartOnRayWithIgnoreList(ray, {player.Character})
-	if pos then
-		brushPart.Position = pos
-		brushPart.Size = Vector3.new(state.brushSize*2, state.brushSize*2, state.brushSize*2)
-		selBox.Color3 = state.activeTool=="sub" and C.danger or C.accent
+-- ============================================================
+--  TERRAIN OPS
+-- ============================================================
+local function applyAt(pos)
+	local r=S.brushSize
+	local mat=S.mat
+	local t=S.tool
+
+	if t=="add" then
+		if mat==Enum.Material.Water then
+			terrain:FillBlock(CFrame.new(pos),Vector3.new(r*2,r*2,r*2),Enum.Material.Water)
+		else
+			terrain:FillBall(pos,r,mat)
+		end
+	elseif t=="sub" then
+		terrain:FillBall(pos,r,Enum.Material.Air)
+	elseif t=="paint" then
+		local h=Vector3.new(r,r,r)
+		local reg=Region3.new(pos-h,pos+h)
+		local ok,occ,mats=pcall(function() return terrain:ReadVoxels(reg,4) end)
+		if ok and occ then
+			for x=1,#occ do for y=1,#occ[x] do for z=1,#occ[x][y] do
+				if occ[x][y][z]>0.1 then mats[x][y][z]=mat end
+			end end end
+			pcall(function() terrain:WriteVoxels(reg,4,occ,mats) end)
+		end
+	elseif t=="smooth" then
+		terrain:FillBall(pos,r,mat)
+		for _=1,2 do
+			terrain:FillBall(pos+Vector3.new(math.random(-2,2),0,math.random(-2,2)),math.max(2,r*0.3),Enum.Material.Air)
+		end
+	elseif t=="flat" then
+		local hy=S.flatY or pos.Y
+		terrain:FillBlock(CFrame.new(pos.X,hy,pos.Z),Vector3.new(r*2,4,r*2),mat)
+		terrain:FillBlock(CFrame.new(pos.X,hy+r*0.8,pos.Z),Vector3.new(r*2,r*1.6,r*2),Enum.Material.Air)
+	elseif t=="grow" then
+		terrain:FillBall(pos+Vector3.new(0,r*0.5,0),r,mat)
+	elseif t=="erode" then
+		for _=1,4 do
+			terrain:FillBall(
+				pos+Vector3.new(math.random(-r,r)*0.7,math.random(-r,r)*0.7,math.random(-r,r)*0.7),
+				math.max(1,r*0.25),Enum.Material.Air
+			)
+		end
+	end
+end
+
+-- ============================================================
+--  BUILD POSITION (from analog or mouse)
+-- ============================================================
+local buildHoldPos = nil  -- posisi anchor saat joystick aktif
+local isPainting = false
+
+mouse.Button1Down:Connect(function()
+	if mouse.Target and mouse.Target:IsDescendantOf(gui) then return end
+	isPainting=true
+
+	-- simpan hit point sebagai anchor build
+	local uRay=camera:ScreenPointToRay(mouse.X,mouse.Y)
+	local ray=Ray.new(uRay.Origin,uRay.Direction*2000)
+	local _,pos=workspace:FindPartOnRayWithIgnoreList(ray,{player.Character})
+	if pos then buildHoldPos=pos end
+end)
+mouse.Button1Up:Connect(function()
+	isPainting=false
+	buildHoldPos=nil
+end)
+
+local cooldown=0
+RunService.RenderStepped:Connect(function(dt)
+	-- update brush preview selalu
+	local uRay=camera:ScreenPointToRay(mouse.X,mouse.Y)
+	local ray=Ray.new(uRay.Origin,uRay.Direction*2000)
+	local _,mousePos=workspace:FindPartOnRayWithIgnoreList(ray,{player.Character})
+
+	local buildTarget=nil
+
+	if S.analogActive and buildHoldPos then
+		-- mode analog: geser posisi dari anchor ke arah joystick
+		local camCF=camera.CFrame
+		local right=camCF.RightVector
+		local forward=-camCF.LookVector
+		-- flatten ke horizontal
+		right=Vector3.new(right.X,0,right.Z).Unit
+		forward=Vector3.new(forward.X,0,forward.Z).Unit
+
+		local speed=S.brushSize * S.analogDist * 0.6
+		local moveDir=right*S.analogX + forward*(-S.analogY)
+
+		buildHoldPos=buildHoldPos + moveDir*speed*dt
+		buildTarget=buildHoldPos
+
+	elseif isPainting and mousePos then
+		buildTarget=mousePos
+		buildHoldPos=mousePos
+	end
+
+	-- brush preview
+	if mousePos then
+		brushPart.Position=buildHoldPos or mousePos
+		brushPart.Size=Vector3.new(S.brushSize*2,S.brushSize*2,S.brushSize*2)
+		selBox.Color3=S.tool=="sub" and G.red or G.cyan
+	end
+
+	if not isPainting then return end
+	cooldown=cooldown-dt
+	if cooldown>0 then return end
+	cooldown=0.055
+
+	if buildTarget then
+		applyAt(buildTarget)
+		setStat(string.format("[%s] %s | B:%d | %.0f %.0f %.0f",
+			S.tool:upper(),
+			tostring(S.mat):gsub("Enum.Material.",""),
+			S.brushSize,
+			buildTarget.X,buildTarget.Y,buildTarget.Z
+		))
 	end
 end)
 
 -- ============================================================
 --  HOTKEYS
 -- ============================================================
-UserInputService.InputBegan:Connect(function(inp, gpe)
+UIS.InputBegan:Connect(function(inp,gpe)
 	if gpe then return end
-	local k = inp.KeyCode
-	if     k == Enum.KeyCode.LeftBracket  then state.brushSize = math.max(2,  state.brushSize-2); setStatus("Brush size: "..state.brushSize)
-	elseif k == Enum.KeyCode.RightBracket then state.brushSize = math.min(64, state.brushSize+2); setStatus("Brush size: "..state.brushSize)
-	elseif k == Enum.KeyCode.T            then togglePanel()
-	elseif k == Enum.KeyCode.M            then
-		local cur = 1
-		for i, m in ipairs(validMaterials) do
-			if m.mat == state.activeMat then cur = i; break end
-		end
-		local nx = cur % #validMaterials + 1
-		setMat(validMaterials[nx].mat, matBtns[nx])
-	elseif k == Enum.KeyCode.One   then setTool("add")
-	elseif k == Enum.KeyCode.Two   then setTool("sub")
-	elseif k == Enum.KeyCode.Three then setTool("paint")
-	elseif k == Enum.KeyCode.Four  then setTool("smooth")
-	elseif k == Enum.KeyCode.Five  then setTool("flat")
-	elseif k == Enum.KeyCode.Six   then setTool("grow")
-	elseif k == Enum.KeyCode.Seven then setTool("erode")
+	local k=inp.KeyCode
+	if     k==Enum.KeyCode.LeftBracket  then S.brushSize=math.max(2,S.brushSize-2);setStat("Brush: "..S.brushSize)
+	elseif k==Enum.KeyCode.RightBracket then S.brushSize=math.min(64,S.brushSize+2);setStat("Brush: "..S.brushSize)
+	elseif k==Enum.KeyCode.T            then togglePanel()
+	elseif k==Enum.KeyCode.M            then
+		local cur=1
+		for i,m in ipairs(MATS) do if m.m==S.mat then cur=i;break end end
+		local nx=cur%#MATS+1
+		setMat(MATS[nx].m,matBtns[nx])
+	elseif k==Enum.KeyCode.One   then setTool("add")
+	elseif k==Enum.KeyCode.Two   then setTool("sub")
+	elseif k==Enum.KeyCode.Three then setTool("paint")
+	elseif k==Enum.KeyCode.Four  then setTool("smooth")
+	elseif k==Enum.KeyCode.Five  then setTool("flat")
+	elseif k==Enum.KeyCode.Six   then setTool("grow")
+	elseif k==Enum.KeyCode.Seven then setTool("erode")
 	end
 end)
 
 -- ============================================================
 --  INIT
 -- ============================================================
-switchTab("tools")
-setStatus("Ready — klik terrain untuk mulai build")
-print("[DTB v2.1] Loaded. " .. #validMaterials .. " materials valid.")
+setStat("Delta Terrain Builder v3.0 — Liquid Glass · Loaded")
+print("[DTB v3.0] "..#MATS.." materials | Analog joystick active | CoreGui parent")
